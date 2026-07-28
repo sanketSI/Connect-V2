@@ -43,6 +43,13 @@ export default function BottomSheet({ open, onClose, children, label, height = '
   const portalHost = useContext(SheetPortalContext)
   const panelRef = useRef(null)
   const prevFocusRef = useRef(null)
+  const scrollRef = useRef(null)
+
+  // Reset on OPEN rather than on close: the panel unmounts through an exit animation,
+  // so scrolling it back on the way out is visible as a jump.
+  useEffect(() => {
+    if (open && scrollRef.current) scrollRef.current.scrollTop = 0
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -157,7 +164,15 @@ export default function BottomSheet({ open, onClose, children, label, height = '
                 </button>
               )}
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar" style={{ paddingBottom: 'var(--m-homeind)' }}>
+            {/* Every sheet opens at the TOP. The scroller is reused between openings, so
+                without this the next record opens wherever the last one was left — open
+                a lead, scroll to its notes, close, open another, and you land halfway
+                down a different person with their name scrolled off the screen. */}
+            <div
+              ref={scrollRef}
+              className="flex-1 min-h-0 overflow-y-auto no-scrollbar"
+              style={{ paddingBottom: 'var(--m-homeind)' }}
+            >
               {children}
             </div>
           </motion.div>

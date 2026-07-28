@@ -5,9 +5,11 @@ import { useTranslation } from 'react-i18next'
 import {
   getLeads, leadCounts, updateLeadStatus, groupByStore,
   LEAD_STATUSES, LEAD_SOURCES, rupees, relativeTime,
+  getCustomerById, getCustomerNotes, addCustomerNote,
 } from '@connect/core'
 import { Card, Chip, CLIPill, StoreGroupHeader, PrimaryButton } from '../components/UI.jsx'
 import { LargeTitle } from '../components/TopBar.jsx'
+import { TimelineRow } from '../components/Timeline.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
 import ProfileButton from '../components/ProfileButton.jsx'
 import LocationPicker from '../components/LocationPicker.jsx'
@@ -205,6 +207,38 @@ function LeadDetail({ lead, onClose }) {
   const who = lead.name || lead.masked
   const src = LEAD_SOURCES.find(s => s.id === lead.source)
 
+  // The person behind the lead, when the platform holds one. A form or walk-in IS a
+  // customer record; a call is only linked to one if it was ever matched to a contact,
+  // and most in the fixture are not. Everything below degrades on that: what the LEAD
+  // knows (who, source, chance-to-buy, when) always renders, and the customer-only parts
+  // — the full history, notes — appear when there is a record to read them from.
+  const customer = lead.customerId ? getCustomerById(lead.customerId) : null
+
+  // Bumped on every note so the memo below re-reads a record that was mutated in place.
+  const [noteRev, setNoteRev] = useState(0)
+  const notes = useMemo(
+    () => (customer ? getCustomerNotes(customer) : []),
+    [customer, noteRev],
+  )
+
+  // WHAT ACTUALLY HAPPENED WITH THIS PERSON. The customer's own timeline when there is
+  // one; otherwise the lead's own record still describes a real interaction — a call
+  // came in at a time, it was missed or attended, and it may have repeated — so that is
+  // shown rather than an empty state. Nothing here is invented: both branches are
+  // records the app already holds.
+  const history = useMemo(() => {
+    const tl = (customer?.timeline || []).filter(e => e.type !== 'review-landed')
+    if (tl.length) return tl
+    if (lead.source !== 'call') return []
+    return [{
+      type: lead.outcome === 'attended' ? 'inbound' : 'missed',
+      at: relativeTime(lead.atMs),
+      detail: lead.repeats > 1
+        ? t('vmn.calledCount', { count: lead.repeats, defaultValue: 'Called {{count}}×' })
+        : t(src?.labelKey, { defaultValue: src?.label }),
+    }]
+  }, [customer, lead, src, t])
+
   function move(next) {
     vibrate(10)
     updateLeadStatus(lead, next)
@@ -217,11 +251,38 @@ function LeadDetail({ lead, onClose }) {
 
   return (
     <div className="px-4 pb-6">
-      <div className="m-title2 text-white truncate">{who}</div>
-      <div className="m-caption text-white/55 mt-0.5">
+      {/* WHO — the name when the book has one, the masked number when it does not. A
+          call is anonymous until somebody names it, so `who` falls back rather than
+          printing a blank line where a person should be. */}
+      {/* pr-10 clears BottomSheet's close button, which is absolutely positioned over
+          this row's top-right corner (right-3, 32px box) — without it the chance-to-buy
+          pill renders underneath the X. */}
+      <div className="flex items-start gap-2 pr-10">
+        <div className="flex-1 min-w-0">
+          <div className="m-title2 text-white truncate">{who}</div>
+          {/* The name and the number are different facts: show both when we have both,
+              or the manager cannot tell which number this Nikhil is. */}
+          {lead.name && lead.masked && (
+            <div className="m-caption text-white/45 m-tabular mt-0.5">{lead.masked}</div>
+          )}
+        </div>
+        {/* CHANCE TO BUY — hot / warm / cool / cold, off the same score the list ranks
+            on. It was on the card and not in the sheet, which is backwards: the card is
+            where you scan, the sheet is where you decide. */}
+        {lead.cli != null && <CLIPill score={lead.cli} />}
+      </div>
+
+      <div className="m-caption text-white/55 mt-1">
         {[t(src?.labelKey, { defaultValue: src?.label }), lead.value ? rupees(lead.value) : null, relativeTime(lead.atMs)]
           .filter(Boolean).join(' · ')}
       </div>
+
+      {/* What they asked about, when the record carries it. */}
+      {lead.category && (
+        <div className="m-caption text-white/55 mt-0.5">
+          {t(lead.categoryKey, { defaultValue: lead.category })}
+        </div>
+      )}
 
       <div className="mt-4 m-subhead text-white/60 mb-2">
         {t('leads.statusTitle', { defaultValue: 'Where is this lead?' })}
@@ -261,6 +322,100 @@ function LeadDetail({ lead, onClose }) {
           </div>
         )}
       </div>
+
+      {/* HISTORY — every interaction, oldest first, same row the Customers screen draws
+          (see components/Timeline.jsx). */}
+      <div className="mt-5">
+        <div className="m-headline text-white mb-2">{t('customers.history')}</div>
+        <Card className={history.length ? '!p-0 overflow-hidden' : '!p-4'}>
+          {history.length > 0 ? (
+            history.map((entry, i) => (
+              <TimelineRow key={i} entry={entry} last={i === history.length - 1} />
+            ))
+          ) : (
+            // Always rendered, even empty — "we have no history for this person" is an
+            // answer, and a section that silently disappears reads as a missing feature.
+            <div className="m-callout text-white/70">{t('customers.historyEmpty')}</div>
+          )}
+        </Card>
+      </div>
+
+      {/* NOTES — the manager's own words, read and appended through the data layer so
+          addCustomerNote() owns the id, timestamp and author.
+
+          Only when a customer record backs this lead: notes hang off that record, and
+          addCustomerNote() returns null without one. Rendering the section anyway would
+          put an input on screen that silently discards what was typed into it. */}
+      {customer && (
+        <div className="mt-5">
+          <div className="m-headline text-white mb-2">{t('customers.notes')}</div>
+          <Card className="!p-3.5">
+            {notes.length === 0 ? (
+              <>
+                <div className="m-callout text-white">{t('customers.notesEmpty')}</div>
+                <div className="m-caption text-white/55 mt-0.5">{t('customers.notesEmptySub')}</div>
+              </>
+            ) : (
+              <div className="space-y-3">
+                {notes.map(n => (
+                  <div key={n.id}>
+                    <div className="m-callout text-white">{n.text}</div>
+                    <div className="m-caption text-white/45 mt-0.5">
+                      {[n.author, relativeTime(n.atMs)].filter(Boolean).join(' · ')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <NoteComposer
+              customerId={customer.id}
+              onAdded={() => setNoteRev(n => n + 1)}
+            />
+          </Card>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Append a note to the customer behind this lead.
+ *
+ * Owns only the draft text: the record, its id, timestamp and author all come from
+ * addCustomerNote(), so nothing here invents one. Clears on success and stays put on
+ * refusal (an empty body is refused by the data layer, not by a second check here).
+ */
+function NoteComposer({ customerId, onAdded }) {
+  const { t } = useTranslation()
+  const [text, setText] = useState('')
+
+  function save() {
+    if (!text.trim()) return
+    vibrate(8)
+    const note = addCustomerNote(customerId, text)
+    if (note) { setText(''); onAdded?.() }
+  }
+
+  return (
+    <div className="mt-3 flex items-end gap-2">
+      <textarea
+        value={text}
+        onChange={e => setText(e.target.value)}
+        rows={2}
+        placeholder={t('customers.notePlaceholder')}
+        aria-label={t('customers.addNote')}
+        className="flex-1 min-w-0 rounded-xl px-3 py-2 m-callout text-white resize-none"
+        style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-glass)' }}
+      />
+      <button
+        type="button"
+        onClick={save}
+        disabled={!text.trim()}
+        className="shrink-0 px-3 h-10 rounded-xl m-subhead font-semibold press disabled:opacity-40"
+        style={{ background: 'rgba(0,112,252,.12)', color: 'var(--si-primary-text)', border: '1px solid rgba(0,112,252,.30)' }}
+      >
+        {t('customers.addNote')}
+      </button>
     </div>
   )
 }
