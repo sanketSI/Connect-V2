@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronRight, ChevronLeft, PhoneCall, Star, ArrowDownWideNarrow, ArrowUpNarrowWide, MapPin } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
-  networkRows, rankRows, assignedStoreIds, assignmentLevels,
+  networkRows, rankRows, assignedStoreIds, assignmentLevels, storeLabelOf,
 } from '@connect/core'
 import { Card, Chip } from '../components/UI.jsx'
 import { LargeTitle } from '../components/TopBar.jsx'
@@ -35,16 +35,41 @@ const BOARDS = [
   { id: 'reviews', metric: 'negativePct', Icon: Star, labelKey: 'network.boardReviews', label: 'Reviews' },
 ]
 
-export default function Network({ onOpenProfile }) {
+export default function Network({ store, onOpenProfile }) {
   const { t } = useTranslation()
   const version = useDataVersion()
 
-  const storeIds = useMemo(() => assignedStoreIds(), [])
-  const levels = useMemo(() => assignmentLevels(), [])
+  // THIS SCREEN OBEYS THE STORE PICKER, like every other one.
+  //
+  // It used to read the assignment and nothing else, so choosing "Indiranagar" in the
+  // switcher left it answering about all six shops across two states — every other tab
+  // narrowed, this one silently did not, and the header still said "6 stores assigned to
+  // you" one tap after the manager had said they cared about one. The numbers were
+  // right and the question was wrong.
+  //
+  // Aggregate ("All locations") is still the whole assignment — that IS the roll-up. A
+  // single branch in focus scopes to that branch, which collapses the depth with it:
+  // assignmentLevels() over one store returns ['store'], so there is no state or city
+  // level to walk through to reach a shop you already picked.
+  //
+  // Depends on `store` and on `version` rather than [] — the assignment is session state
+  // now (see setSessionAssignments), and a value cached against no dependency at all is
+  // the first thing to go stale when someone signs out and back in as somebody else.
+  const storeIds = useMemo(
+    () => (store?.aggregate || !store?.id ? assignedStoreIds() : [store.id]),
+    [store, version],
+  )
+  const levels = useMemo(() => assignmentLevels(storeIds), [storeIds])
+  // True when the picker has narrowed this to one branch rather than the whole estate.
+  const scoped = !store?.aggregate && !!store?.id
 
   // Where we are in the drill. `path` holds the choices made so far, so the depth of
   // `path` picks the level out of `levels` — the two can never disagree.
   const [path, setPath] = useState([])
+
+  // Switching store changes what the drill is over, so a path chosen against the old
+  // scope ("Karnataka") cannot survive into the new one.
+  useEffect(() => { setPath([]) }, [storeIds])
   const [board, setBoard] = useState('calls')
   const [dir, setDir] = useState('desc')
 
@@ -76,11 +101,16 @@ export default function Network({ onOpenProfile }) {
     <div className="absolute top-[44px] left-0 right-0 bottom-0 pb-[88px] overflow-y-auto no-scrollbar">
       <LargeTitle
         title={t('network.title', { defaultValue: 'Your locations' })}
-        sub={t('network.subtitle', {
-          count: storeIds.length,
-          defaultValue_one: '{{count}} store assigned to you',
-          defaultValue_other: '{{count}} stores assigned to you',
-        })}
+        // Scoped to one branch, "1 store assigned to you" would be a lie — this manager
+        // is assigned six and is looking at one. Name the branch instead; the assignment
+        // count is only the honest subtitle when the screen is actually showing all of it.
+        sub={scoped
+          ? storeLabelOf(storeIds[0])
+          : t('network.subtitle', {
+            count: storeIds.length,
+            defaultValue_one: '{{count}} store assigned to you',
+            defaultValue_other: '{{count}} stores assigned to you',
+          })}
         right={<div className="flex items-center"><NotificationBell /><ProfileButton onClick={onOpenProfile} /></div>}
       />
 
