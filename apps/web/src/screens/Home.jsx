@@ -10,7 +10,7 @@ import { Card, PrimaryButton, Avatar } from '../components/UI.jsx'
 import ReviewQrSheet from './ReviewQrSheet.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
 import ProfileButton from '../components/ProfileButton.jsx'
-import { FEATURES } from '../lib/features.js'
+import { FEATURES, IS_MVP } from '../lib/features.js'
 import {
   getCurrentUser, getLastLogin,
   callCounts, getCalls, callbackQueue, filterReviews, locationNeedsVerification,
@@ -330,7 +330,15 @@ function ReturningView({ store, onGoTab, onSwitchStore }) {
                   defaultValue: 'Start with {{value}} {{category}} · {{score}} chance to buy',
                 })
                 : t('home.missedCallsSub')}
-              cta={t('common.callNow', { defaultValue: 'Call now' })} onClick={() => onGoTab('vmn')}
+              cta={t('common.callNow', { defaultValue: 'Call now' })}
+              // MVP has no Calls tab — the bar drops it and Leads is the one list. So
+              // this opens Leads already narrowed to exactly what the row counted:
+              // missed, call-sourced. Sending it to 'vmn' put the manager on a screen
+              // with no way back through the bar, and made them re-find the same rows.
+              // The full build still has Calls, and that is where the row belongs there.
+              onClick={() => (IS_MVP
+                ? onGoTab('leads', { status: 'missed', source: 'call' })
+                : onGoTab('vmn'))}
             />
             {/* Replying to a review is an inbox job, and the inbox is not in this build.
                 This was the ONE route left into it — the tab bar already drops Reviews

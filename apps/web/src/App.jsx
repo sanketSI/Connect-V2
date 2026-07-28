@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { FEATURES } from './lib/features.js'
 import { AnimatePresence, motion, MotionConfig } from 'framer-motion'
 
@@ -61,7 +61,7 @@ const CAP = (() => {
 function ScreenSwitch({
   tab, role, store, firstTime,
   onSeenWelcome, onGoTab, onChangeRole, onLogout, onSwitchStore,
-  onOpenProfile, onCloseProfile,
+  onOpenProfile, onCloseProfile, leadsPreset,
 }) {
   // Hierarchy roles see a roll-up on the VMN tab instead of the call tracker.
   const isHierarchy = HIERARCHY_ROLES.has(role)
@@ -100,7 +100,7 @@ function ScreenSwitch({
           : <CallsTab store={store} onOpenProfile={onOpenProfile} />)}
         {/* MVP: one Leads list in place of Calls + Customers. The full build keeps
             both, so neither path is deleted — see lib/features.js. */}
-        {tab === 'leads' && <Leads store={store} onOpenProfile={onOpenProfile} />}
+        {tab === 'leads' && <Leads store={store} onOpenProfile={onOpenProfile} preset={leadsPreset} />}
         {tab === 'network' && <Network onOpenProfile={onOpenProfile} />}
         {tab === 'customers' && <Customers store={store} onOpenProfile={onOpenProfile} />}
         {/* Reviews became a tab in scope round 2. The guard stays: the inbox must not be
@@ -135,6 +135,16 @@ function AppContent() {
     setTab('profile')
   }
   const closeProfile = () => setTab(tabBeforeProfile)
+  // A tab can be opened ON something — Home's "N missed calls" opens Leads already
+  // narrowed to missed calls rather than dropping the manager into the full list to
+  // find them again. Carries a nonce so tapping the same CTA twice re-applies the
+  // filter even when the values are identical and the manager has since changed them.
+  const [leadsPreset, setLeadsPreset] = useState(null)
+  const presetSeq = useRef(0)
+  const goTab = (next, preset) => {
+    if (preset) { presetSeq.current += 1; setLeadsPreset({ ...preset, seq: presetSeq.current }) }
+    setTab(next)
+  }
   const [role, setRole] = useState(CAP?.role || 'single')
   const [store, setStore] = useState(() => (CAP?.store && MAPPED_LOCATIONS.find(l => l.id === CAP.store)) || MAPPED_LOCATIONS[0])
   // True only between a multi-store sign-in and the moment a store is chosen.
@@ -295,12 +305,13 @@ function AppContent() {
               store={store}
               firstTime={firstTime}
               onSeenWelcome={markWelcomeSeen}
-              onGoTab={(t) => setTab(t)}
+              onGoTab={goTab}
               onChangeRole={changeRole}
               onLogout={handleLogout}
               onSwitchStore={startSwitch}
               onOpenProfile={openProfile}
               onCloseProfile={closeProfile}
+              leadsPreset={leadsPreset}
             />
 
             <BottomTabBar

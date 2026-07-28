@@ -1,11 +1,11 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { PhoneCall, FileText, Store as StoreIcon, Users as UsersIcon, Check } from 'lucide-react'
+import { PhoneCall, FileText, Store as StoreIcon, Users as UsersIcon, Check, Lock, Repeat2, ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   getLeads, leadCounts, updateLeadStatus, groupByStore,
-  LEAD_STATUSES, LEAD_SOURCES, rupees, relativeTime,
-  getCustomerById, getCustomerNotes, addCustomerNote,
+  LEAD_STATUSES, LEAD_SOURCES, rupees, relativeTime, dayClock,
+  getCustomerById, getCustomerNotes, addCustomerNote, customerDialDigits,
 } from '@connect/core'
 import { Card, Chip, CLIPill, StoreGroupHeader, PrimaryButton } from '../components/UI.jsx'
 import { LargeTitle } from '../components/TopBar.jsx'
@@ -32,14 +32,24 @@ import { vibrate } from '../lib/utils.js'
 
 const SOURCE_ICON = { call: PhoneCall, form: FileText, walk_in: StoreIcon }
 
-export default function Leads({ store, onOpenProfile }) {
+export default function Leads({ store, onOpenProfile, preset }) {
   const { t } = useTranslation()
   const version = useDataVersion()
   const aggregate = !!store?.aggregate
   const scopeId = aggregate ? undefined : store?.id
 
-  const [status, setStatus] = useState('all')
-  const [source, setSource] = useState('all')
+  const [status, setStatus] = useState(preset?.status || 'all')
+  const [source, setSource] = useState(preset?.source || 'all')
+
+  // A preset arrives when another screen opened this tab ON something — Home's missed-
+  // calls row lands here already narrowed to missed + call. Keyed on `seq`, not on the
+  // values: tapping the same row twice has to re-apply the filter even though nothing
+  // about it changed, and the manager may have widened it in between.
+  useEffect(() => {
+    if (!preset) return
+    if (preset.status) setStatus(preset.status)
+    if (preset.source) setSource(preset.source)
+  }, [preset?.seq])
   const [branch, setBranch] = useState('all')
   const [openId, setOpenId] = useState(null)
 
@@ -169,6 +179,15 @@ function LeadCard({ lead, onOpen }) {
   const Icon = SOURCE_ICON[lead.source] || PhoneCall
   const who = lead.name || lead.masked
   const src = LEAD_SOURCES.find(s => s.id === lead.source)
+
+  // A MISSED CALL IS THE ONE ROW WITH AN ACTION ON IT. Everything else in this list is a
+  // record to read; a missed call is somebody still waiting to be rung back, so it gets
+  // the treatment the Calls screen gives it — how many times they tried, when, and the
+  // call-back button — instead of being flattened into the same row as a walk-in from
+  // last Tuesday. Same idiom as Missed.jsx's CallCard, on lead data.
+  const missedCall = lead.source === 'call' && lead.status === 'missed'
+  if (missedCall) return <MissedCallCard lead={lead} onOpen={onOpen} />
+
   return (
     <Card onClick={onOpen} className="!p-4">
       <div className="flex items-start gap-3">
@@ -192,6 +211,101 @@ function LeadCard({ lead, onOpen }) {
       </div>
       <div className="mt-2 flex items-center gap-1.5 flex-wrap">
         <StatusPill status={lead.status} />
+      </div>
+    </Card>
+  )
+}
+
+/**
+ * The missed call, as the Calls screen draws it: repeat count on the glyph, the masked
+ * number under a lock, when it came in and how often, the chance-to-buy band, and one
+ * filled Call back pill on its own hairline-separated row.
+ *
+ * CALL BACK does two things, both real. It dials — a true `tel:` — but only where we
+ * actually hold a number: a call record carries none, so that means the ones matched to
+ * a customer. And it moves the lead `missed → contacted`, which is the transition this
+ * whole screen exists to record, so the row stops being outstanding whether or not the
+ * handset could be opened. The button never pretends: where there is no number it says
+ * so by not dialling, and the status change is what it can honestly promise.
+ */
+function MissedCallCard({ lead, onOpen }) {
+  const { t } = useTranslation()
+  const digits = lead.customerId ? customerDialDigits(lead.customerId) : null
+
+  function callBack(e) {
+    e.stopPropagation()
+    vibrate([10, 20, 10])
+    updateLeadStatus(lead, 'contacted')
+    if (digits) window.location.href = `tel:${digits}`
+  }
+
+  return (
+    <Card onClick={onOpen} className="!p-0 overflow-hidden">
+      <div className="p-4 flex items-start gap-3">
+        <div className="relative shrink-0">
+          <div
+            className="w-11 h-11 rounded-2xl grid place-items-center"
+            style={{ background: 'rgba(0,112,252,.14)', border: '1px solid rgba(0,112,252,.28)' }}
+          >
+            <PhoneCall size={18} style={{ color: '#0070FC' }} />
+          </div>
+          {lead.repeats > 1 && (
+            <span
+              className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full text-[10px] font-bold grid place-items-center px-1"
+              style={{ background: '#0070FC', color: 'white', boxShadow: '0 2px 8px rgba(0,112,252,.55)' }}
+            >
+              {lead.repeats}×
+            </span>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Lock size={10} className="shrink-0 text-white/45" aria-hidden="true" />
+              <span className="m-headline text-white m-tabular truncate">{lead.name || lead.masked}</span>
+            </div>
+            {/* Band only, no score: on a row whose job is "ring this person back", the
+                number is noise — hot/warm/cold is the whole decision. */}
+            {lead.cli != null && <CLIPill score={lead.cli} size="sm" showScore={false} />}
+          </div>
+
+          <div className="m-subhead text-white/55 mt-0.5 flex items-center gap-1.5 flex-wrap">
+            <span className="m-tabular">{dayClock(lead.atMs)}</span>
+            <span className="opacity-50">·</span>
+            <span>{relativeTime(lead.atMs)}</span>
+            {lead.repeats > 1 && (
+              <>
+                <span className="opacity-50">·</span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Repeat2 size={10} />
+                  {t('vmn.calledCount', { count: lead.repeats, defaultValue: 'Called {{count}}×' })}
+                </span>
+              </>
+            )}
+          </div>
+
+          {(lead.value || lead.category) && (
+            <div className="m-caption text-white/45 mt-0.5 truncate">
+              {[lead.value ? rupees(lead.value) : null, lead.category && t(lead.categoryKey, { defaultValue: lead.category })]
+                .filter(Boolean).join(' · ')}
+            </div>
+          )}
+        </div>
+
+        <ChevronRight size={16} className="shrink-0 self-center text-white/30" aria-hidden="true" />
+      </div>
+
+      <div className="px-4 pb-4 pt-3" style={{ borderTop: '1px solid var(--border-hairline)' }}>
+        <button
+          onClick={callBack}
+          // h-11 === 44px === --m-touch-min.
+          className="w-full h-11 rounded-full m-headline press inline-flex items-center justify-center gap-2"
+          style={{ background: '#0070FC', color: 'white', boxShadow: '0 1px 2px rgba(15,23,42,.08)' }}
+        >
+          <PhoneCall size={16} className="shrink-0" />
+          <span className="truncate">{t('common.callBack', { defaultValue: 'Call back' })}</span>
+        </button>
       </div>
     </Card>
   )

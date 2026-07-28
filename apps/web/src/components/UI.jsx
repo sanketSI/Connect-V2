@@ -233,7 +233,10 @@ export function AIBadge({ children, className }) {
   )
 }
 
-export function CLIPill({ score, size = 'md' }) {
+// `showScore={false}` drops the number and keeps the band word. On a row whose job is
+// "ring this person back" the score is noise — hot/warm/cold is the decision — and it is
+// the form the Calls screen has always used there.
+export function CLIPill({ score, size = 'md', showScore = true }) {
   // Chance to buy: 0-100 score with color band + label
   const { t } = useTranslation()
   const band = score >= 75 ? 'hot' : score >= 55 ? 'warm' : score >= 35 ? 'cool' : 'cold'
@@ -247,8 +250,12 @@ export function CLIPill({ score, size = 'md' }) {
       data-band={band}
       title={t('common.chanceToBuyTitle', { score })}
     >
-      <span className="m-tabular">{score}</span>
-      <span className="opacity-70">·</span>
+      {showScore && (
+        <>
+          <span className="m-tabular">{score}</span>
+          <span className="opacity-70">·</span>
+        </>
+      )}
       <span>{label}</span>
     </span>
   )
