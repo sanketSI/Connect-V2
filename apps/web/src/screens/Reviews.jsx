@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { LargeTitle } from '../components/TopBar.jsx'
 import LocationPicker from '../components/LocationPicker.jsx'
+import { FEATURES } from '../lib/features.js'
 import { Card, AICard, AIBadge, Chip, PrimaryButton, GhostButton, Avatar, IconBtn, AIShimmer, SourceChip, StoreBadge, StoreGroupHeader } from '../components/UI.jsx'
 import BottomSheet from '../components/BottomSheet.jsx'
 import {
@@ -22,6 +23,7 @@ import { altLanguage } from '@connect/core/i18n/languages.js'
 import { vibrate } from '../lib/utils.js'
 import { useToast } from '../components/Toast.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
+import ProfileButton from '../components/ProfileButton.jsx'
 
 const REVIEW_LEADERBOARD = getReviewLeaderboard()
 const PRIMARY_USER = getCurrentUser()
@@ -45,7 +47,7 @@ const ALL_TABS = [
 const STAR_MIN = 1
 const STAR_MAX = 5
 
-export default function Reviews({ role, store }) {
+export default function Reviews({ role, store, onOpenProfile }) {
   const { t } = useTranslation()
   // Leaderboard is a brand / roll-up feature — hidden for a single or multi-store manager.
   const isBrand = ['cluster', 'city', 'regional', 'state', 'head'].includes(role)
@@ -69,7 +71,7 @@ export default function Reviews({ role, store }) {
         sub={t('reviews.subtitlePlain', {
           defaultValue: 'What customers are saying, and how fast you reply',
         })}
-        right={<NotificationBell />}
+        right={<div className="flex items-center"><NotificationBell /><ProfileButton onClick={onOpenProfile} /></div>}
       />
       <div className="px-4">
         <div className="flex items-center gap-2 mb-3">
@@ -509,7 +511,9 @@ function Inbox({ store }) {
         {selected && <ReviewDetail review={selected} onClose={() => setSelectedId(null)} />}
       </BottomSheet>
 
-      <BottomSheet open={pitch} onClose={() => setPitch(false)} label={t('reviews.autoReplyPitchChip', { defaultValue: 'Auto-reply with AI · Premium' })}>
+      {/* Gated at the sheet too, not just the chip that opens it — so no future caller
+          can re-open the upsell in a build that is not meant to carry it. */}
+      <BottomSheet open={pitch && FEATURES.reviewsAutoReplyPitch} onClose={() => setPitch(false)} label={t('reviews.autoReplyPitchChip', { defaultValue: 'Auto-reply with AI · Premium' })}>
         <AutoResponderPitch onClose={() => setPitch(false)} />
       </BottomSheet>
     </>
@@ -1064,10 +1068,14 @@ function ReviewCard({ review, onOpen, onPitchAutoReply, aggregate }) {
           <span className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption" style={{ background: 'rgba(34,211,139,.10)', color: 'var(--si-success-text)', border: '1px solid rgba(34,211,139,.30)' }}>
             <Check size={10} /> {t('reviews.replied')}
           </span>
-        ) : review.removed ? (
+        ) : review.removed || !FEATURES.reviewsAutoReplyPitch ? (
           // A review Google has taken down is not waiting for anything: no reply we
           // post can appear against it. Promising a draft here would be the one place
           // on the card that contradicts the "Removed from Google" label beside it.
+          //
+          // Same branch for a build with the upsell suppressed: the inbox ships, the ad
+          // for a tier this manager has not bought does not. Nothing replaces the chip —
+          // the real reply flow is the card itself, which opens ReplyComposer.
           null
         ) : (
           // HONEST LABEL. This pill does NOT open a draft — tapping it opens the

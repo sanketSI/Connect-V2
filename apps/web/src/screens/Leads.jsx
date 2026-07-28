@@ -9,6 +9,7 @@ import {
 import { Card, Chip, CLIPill, StoreGroupHeader, PrimaryButton } from '../components/UI.jsx'
 import { LargeTitle } from '../components/TopBar.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
+import ProfileButton from '../components/ProfileButton.jsx'
 import LocationPicker from '../components/LocationPicker.jsx'
 import BottomSheet from '../components/BottomSheet.jsx'
 import { useDataVersion } from '../lib/useDataVersion.js'
@@ -29,7 +30,7 @@ import { vibrate } from '../lib/utils.js'
 
 const SOURCE_ICON = { call: PhoneCall, form: FileText, walk_in: StoreIcon }
 
-export default function Leads({ store }) {
+export default function Leads({ store, onOpenProfile }) {
   const { t } = useTranslation()
   const version = useDataVersion()
   const aggregate = !!store?.aggregate
@@ -68,7 +69,7 @@ export default function Leads({ store }) {
       <LargeTitle
         title={t('leads.title', { defaultValue: 'Leads' })}
         sub={t('leads.subtitle', { defaultValue: 'Every enquiry, whatever brought it in' })}
-        right={<NotificationBell />}
+        right={<div className="flex items-center"><NotificationBell /><ProfileButton onClick={onOpenProfile} /></div>}
       />
 
       <div className="px-4">

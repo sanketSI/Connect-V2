@@ -4,11 +4,12 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   PhoneMissed, Star, ArrowRight, Sparkles, RefreshCcw,
   Zap, ShieldCheck, CheckCircle2, TrendingUp, MapPin,
-  QrCode, ArrowUpRight, ArrowDownRight, Eye, Hourglass, Layers,
+  QrCode, ArrowUpRight, ArrowDownRight, Eye, Hourglass, Layers, ChevronRight,
 } from 'lucide-react'
 import { Card, PrimaryButton, Avatar } from '../components/UI.jsx'
 import ReviewQrSheet from './ReviewQrSheet.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
+import ProfileButton from '../components/ProfileButton.jsx'
 import { FEATURES } from '../lib/features.js'
 import {
   getCurrentUser, getLastLogin,
@@ -223,32 +224,31 @@ function ReturningView({ store, onGoTab, onSwitchStore }) {
                 target is real and measurable without the avatar growing. The little QR
                 badge is the affordance: an avatar that silently opens a sheet is a
                 feature nobody finds. */}
-            {aggregate ? (
-              /* No QR on the network view: a review QR belongs to ONE listing, and the
-                 aggregate is not a listing. The avatar stays as identity, unadorned. */
-              <span className="grid place-items-center shrink-0 min-w-[var(--m-touch-min)] min-h-[var(--m-touch-min)]">
-                <Avatar initials={PRIMARY_USER.initials} size={40} color="#0070FC" />
-              </span>
-            ) : (
-            <button
-              type="button"
-              onClick={() => setQrOpen(true)}
-              aria-label={t('home.reviewQrOpen', {
-                store: s.name,
-                defaultValue: 'Show the review QR code for {{store}}',
-              })}
-              className="relative grid place-items-center shrink-0 press min-w-[var(--m-touch-min)] min-h-[var(--m-touch-min)]"
-            >
-              <Avatar initials={PRIMARY_USER.initials} size={40} color="#0070FC" />
-              <span
-                className="absolute right-0.5 bottom-0.5 w-[17px] h-[17px] rounded-full grid place-items-center"
-                style={{ background: '#0070FC', border: '2px solid var(--bg-screen)' }}
-                aria-hidden="true"
+            {/* The avatar is the way into Profile now that it is not a tab, so it can no
+                longer double as the review-QR trigger the way it did when Profile had a
+                slot in the bar. QR keeps its own control beside it, in the builds that
+                have the feature — dropping it silently would have cost the full build
+                its only entry point. No QR on the network view either way: a review QR
+                belongs to ONE listing, and the aggregate is not a listing. */}
+            {!aggregate && FEATURES.reviewQr && (
+              <button
+                type="button"
+                onClick={() => setQrOpen(true)}
+                aria-label={t('home.reviewQrOpen', {
+                  store: s.name,
+                  defaultValue: 'Show the review QR code for {{store}}',
+                })}
+                className="grid place-items-center shrink-0 press min-w-[var(--m-touch-min)] min-h-[var(--m-touch-min)]"
               >
-                <QrCode size={9} color="#fff" strokeWidth={2.6} />
-              </span>
-            </button>
+                <span
+                  className="w-9 h-9 rounded-full grid place-items-center md-state"
+                  style={{ background: 'var(--bg-iconbtn)', border: '1px solid var(--border-glass)' }}
+                >
+                  <QrCode size={17} className="text-white" aria-hidden="true" />
+                </span>
+              </button>
             )}
+            <ProfileButton onClick={() => onGoTab('profile')} />
           </div>
         </div>
 
@@ -281,14 +281,29 @@ function ReturningView({ store, onGoTab, onSwitchStore }) {
               <Layers size={13} style={{ color: 'var(--si-primary-text)' }} />
               {t('stores.acrossStores', { defaultValue: 'Across your stores' })}
             </div>
-            <Card className="!p-3.5">
-              <div className="grid grid-cols-4 gap-2">
-                <WeekStat value={net.stores} label={t('stores.storesLabel', { defaultValue: 'Stores' })} tint="var(--si-primary-text)" />
-                <WeekStat value={net.missed} label={t('calls.statMissed', { defaultValue: 'Missed' })} tint="var(--si-error-text)" />
-                <WeekStat value={net.answered} label={t('calls.statAnswered', { defaultValue: 'Answered' })} tint="var(--si-success-text)" />
-                <WeekStat value={`${net.recovery}%`} label={t('stores.recoveryRate', { defaultValue: 'Recovery' })} tint="var(--si-success-text)" />
-              </div>
-            </Card>
+            {/* The strip is the way INTO the roll-up, not just a read-out: it opens the
+                locations view at its entry level, which assignmentLevels() derives from
+                what this manager holds (several states → state → city → store). A real
+                <button> rather than Card's onClick — the div form is invisible to a
+                screen reader and unreachable by keyboard. */}
+            <button
+              type="button"
+              onClick={() => onGoTab('network')}
+              className="w-full text-left press"
+              aria-label={t('stores.acrossStores', { defaultValue: 'Across your stores' })}
+            >
+              <Card className="!p-3.5">
+                <div className="grid grid-cols-4 gap-2">
+                  <WeekStat value={net.stores} label={t('stores.storesLabel', { defaultValue: 'Stores' })} tint="var(--si-primary-text)" />
+                  <WeekStat value={net.missed} label={t('calls.statMissed', { defaultValue: 'Missed' })} tint="var(--si-error-text)" />
+                  <WeekStat value={net.answered} label={t('calls.statAnswered', { defaultValue: 'Answered' })} tint="var(--si-success-text)" />
+                  <WeekStat value={`${net.recovery}%`} label={t('stores.recoveryRate', { defaultValue: 'Recovery' })} tint="var(--si-success-text)" />
+                </div>
+                <div className="flex justify-end -mb-1 mt-1.5">
+                  <ChevronRight size={16} className="text-white/40" aria-hidden="true" />
+                </div>
+              </Card>
+            </button>
           </div>
         )
       })()}

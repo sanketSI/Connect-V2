@@ -60,6 +60,7 @@ const CAP = (() => {
 function ScreenSwitch({
   tab, role, store, firstTime,
   onSeenWelcome, onGoTab, onChangeRole, onLogout, onSwitchStore,
+  onOpenProfile, onCloseProfile,
 }) {
   // Hierarchy roles see a roll-up on the VMN tab instead of the call tracker.
   const isHierarchy = HIERARCHY_ROLES.has(role)
@@ -90,20 +91,21 @@ function ScreenSwitch({
             onSeenWelcome={onSeenWelcome}
             onGoTab={onGoTab}
             onSwitchStore={onSwitchStore}
+            onOpenProfile={onOpenProfile}
           />
         )}
         {tab === 'vmn' && (isHierarchy
-          ? <Hierarchy role={role} />
-          : <CallsTab store={store} />)}
+          ? <Hierarchy role={role} onOpenProfile={onOpenProfile} />
+          : <CallsTab store={store} onOpenProfile={onOpenProfile} />)}
         {/* MVP: one Leads list in place of Calls + Customers. The full build keeps
             both, so neither path is deleted — see lib/features.js. */}
-        {tab === 'leads' && <Leads store={store} />}
-        {tab === 'network' && <Network />}
-        {tab === 'customers' && <Customers store={store} />}
-        {/* Belt and braces: nothing routes here in MVP (the tab bar drops Reviews and
-            Home's reply row is gated), but the inbox must not be one stray onGoTab away
-            from being reachable in the launch build. */}
-        {tab === 'reviews' && FEATURES.reviewsInbox && <Reviews role={role} store={store} />}
+        {tab === 'leads' && <Leads store={store} onOpenProfile={onOpenProfile} />}
+        {tab === 'network' && <Network onOpenProfile={onOpenProfile} />}
+        {tab === 'customers' && <Customers store={store} onOpenProfile={onOpenProfile} />}
+        {/* Reviews became a tab in scope round 2. The guard stays: the inbox must not be
+            one stray onGoTab away from being reachable in a build meant to be without it,
+            and features.js is the single place that decides. */}
+        {tab === 'reviews' && FEATURES.reviewsInbox && <Reviews role={role} store={store} onOpenProfile={onOpenProfile} />}
         {tab === 'profile' && (
           <Profile
             role={role}
@@ -111,6 +113,7 @@ function ScreenSwitch({
             onChangeRole={onChangeRole}
             onLogout={onLogout}
             onSwitchStore={onSwitchStore}
+            onBack={onCloseProfile}
           />
         )}
         </ErrorBoundary>
@@ -122,6 +125,15 @@ function ScreenSwitch({
 function AppContent() {
   const [stage, setStage] = useState(CAP ? (CAP.stage || 'app') : 'login') // login | store (the switcher) | app
   const [tab, setTab] = useState(CAP?.tab || 'home')
+  // Profile is reached from the avatar, not the bar, so leaving it has to return the
+  // manager to the tab they opened it from — not to a fixed screen. Guarded against
+  // re-entry so opening Profile while already on it cannot make "back" a no-op.
+  const [tabBeforeProfile, setTabBeforeProfile] = useState('home')
+  const openProfile = () => {
+    setTabBeforeProfile(p => (tab === 'profile' ? p : tab))
+    setTab('profile')
+  }
+  const closeProfile = () => setTab(tabBeforeProfile)
   const [role, setRole] = useState(CAP?.role || 'single')
   const [store, setStore] = useState(() => (CAP?.store && MAPPED_LOCATIONS.find(l => l.id === CAP.store)) || MAPPED_LOCATIONS[0])
   // True only between a multi-store sign-in and the moment a store is chosen.
@@ -274,6 +286,8 @@ function AppContent() {
               onChangeRole={changeRole}
               onLogout={() => setStage('login')}
               onSwitchStore={startSwitch}
+              onOpenProfile={openProfile}
+              onCloseProfile={closeProfile}
             />
 
             <BottomTabBar

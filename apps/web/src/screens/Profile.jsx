@@ -5,7 +5,7 @@ import {
   Layers, Check, Plus, Images, Shield, Users,
   RefreshCcw, Globe, Moon, Sun
 } from 'lucide-react'
-import { LargeTitle } from '../components/TopBar.jsx'
+import { LargeTitle, TopBar } from '../components/TopBar.jsx'
 import { Card, AIBadge, PrimaryButton, Avatar } from '../components/UI.jsx'
 import BottomSheet from '../components/BottomSheet.jsx'
 import { getCurrentUser, ROLES, locationNeedsVerification, getStoreLocations, getStoreTeam, getAllStoreTeams, storeLabelOf } from '@connect/core'
@@ -22,7 +22,7 @@ import { useTheme } from '../lib/theme.jsx'
 import { vibrate } from '../lib/utils.js'
 import NotificationBell from '../components/NotificationBell.jsx'
 
-export default function Profile({ role, store, onChangeRole, onLogout, onSwitchStore }) {
+export default function Profile({ role, store, onChangeRole, onLogout, onSwitchStore, onBack }) {
   const [sheet, setSheet] = useState(null)
   const { t, i18n } = useTranslation()
   // A Google listing, its photo library and its staff all belong to ONE branch, so on
@@ -44,6 +44,10 @@ export default function Profile({ role, store, onChangeRole, onLogout, onSwitchS
   const flagged = store ? locationNeedsVerification(store) : false
   return (
     <div className="absolute top-[44px] left-0 right-0 bottom-0 pb-[88px] overflow-y-auto no-scrollbar">
+      {/* Profile left the tab bar in scope round 2, so the bar can no longer carry a
+          manager out of here — this back control is the only way out, and it returns to
+          whichever tab the avatar was tapped from. */}
+      {onBack && <TopBar onBack={onBack} title="" transparent />}
       <LargeTitle title={t('profile.title')} sub={t('profile.subtitle')} right={<NotificationBell />} />
 
       {/* Identity */}

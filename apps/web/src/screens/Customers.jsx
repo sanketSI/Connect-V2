@@ -21,6 +21,7 @@ import {
 } from '@connect/core'
 import { track } from '@connect/core/analytics.js'
 import NotificationBell from '../components/NotificationBell.jsx'
+import ProfileButton from '../components/ProfileButton.jsx'
 const STORE = getCurrentUser().store
 
 // ============================================================
@@ -56,7 +57,7 @@ const FILTERS = [
   { id: 'repeat', labelKey: 'customers.filterRepeat' },
 ]
 
-export default function Customers({ store }) {
+export default function Customers({ store, onOpenProfile }) {
   const { t } = useTranslation()
   const [filter, setFilter] = useState('all')
   const [branch, setBranch] = useState('all') // cumulative view only
@@ -122,6 +123,7 @@ export default function Customers({ store }) {
         right={
           <div className="flex items-center">
             <NotificationBell />
+            <ProfileButton onClick={onOpenProfile} />
             <IconBtn icon={Search} label={t('common.search')} />
             <IconBtn
               icon={UserPlus}

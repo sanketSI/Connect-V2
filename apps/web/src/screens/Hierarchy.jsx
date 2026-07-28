@@ -7,6 +7,7 @@ import {
   Layers, ArrowLeft, ArrowRight, ChevronDown
 } from 'lucide-react'
 import { LargeTitle, TopBar } from '../components/TopBar.jsx'
+import ProfileButton from '../components/ProfileButton.jsx'
 import { Card, AICard, AIBadge, Chip, Avatar, AIShimmer, PrimaryButton } from '../components/UI.jsx'
 import BottomSheet from '../components/BottomSheet.jsx'
 import { cityRollup, clusterRollup, regionalRollup, ROLES, askAI } from '@connect/core'
@@ -27,7 +28,7 @@ const ROLE_TITLES = {
   head: { titleKey: 'hierarchy.roleTitleHead', subKey: 'hierarchy.roleSubHead', units: 'states' },
 }
 
-export default function Hierarchy({ role, onDrillDown, onOpenAssistant }) {
+export default function Hierarchy({ role, onDrillDown, onOpenAssistant, onOpenProfile }) {
   const { t } = useTranslation()
   const meta = ROLE_TITLES[role] || ROLE_TITLES.city
   const [tab, setTab] = useState('calls')
@@ -93,6 +94,7 @@ Return only the narrative.`,
       <LargeTitle
         title={t(meta.titleKey)}
         sub={t(meta.subKey)}
+        right={<ProfileButton onClick={onOpenProfile} />}
       />
 
       <div className="px-4">

@@ -1,22 +1,28 @@
 import React from 'react'
-import { Home, PhoneCall, Users, Star, User2, Building2 } from 'lucide-react'
+import { Home, PhoneCall, Users, Star, Building2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn, vibrate } from '../lib/utils'
 import { IS_MVP } from '../lib/features.js'
 import { isMultiLocation } from '@connect/core'
 
-// MVP — Home · Leads · Profile. Calls and Customers collapse into one Leads list (a
-// missed call IS a call-sourced lead, and splitting them meant a lead's status lived on
-// whichever of two screens you happened to open), and the reviews INBOX is out of scope.
-// Review requests and review counts stay; they just are not a tab.
+// PROFILE IS NOT A TAB — on either build. It lives behind the avatar in the top right
+// (see App's ProfileButton): it is the "who am I / settings / my listing" corner, not one
+// of the jobs the bar is for. That frees the fourth slot for the roll-up.
 //
-// FULL — the north-star five: Home · Calls · Customers · Reviews · Profile.
+// MVP — Home · Leads · Reviews, plus Your locations for a multi-store manager. Calls and
+// Customers still collapse into one Leads list (a missed call IS a call-sourced lead, and
+// splitting them meant a lead's status lived on whichever of two screens you opened).
+// Reviews became a tab in scope round 2; the Premium upsell inside it did not follow —
+// see features.js.
+//
+// FULL — the north star: Home · Calls · Customers · Reviews.
 const MVP_TABS = [
   { id: 'home', Icon: Home },
   { id: 'leads', Icon: Users, badgeKey: 'leads' },
+  { id: 'reviews', Icon: Star, badgeKey: 'reviews' },
   // Only for a manager who actually holds more than one shop — see isMultiLocation().
+  // One store means nothing to roll up, so a single-location manager gets three tabs.
   { id: 'network', Icon: Building2, multiOnly: true },
-  { id: 'profile', Icon: User2 },
 ]
 
 const FULL_TABS = [
@@ -24,7 +30,6 @@ const FULL_TABS = [
   { id: 'vmn', Icon: PhoneCall, badgeKey: 'vmn' },
   { id: 'customers', Icon: Users },
   { id: 'reviews', Icon: Star, badgeKey: 'reviews' },
-  { id: 'profile', Icon: User2 },
 ]
 
 const BASE = IS_MVP ? MVP_TABS : FULL_TABS

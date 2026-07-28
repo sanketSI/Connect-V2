@@ -43,6 +43,7 @@ import {
 // @connect/core now (packages/core/data/calls.js).
 import CallsList from './Missed.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
+import ProfileButton from '../components/ProfileButton.jsx'
 
 /**
  * The windows this screen offers.
@@ -85,7 +86,7 @@ const FILTER_SCOPE = { sentiment: 'attended', reason: 'attended' }
 const inapplicableFilters = (outcome) =>
   Object.keys(FILTER_SCOPE).filter(key => FILTER_SCOPE[key] !== outcome)
 
-export default function CallsTab({ store }) {
+export default function CallsTab({ store, onOpenProfile }) {
   const { t } = useTranslation()
   const [win, setWin] = useState('last24h')
   const [outcome, setOutcome] = useState('missed')
@@ -237,6 +238,7 @@ export default function CallsTab({ store }) {
               active={filtered || win !== 'last24h'}
               onClick={() => { vibrate(6); setFilterOpen(true) }}
             />
+            <ProfileButton onClick={onOpenProfile} />
           </div>
         }
       />

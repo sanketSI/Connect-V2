@@ -31,15 +31,27 @@ const SCOPE = String(import.meta.env?.VITE_SCOPE || 'mvp').toLowerCase()
 /** True for the launch build. */
 export const IS_MVP = SCOPE !== 'full'
 
+// SCOPE ROUND 2 (stakeholder feedback). Reviews, Manage Media and Business Profile were
+// pulled INTO the launch scope: the bottom nav now carries Reviews, and Profile is where
+// a manager edits the listing. They are plain `true` rather than `!IS_MVP` because they
+// are no longer what distinguishes the two builds — writing them as flags that are
+// always on would say the opposite of what is true.
+//
+// The Premium AI Auto-Responder UPSELL did NOT come with them. The inbox ships; the ad
+// for a tier this manager has not bought does not. That is its own flag, not a fold of
+// reviewsInbox, because "can read and reply" and "is shown a paywall" are different
+// questions and the launch answer differs.
 export const FEATURES = {
-  /** Cover photo, gallery, posts, Smart Image Protection. */
-  manageMedia: !IS_MVP,
-  /** The Google Business Profile editor — info, hours, attributes. */
-  businessProfile: !IS_MVP,
+  /** Cover photo, gallery, posts, Smart Image Protection. In scope since round 2. */
+  manageMedia: true,
+  /** The Google Business Profile view — info, hours, attributes. In scope since round 2. */
+  businessProfile: true,
   /** On-site location verification (pin drift, pincode, storefront photo). */
   locationVerify: !IS_MVP,
-  /** The reviews INBOX: reading, filtering, replying, AI drafts, the Premium pitch. */
-  reviewsInbox: !IS_MVP,
+  /** The reviews INBOX: reading, filtering, replying, AI drafts. In scope since round 2. */
+  reviewsInbox: true,
+  /** The Premium AI Auto-Responder pitch INSIDE the inbox — the chip and its sheet. */
+  reviewsAutoReplyPitch: !IS_MVP,
   /** The printable review QR sheet. */
   reviewQr: !IS_MVP,
   /** The notification centre and its bell. */

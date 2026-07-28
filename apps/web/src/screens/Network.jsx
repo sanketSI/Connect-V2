@@ -8,6 +8,7 @@ import {
 import { Card, Chip } from '../components/UI.jsx'
 import { LargeTitle } from '../components/TopBar.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
+import ProfileButton from '../components/ProfileButton.jsx'
 import { useDataVersion } from '../lib/useDataVersion.js'
 import { vibrate } from '../lib/utils.js'
 
@@ -34,7 +35,7 @@ const BOARDS = [
   { id: 'reviews', metric: 'negativePct', Icon: Star, labelKey: 'network.boardReviews', label: 'Reviews' },
 ]
 
-export default function Network() {
+export default function Network({ onOpenProfile }) {
   const { t } = useTranslation()
   const version = useDataVersion()
 
@@ -80,7 +81,7 @@ export default function Network() {
           defaultValue_one: '{{count}} store assigned to you',
           defaultValue_other: '{{count}} stores assigned to you',
         })}
-        right={<NotificationBell />}
+        right={<div className="flex items-center"><NotificationBell /><ProfileButton onClick={onOpenProfile} /></div>}
       />
 
       <div className="px-4">
