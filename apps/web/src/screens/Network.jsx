@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import {
   networkRows, rankRows, assignedStoreIds, assignedStores, assignmentLevels,
   getCalls, getLeads, LEAD_SOURCES, storeLabelOf, dayClock, relativeTime,
-  getCustomers,
+  getCustomers, getCustomerById,
 } from '@connect/core'
 import { Card, Chip, CLIPill } from '../components/UI.jsx'
 import { LargeTitle, TopBar } from '../components/TopBar.jsx'
@@ -61,9 +61,6 @@ export default function Network({ onOpenProfile }) {
   const [dir, setDir] = useState('desc')
   // Which store's calls are open, at the last level of the drill. Store id, or null.
   const [openStore, setOpenStore] = useState(null)
-  // …and one level further in: that store's customer book, opened from an attended row.
-  // An attended enquiry IS a person the shop has dealt with, so it leads to the book.
-  const [customersFor, setCustomersFor] = useState(null)
 
   const level = levels[Math.min(path.length, levels.length - 1)]
   const atStore = level === 'store'
@@ -94,22 +91,11 @@ export default function Network({ onOpenProfile }) {
   // sliding a sheet over the leaderboard — a sheet keeps the list it came from half
   // visible behind a scrim, which is right for a quick confirm and wrong for the screen
   // you came all this way to reach. After the hooks above, so the hook order is fixed.
-  if (customersFor) {
-    return (
-      <StoreCustomersPage
-        storeId={customersFor}
-        onBack={() => { vibrate(6); setCustomersFor(null) }}
-        onOpenProfile={onOpenProfile}
-      />
-    )
-  }
-
   if (openStore) {
     return (
       <StoreCallsPage
         storeId={openStore}
         onBack={() => { vibrate(6); setOpenStore(null) }}
-        onOpenCustomers={() => { vibrate(8); setCustomersFor(openStore) }}
         onOpenProfile={onOpenProfile}
       />
     )
@@ -212,7 +198,7 @@ export default function Network({ onOpenProfile }) {
  *   ATTENDED  where the lead came from, how warm it was, and what they rang about —
  *             which only exists BECAUSE somebody picked up.
  */
-function StoreCallsPage({ storeId, onBack, onOpenCustomers, onOpenProfile }) {
+function StoreCallsPage({ storeId, onBack, onOpenProfile }) {
   const { t } = useTranslation()
   const version = useDataVersion()
   const [outcome, setOutcome] = useState('missed')
@@ -239,6 +225,15 @@ function StoreCallsPage({ storeId, onBack, onOpenCustomers, onOpenProfile }) {
     [leads],
   )
   const list = outcome === 'missed' ? missed : attended
+
+  // ONE MOBILE NUMBER IS ONE CUSTOMER — where the platform actually holds that person.
+  // A form or walk-in IS a customer record; a call is only linked to one if it was ever
+  // matched to a contact, and most in this fixture never were. So the row opens whatever
+  // the RICHEST truthful thing about them is: the customer when there is one, the lead
+  // itself when there is not. Never a screen that invents a person to fill the gap.
+  const [openCustomerId, setOpenCustomerId] = useState(null)
+  const customers = useMemo(() => getCustomers(storeId), [storeId, version])
+  const sharedMasks = useMemo(() => collidingMasks(customers), [customers])
   const store = useMemo(() => assignedStores().find(l => l.id === storeId), [storeId, version])
 
   return (
@@ -269,7 +264,16 @@ function StoreCallsPage({ storeId, onBack, onOpenCustomers, onOpenProfile }) {
         {list.map(l => (
           outcome === 'missed'
             ? <MissedRow key={l.id} lead={l} />
-            : <AttendedRow key={l.id} lead={l} call={l.recordKind === 'call' ? callById.get(l.recordId) : null} onOpen={onOpenCustomers} />
+            : (
+              <AttendedRow
+                key={l.id}
+                lead={l}
+                call={l.recordKind === 'call' ? callById.get(l.recordId) : null}
+                customer={l.customerId ? getCustomerById(l.customerId) : null}
+                sharedMask={sharedMasks}
+                onOpenCustomer={setOpenCustomerId}
+              />
+            )
         ))}
         {list.length === 0 && (
           <Card className="!p-6 text-center">
@@ -278,7 +282,16 @@ function StoreCallsPage({ storeId, onBack, onOpenCustomers, onOpenProfile }) {
             </div>
           </Card>
         )}
+        <div className="h-4" />
       </div>
+
+      {/* Straight to the person — no list in between. Same sheet the Customers screen
+          opens: About this customer, the history, the notes and the two actions. */}
+      <CustomerDetailSheet
+        customerId={openCustomerId}
+        open={!!openCustomerId}
+        onClose={() => setOpenCustomerId(null)}
+      />
     </div>
   )
 }
@@ -295,72 +308,6 @@ function whenLine(atMs) {
   const clock = dayClock(atMs)
   // The separator is present only when dayClock has prefixed a day.
   return clock.includes('·') ? clock : `${clock} · ${relativeTime(atMs)}`
-}
-
-/**
- * THE STORE'S CUSTOMER BOOK — the people behind the attended enquiries.
- *
- * Renders the SAME CustomerCard the Customers screen does, and opens the SAME
- * CustomerDetailSheet, rather than growing a second pair that would drift from it. That
- * screen is full-build only, so in the launch scope this is the one route to a customer
- * record — which is exactly why it had to reuse rather than reimplement: two customer
- * cards in one app is how two of them start disagreeing about what a customer is.
- */
-function StoreCustomersPage({ storeId, onBack, onOpenProfile }) {
-  const { t } = useTranslation()
-  const version = useDataVersion()
-  const [selectedId, setSelectedId] = useState(null)
-
-  const all = useMemo(() => getCustomers(storeId), [storeId, version])
-  // Two customers whose masked digits end the same way — the card warns about it, and a
-  // book that dropped the warning would be quietly less careful than the screen it came
-  // from.
-  const sharedMasks = useMemo(() => collidingMasks(all), [all])
-
-  return (
-    <div className="absolute top-[44px] left-0 right-0 bottom-0 pb-[88px] overflow-y-auto no-scrollbar">
-      <TopBar onBack={onBack} title="" transparent />
-      <LargeTitle
-        title={storeLabelOf(storeId)}
-        sub={t('customers.subtitle', { count: all.length })}
-        right={<div className="flex items-center"><NotificationBell /><ProfileButton onClick={onOpenProfile} /></div>}
-      />
-
-      <div className="px-4 space-y-2.5">
-        {all.map((c, i) => (
-          <motion.div
-            key={c.id}
-            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: Math.min(i, 8) * 0.024, duration: 0.24, ease: [0.2, 0, 0, 1] }}
-          >
-            <CustomerCard
-              customer={c}
-              aggregate={false}
-              onOpen={() => { vibrate(8); setSelectedId(c.id) }}
-              sharedMask={sharedMasks.has(c.masked)}
-            />
-          </motion.div>
-        ))}
-
-        {all.length === 0 && (
-          <Card className="!p-6 text-center">
-            <div className="m-callout text-white/70">
-              {t('leads.emptyTitle', { defaultValue: 'Nothing here' })}
-            </div>
-          </Card>
-        )}
-        <div className="h-4" />
-      </div>
-
-      {/* The detail the Customers screen opens, unchanged — About this customer, the
-          history, the notes and the two actions. */}
-      <CustomerDetailSheet
-        customerId={selectedId}
-        open={!!selectedId}
-        onClose={() => setSelectedId(null)}
-      />
-    </div>
-  )
 }
 
 /** Missed: how often they tried, and how long they have been waiting. */
@@ -402,25 +349,52 @@ function MissedRow({ lead }) {
 
 const SOURCE_ICON = { call: PhoneIncoming, form: FileText, walk_in: StoreIcon }
 
-/** Attended: how it arrived, how warm it is, and what they wanted. */
-function AttendedRow({ lead, call, onOpen }) {
+/**
+ * ATTENDED — the person, not just the call.
+ *
+ * One mobile number is one customer, so where the platform holds that person this row IS
+ * the customer card the Customers screen draws: name, what they are worth, how many
+ * calls, the AI read with its "+N more", the badges. Reusing it rather than echoing it
+ * is the point — the card is the app's one answer to "who is this", and a second copy
+ * here would start drifting from it the first time either changed.
+ *
+ * The call's REASON rides on top, because that is the one thing the customer record
+ * cannot know: it was spoken on this call, not derived from the book.
+ *
+ * Where there is NO customer record — most attended calls in this fixture were never
+ * matched to a contact — the row falls back to what the lead itself knows and does not
+ * pretend to open a person we do not have. Nothing is invented to fill the gap.
+ */
+function AttendedRow({ lead, call, customer, sharedMask, onOpenCustomer }) {
   const { t } = useTranslation()
-  const src = LEAD_SOURCES.find(s => s.id === lead.source)
-  const Icon = SOURCE_ICON[lead.source] || PhoneIncoming
-  // WHY THEY GOT IN TOUCH. A call that was answered has a spoken reason; a form or a
-  // walk-in has no call to have a reason ON, so the category they enquired about is the
-  // honest equivalent — it is the same question ("what do they want"), answered by the
-  // record that exists. Never the seed's guess on a MISSED call: nobody spoke.
   const reason = call?.callReasonKey
     ? t(call.callReasonKey, { defaultValue: call.callReason })
     : (call?.callReason
       || (lead.category ? t(lead.categoryKey, { defaultValue: lead.category }) : null))
 
+  if (customer) {
+    return (
+      <CustomerCard
+        customer={customer}
+        aggregate={false}
+        onOpen={() => { vibrate(8); onOpenCustomer(customer.id) }}
+        sharedMask={sharedMask?.has?.(customer.masked)}
+        footer={reason && (
+          <span className="flex items-center gap-1.5 flex-wrap">
+            <PhoneIncoming size={11} className="shrink-0" style={{ color: 'var(--si-success-text)' }} />
+            <span className="truncate">{reason}</span>
+            {call?.source && <span className="opacity-60">· {call.source}</span>}
+            <span className="m-tabular opacity-60">· {relativeTime(lead.atMs)}</span>
+          </span>
+        )}
+      />
+    )
+  }
+
+  const src = LEAD_SOURCES.find(s => s.id === lead.source)
+  const Icon = SOURCE_ICON[lead.source] || PhoneIncoming
   return (
-    // An attended enquiry is somebody the shop has SPOKEN to, so the row leads to who
-    // they are — the store's customer book — rather than dead-ending on the fact of the
-    // call. Missed rows stay inert: there is no customer behind a call nobody answered.
-    <Card onClick={onOpen} className="!p-3.5">
+    <Card className="!p-3.5">
       <div className="flex items-start gap-3">
         <div
           className="w-9 h-9 rounded-xl grid place-items-center shrink-0"
@@ -431,21 +405,15 @@ function AttendedRow({ lead, call, onOpen }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 min-w-0">
-              {/* The padlock means "this number is masked". A lead the book has NAMED
-                  shows no number, so there is nothing for it to be saying. */}
               {!lead.name && <Lock size={10} className="shrink-0 text-white/45" aria-hidden="true" />}
               <span className="m-headline text-white m-tabular truncate">{lead.name || lead.masked}</span>
             </div>
-            {/* HOW WARM — band only; the score is not the decision on a list like this. */}
             {lead.cli != null && <CLIPill score={lead.cli} size="sm" showScore={false} />}
           </div>
 
-          {/* WHAT THEY WANTED. */}
           {reason && <div className="m-subhead text-white/70 mt-0.5 truncate">{reason}</div>}
 
           <div className="m-caption text-white/45 mt-1 flex items-center gap-1.5 flex-wrap">
-            {/* HOW IT ARRIVED — call, form or walk-in. The whole point of listing leads
-                rather than calls: this field only says something when it can vary. */}
             {src && (
               <span
                 className="px-1.5 h-5 rounded-md inline-flex items-center gap-1"
@@ -455,7 +423,6 @@ function AttendedRow({ lead, call, onOpen }) {
                 {t(src.labelKey, { defaultValue: src.label })}
               </span>
             )}
-            {/* The channel it came through, when we know it (calls only). */}
             {call?.source && <span>{call.source}</span>}
             <span className="m-tabular">{relativeTime(lead.atMs)}</span>
           </div>

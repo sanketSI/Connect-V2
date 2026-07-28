@@ -601,7 +601,7 @@ function IntentTag({ intent }) {
 // the SAME detail rather than growing a second, drifting pair. Customers is a full-build
 // SCREEN, but that is about what is routable, not about what may be imported — and the
 // bundle already carries this file either way (see lib/features.js on scope vs size).
-export function CustomerCard({ customer, onOpen, sharedMask, aggregate }) {
+export function CustomerCard({ customer, onOpen, sharedMask, aggregate, footer }) {
   const { t } = useTranslation()
   const category = categoryLabel(t, customer)
   const amount = customer.value != null ? rupees(customer.value) : null
@@ -732,6 +732,19 @@ export function CustomerCard({ customer, onOpen, sharedMask, aggregate }) {
           a fragment) so CardInsight can count them and skip the row when it is empty,
           instead of leaving 8px of margin behind nothing. */}
       <CardInsight customer={customer} badges={badges} />
+
+      {/* An optional line the CALLER owns, inside the card and hairlined off from it.
+          The store drill-down uses it for the reason spoken on the call — a fact the
+          customer record cannot hold, because it belongs to one conversation rather
+          than to the person. Outside the card it read as a caption for the NEXT row. */}
+      {footer && (
+        <div
+          className="mt-3 pt-2.5 m-caption text-white/55"
+          style={{ borderTop: '1px solid var(--border-hairline)' }}
+        >
+          {footer}
+        </div>
+      )}
     </Card>
   )
 }

@@ -5,7 +5,7 @@ import { PrimaryButton, GhostButton } from '../components/UI.jsx'
 import { vibrate } from '../lib/utils.js'
 import {
   maskPhone, normalizeStoreCode, resolveStoreCode, phoneOnFileFor,
-  storeCodesFor, allStoreCodes, getStoreByCode, STORE_CODE_EXAMPLE,
+  storeCodesFor, allStoreCodes, getStoreByCode, STORE_CODE_EXAMPLE, DEMO_PHONE,
 } from '@connect/core'
 import { useTranslation, Trans } from 'react-i18next'
 
@@ -14,7 +14,10 @@ const RESEND_SECONDS = 30
 export default function Login({ onAuthed, onRequestNumberChange }) {
   const { t } = useTranslation()
   const [step, setStep] = useState('phone') // phone | otp
-  const [phone, setPhone] = useState('')
+  // PREFILLED with the demo number. This is a prototype signed into by people who are
+  // showing it, not by the dealer whose number it is — so the field opens ready to send
+  // rather than asking everyone to remember ten digits. Clearing it still works.
+  const [phone, setPhone] = useState(DEMO_PHONE)
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
   const [loading, setLoading] = useState(false)
   const [numChange, setNumChange] = useState(false)
@@ -157,7 +160,9 @@ export default function Login({ onAuthed, onRequestNumberChange }) {
                     maxLength={10}
                     value={phone}
                     onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                    placeholder="98•••• 12342"
+                    // Derived, not typed out: a hardcoded mask is a second copy of the
+                    // number that goes stale the moment the first one changes.
+                    placeholder={`${DEMO_PHONE.slice(0, 2)}•••• ${DEMO_PHONE.slice(-5)}`}
                     className="flex-1 bg-transparent text-white m-headline outline-none m-tabular placeholder:text-white/30"
                   />
                   {phoneValid && (
