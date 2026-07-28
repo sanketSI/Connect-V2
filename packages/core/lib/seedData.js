@@ -2178,6 +2178,19 @@ export const ROLES = [
 export const DEALER_PHONE = '9845012342'
 
 /**
+ * A DEMO / QA SIGN-IN, aliased to the flagship dealer above.
+ *
+ * Ten nines is a number nobody has to look up mid-demo. It is not a seventh dealer and
+ * owns nothing of its own: session.js folds it onto DEALER_PHONE at the point where what
+ * was typed becomes the digits we compare on, so it resolves to exactly the same six
+ * shops and every downstream screen is the flagship's.
+ *
+ * Ten digits because that is what a mobile number is here — Login refuses anything else
+ * (`phone.length === 10`), so a nine-digit form of this could never reach the button.
+ */
+export const DEMO_PHONE = '9999999999'
+
+/**
  * A DIFFERENT manager, holding exactly one shop.
  *
  * The launch build changes shape for someone with a single store — no roll-up tab, three

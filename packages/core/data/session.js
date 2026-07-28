@@ -4,7 +4,7 @@
 // seam (packages/core/storage.js — localStorage on web); later it can be a real
 // auth/session backend without any screen change.
 import {
-  PRIMARY_USER, ROLES, LANGUAGES, DEALER_PHONE,
+  PRIMARY_USER, ROLES, LANGUAGES, DEALER_PHONE, DEMO_PHONE,
   MAPPED_LOCATIONS, STORE_CODE_REGISTRY, STORE_CODE_PATTERN, STORE_CODE_EXAMPLE,
 } from '../lib/seedData.js'
 import { liveClient } from '../lib/supabase.js'
@@ -126,9 +126,17 @@ function ownerMatches(entry, digits) {
   return entry.mine === true && digits === DEALER_PHONE
 }
 
-/** Whatever the user typed, reduced to the digits we compare on. */
+/**
+ * Whatever the user typed, reduced to the digits we compare on.
+ *
+ * This is the ONE funnel every phone comparison goes through — storeCodesFor(),
+ * resolveStoreCode() and verifyStoreLogin() all start here — which is why the demo
+ * alias is folded in at this point rather than in each of them. DEMO_PHONE is not a
+ * dealer of its own; it is another way to type the flagship's number.
+ */
 function phoneDigits(phone) {
-  return String(phone ?? '').replace(/\D/g, '')
+  const digits = String(phone ?? '').replace(/\D/g, '')
+  return digits === DEMO_PHONE ? DEALER_PHONE : digits
 }
 
 /**
@@ -318,4 +326,4 @@ export async function verifyStoreLogin(code, phone) {
 }
 
 // Reference data re-exported through the boundary.
-export { ROLES, LANGUAGES, DEALER_PHONE, STORE_CODE_EXAMPLE, STORE_CODE_PATTERN }
+export { ROLES, LANGUAGES, DEALER_PHONE, DEMO_PHONE, STORE_CODE_EXAMPLE, STORE_CODE_PATTERN }
