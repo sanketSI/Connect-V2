@@ -9,7 +9,7 @@ import {
 } from '@connect/core'
 import { Card, Chip, CLIPill } from '../components/UI.jsx'
 import { LargeTitle, TopBar } from '../components/TopBar.jsx'
-import { CustomerCard, CustomerDetailSheet, collidingMasks } from './Customers.jsx'
+import { CustomerCard, CustomerDetail, collidingMasks } from './Customers.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
 import ProfileButton from '../components/ProfileButton.jsx'
 import { useDataVersion } from '../lib/useDataVersion.js'
@@ -231,10 +231,23 @@ function StoreCallsPage({ storeId, onBack, onOpenProfile }) {
   // matched to a contact, and most in this fixture never were. So the row opens whatever
   // the RICHEST truthful thing about them is: the customer when there is one, the lead
   // itself when there is not. Never a screen that invents a person to fill the gap.
-  const [openCustomerId, setOpenCustomerId] = useState(null)
+  const [openSubject, setOpenSubject] = useState(null)
   const customers = useMemo(() => getCustomers(storeId), [storeId, version])
   const sharedMasks = useMemo(() => collidingMasks(customers), [customers])
   const store = useMemo(() => assignedStores().find(l => l.id === storeId), [storeId, version])
+
+  // Straight to the person — no list in between, and a PAGE rather than a sheet so it
+  // matches the store page it was opened from. After the hooks above, so hook order is
+  // fixed regardless of which view renders.
+  if (openSubject) {
+    return (
+      <CustomerPage
+        subject={openSubject}
+        onBack={() => { vibrate(6); setOpenSubject(null) }}
+        onOpenProfile={onOpenProfile}
+      />
+    )
+  }
 
   return (
     <div className="absolute top-[44px] left-0 right-0 bottom-0 pb-[88px] overflow-y-auto no-scrollbar">
@@ -271,7 +284,7 @@ function StoreCallsPage({ storeId, onBack, onOpenProfile }) {
                 call={l.recordKind === 'call' ? callById.get(l.recordId) : null}
                 customer={l.customerId ? getCustomerById(l.customerId) : null}
                 sharedMask={sharedMasks}
-                onOpenCustomer={setOpenCustomerId}
+                onOpen={setOpenSubject}
               />
             )
         ))}
@@ -285,13 +298,6 @@ function StoreCallsPage({ storeId, onBack, onOpenProfile }) {
         <div className="h-4" />
       </div>
 
-      {/* Straight to the person — no list in between. Same sheet the Customers screen
-          opens: About this customer, the history, the notes and the two actions. */}
-      <CustomerDetailSheet
-        customerId={openCustomerId}
-        open={!!openCustomerId}
-        onClose={() => setOpenCustomerId(null)}
-      />
     </div>
   )
 }
@@ -350,6 +356,52 @@ function MissedRow({ lead }) {
 const SOURCE_ICON = { call: PhoneIncoming, form: FileText, walk_in: StoreIcon }
 
 /**
+ * A LEAD, IN THE SHAPE OF A CUSTOMER.
+ *
+ * Most attended calls in this fixture were never matched to a contact — 17 of
+ * Indiranagar's 27 — so half the list had a richer card and a way in, and half did not.
+ * That split was the wrong thing to show a manager: the row is the same job either way.
+ *
+ * So a lead without a record is PROJECTED into the shape the customer card and detail
+ * already read. Every field here is a fact the lead itself carries; nothing is invented.
+ * What we do not have stays empty, and the parts of the UI that need it (the AI read,
+ * the notes composer) switch themselves off rather than pretending.
+ *
+ * `synthetic` is the flag for that: there is no record behind this id, so nothing may be
+ * written to it.
+ */
+function leadAsCustomer(lead, call, reason) {
+  return {
+    id: `lead:${lead.id}`,
+    synthetic: true,
+    storeId: lead.storeId,
+    name: lead.name ?? null,
+    masked: lead.masked,
+    phone: null,
+    sourceType: lead.source,
+    leadStatus: lead.status,
+    cli: lead.cli ?? null,
+    value: lead.value ?? 0,
+    category: lead.category ?? null,
+    categoryKey: lead.categoryKey ?? null,
+    callCount: lead.repeats ?? 1,
+    firstSeenAtMs: lead.atMs,
+    lastSeenAtMs: lead.atMs,
+    reviewSent: false,
+    reviewed: false,
+    notes: [],
+    // The one thing we DO know happened, in the timeline's own shape.
+    timeline: [{
+      type: lead.outcome === 'attended' ? 'inbound' : 'missed',
+      at: dayClock(lead.atMs),
+      atMs: lead.atMs,
+      detail: reason || null,
+    }].filter(e => e.detail),
+    aiGuess: null,
+  }
+}
+
+/**
  * ATTENDED — the person, not just the call.
  *
  * One mobile number is one customer, so where the platform holds that person this row IS
@@ -365,70 +417,55 @@ const SOURCE_ICON = { call: PhoneIncoming, form: FileText, walk_in: StoreIcon }
  * matched to a contact — the row falls back to what the lead itself knows and does not
  * pretend to open a person we do not have. Nothing is invented to fill the gap.
  */
-function AttendedRow({ lead, call, customer, sharedMask, onOpenCustomer }) {
+function AttendedRow({ lead, call, customer, sharedMask, onOpen }) {
   const { t } = useTranslation()
   const reason = call?.callReasonKey
     ? t(call.callReasonKey, { defaultValue: call.callReason })
     : (call?.callReason
       || (lead.category ? t(lead.categoryKey, { defaultValue: lead.category }) : null))
 
-  if (customer) {
-    return (
-      <CustomerCard
-        customer={customer}
-        aggregate={false}
-        onOpen={() => { vibrate(8); onOpenCustomer(customer.id) }}
-        sharedMask={sharedMask?.has?.(customer.masked)}
-        footer={reason && (
-          <span className="flex items-center gap-1.5 flex-wrap">
-            <PhoneIncoming size={11} className="shrink-0" style={{ color: 'var(--si-success-text)' }} />
-            <span className="truncate">{reason}</span>
-            {call?.source && <span className="opacity-60">· {call.source}</span>}
-            <span className="m-tabular opacity-60">· {relativeTime(lead.atMs)}</span>
-          </span>
-        )}
-      />
-    )
-  }
+  // ONE CARD FOR EVERY ROW. The real record when the platform holds it, the lead
+  // projected into the same shape when it does not — so the list reads as one kind of
+  // thing and every row leads somewhere, instead of two designs and half a feature.
+  const subject = customer || leadAsCustomer(lead, call, reason)
 
-  const src = LEAD_SOURCES.find(s => s.id === lead.source)
-  const Icon = SOURCE_ICON[lead.source] || PhoneIncoming
   return (
-    <Card className="!p-3.5">
-      <div className="flex items-start gap-3">
-        <div
-          className="w-9 h-9 rounded-xl grid place-items-center shrink-0"
-          style={{ background: 'rgba(34,211,139,.10)', border: '1px solid rgba(34,211,139,.30)' }}
-        >
-          <Icon size={15} style={{ color: 'var(--si-success-text)' }} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 min-w-0">
-              {!lead.name && <Lock size={10} className="shrink-0 text-white/45" aria-hidden="true" />}
-              <span className="m-headline text-white m-tabular truncate">{lead.name || lead.masked}</span>
-            </div>
-            {lead.cli != null && <CLIPill score={lead.cli} size="sm" showScore={false} />}
-          </div>
+    <CustomerCard
+      customer={subject}
+      aggregate={false}
+      onOpen={() => { vibrate(8); onOpen(subject) }}
+      sharedMask={sharedMask?.has?.(subject.masked)}
+      // The reason rides in the card's footer slot: it belongs to THIS call, not to the
+      // person, so it cannot live in the customer record above it.
+      footer={reason && (
+        <span className="flex items-center gap-1.5 flex-wrap">
+          <PhoneIncoming size={11} className="shrink-0" style={{ color: 'var(--si-success-text)' }} />
+          <span className="truncate">{reason}</span>
+          {call?.source && <span className="opacity-60">· {call.source}</span>}
+          <span className="m-tabular opacity-60">· {relativeTime(lead.atMs)}</span>
+        </span>
+      )}
+    />
+  )
+}
 
-          {reason && <div className="m-subhead text-white/70 mt-0.5 truncate">{reason}</div>}
-
-          <div className="m-caption text-white/45 mt-1 flex items-center gap-1.5 flex-wrap">
-            {src && (
-              <span
-                className="px-1.5 h-5 rounded-md inline-flex items-center gap-1"
-                style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-glass)' }}
-              >
-                <Icon size={9} aria-hidden="true" />
-                {t(src.labelKey, { defaultValue: src.label })}
-              </span>
-            )}
-            {call?.source && <span>{call.source}</span>}
-            <span className="m-tabular">{relativeTime(lead.atMs)}</span>
-          </div>
-        </div>
+/**
+ * THE CUSTOMER, AS A PAGE. Same content the Customers screen shows in a sheet — About
+ * this customer, the history, the notes, and the two actions — routed instead of
+ * stacked, so it matches the store page it was opened from and the bottom bar stays put.
+ */
+function CustomerPage({ subject, onBack, onOpenProfile }) {
+  return (
+    <div className="absolute top-[44px] left-0 right-0 bottom-0 pb-[88px] overflow-y-auto no-scrollbar">
+      <TopBar onBack={onBack} title="" transparent />
+      <div className="px-4 flex justify-end -mt-2 mb-1">
+        <NotificationBell />
+        <ProfileButton onClick={onOpenProfile} />
       </div>
-    </Card>
+      {/* canNote follows the record, not the screen: a projected lead has nowhere to
+          write a note to. */}
+      <CustomerDetail customer={subject} canNote={!subject.synthetic} />
+    </div>
   )
 }
 

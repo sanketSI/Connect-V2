@@ -832,7 +832,7 @@ function trackCallback(customer) {
   })
 }
 
-export function CustomerDetail({ customer }) {
+export function CustomerDetail({ customer, canNote = true }) {
   const { t } = useTranslation()
   const [insight, setInsight] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -875,7 +875,12 @@ export function CustomerDetail({ customer }) {
   const category = categoryLabel(t, customer)
   // A contact somebody typed in: no score, no AI read, no history. Every section below
   // says so plainly rather than rendering an empty version of itself.
-  const handEntered = isManuallyAdded(customer)
+  // NOTHING FOR THE AI TO HAVE READ. Two ways that happens: a contact somebody typed
+  // in by hand, and a caller the platform never matched to a record (the store
+  // drill-down projects those into this shape — see leadAsCustomer in Network.jsx).
+  // Both carry no aiGuess, and the fallback below is built by prefixing it, so without
+  // this the paragraph opened with the literal string "null".
+  const handEntered = isManuallyAdded(customer) || !(customer.aiGuess || customer.aiGuessKey)
 
   // The 5★-review-on-Google entry is gone from the detail (PM, screen 12) — `reviewed`
   // on the card is where that fact lives now. Notes took its place below.
@@ -1121,6 +1126,7 @@ Return ONE sentence only.`,
                 className="overflow-hidden"
               >
                 <NotesPanel
+                  canNote={canNote}
                   customer={customer}
                   notes={notes}
                   onAdded={() => setNoteRev(v => v + 1)}
@@ -1209,7 +1215,7 @@ function DetailRow({ icon: Icon, label, children, last }) {
  * the header row it expands from already says Notes, and the whole sheet is already
  * about X.
  */
-function NotesPanel({ customer, notes, onAdded }) {
+function NotesPanel({ customer, notes, canNote = true, onAdded }) {
   const { t } = useTranslation()
   const [draft, setDraft] = useState('')
 
@@ -1224,7 +1230,13 @@ function NotesPanel({ customer, notes, onAdded }) {
   return (
     <div className="pt-3.5 mt-3.5" style={{ borderTop: '1px solid var(--border-glass)' }}>
       {/* Composer. No nested Card — this already sits inside one, and a card drawn on
-          a card reads as a seam rather than a container. */}
+          a card reads as a seam rather than a container.
+
+          Hidden when the record is not one the data layer can write to. A caller that
+          was never matched to a saved contact has nowhere for a note to hang, and
+          addCustomerNote() would refuse it — an input that silently discards what was
+          typed into it is worse than no input. */}
+      {canNote && (
       <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-glass)' }}>
         <textarea
           value={draft}
@@ -1247,6 +1259,7 @@ function NotesPanel({ customer, notes, onAdded }) {
           </button>
         </div>
       </div>
+      )}
 
       {/* History, newest first — ALL of them, including the one previewed in the header.
           That preview is line-clamped to one line and carries no author, so skipping it
