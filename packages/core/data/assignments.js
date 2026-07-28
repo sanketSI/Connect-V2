@@ -64,6 +64,22 @@ export function assignedStoreIds(assignments = currentAssignments()) {
   return assignments.filter(id => all.includes(id))
 }
 
+/**
+ * The store ids a query should cover.
+ *
+ * "No storeId asked for" used to mean EVERY store in the fixture, which was the same
+ * set as "every store of mine" only for as long as the fixture held one manager's
+ * shops. It no longer does — Jayanagar belongs to somebody else — so an unscoped query
+ * was handing the six-store owner a seventh shop's missed calls in their All-locations
+ * counts, badges and notifications.
+ *
+ * One store asked for → that store. Nothing asked for → everything this session holds.
+ * Never "everything that exists".
+ */
+export function queryScope(storeId) {
+  return storeId ? [storeId] : assignedStoreIds()
+}
+
 /** The assigned stores themselves, in registry order. */
 export function assignedStores(assignments = currentAssignments()) {
   const ids = new Set(assignedStoreIds(assignments))

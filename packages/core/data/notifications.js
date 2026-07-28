@@ -29,6 +29,7 @@ import { emitChange } from '../events.js'
 import { getMissedCalls } from './calls.js'
 import { filterReviews, sentimentForRating, CANONICAL_REVIEW_WINDOW } from './reviews.js'
 import { getStoreLocations, locationNeedsVerification, computeLocationFlags } from './locations.js'
+import { queryScope, assignedStores } from './assignments.js'
 
 /** The kinds a notification can be — the UI maps these to an icon and accent. */
 export const NOTIFICATION_KINDS = Object.freeze(['missed_call', 'review', 'verify'])
@@ -59,8 +60,12 @@ function writeSeen(set) {
 // ── The three feed sources, each a pure map over a canonical selector ─────────
 
 function missedItems(storeId) {
+  // getMissedCalls() is the RAW bucket — every store in the fixture, including shops
+  // this manager does not hold. Scope it, or the feed hands somebody else's missed
+  // calls to whoever is signed in. See queryScope().
+  const scope = new Set(queryScope(storeId))
   return getMissedCalls()
-    .filter(m => m.leadStatus === 'open' && !m.spam && (!storeId || m.storeId === storeId))
+    .filter(m => m.leadStatus === 'open' && !m.spam && scope.has(m.storeId))
     .map(m => {
       const hot = m.intent === 'high'
       return {
@@ -103,7 +108,8 @@ function reviewItems(storeId) {
 }
 
 function verifyItems(storeId) {
-  return getStoreLocations()
+  // assignedStores(), not every location in the fixture — same reason as above.
+  return assignedStores()
     .filter(loc => locationNeedsVerification(loc) && (!storeId || loc.id === storeId))
     .map(loc => {
       const flag = computeLocationFlags(loc)[0]
@@ -130,9 +136,14 @@ function verifyItems(storeId) {
  * Sort: priority ascending (0 = urgent on top), then most recent within a priority.
  * Items without a timestamp (store verification) sort after timed ones in their band.
  */
-export function getNotifications(storeId) {
+export function getNotifications(storeId, { kinds } = {}) {
   const seen = readSeen()
   const items = [...missedItems(storeId), ...reviewItems(storeId), ...verifyItems(storeId)]
+    // A build without a feature must not be told about it. `verify` has no flow in the
+    // launch scope, so a notification asking for it would be a dead end with a badge on
+    // it. The CALLER decides which kinds exist, because the scope flags are a UI concern
+    // (lib/features.js) and core has no business reading VITE_SCOPE.
+    .filter(n => !kinds || kinds.includes(n.kind))
   items.sort((a, b) =>
     a.priority - b.priority ||
     (b.atMs ?? -Infinity) - (a.atMs ?? -Infinity)
@@ -141,13 +152,13 @@ export function getNotifications(storeId) {
 }
 
 /** How many live notifications the dealer has not seen — the bell badge. */
-export function unreadNotificationCount(storeId) {
-  return getNotifications(storeId).reduce((n, item) => n + (item.read ? 0 : 1), 0)
+export function unreadNotificationCount(storeId, opts) {
+  return getNotifications(storeId, opts).reduce((n, item) => n + (item.read ? 0 : 1), 0)
 }
 
 /** Total live notifications, seen or not. */
-export function notificationCount(storeId) {
-  return getNotifications(storeId).length
+export function notificationCount(storeId, opts) {
+  return getNotifications(storeId, opts).length
 }
 
 /**

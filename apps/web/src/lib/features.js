@@ -54,9 +54,27 @@ export const FEATURES = {
   reviewsAutoReplyPitch: !IS_MVP,
   /** The printable review QR sheet. */
   reviewQr: !IS_MVP,
-  /** The notification centre and its bell. */
-  notifications: !IS_MVP,
+  /** The notification centre and its bell. In scope since round 3. */
+  notifications: true,
 }
+
+/**
+ * WHICH NOTIFICATIONS THIS BUILD CAN HONESTLY RAISE.
+ *
+ * The feed has three sources and one of them — `verify` — points at a flow the launch
+ * scope does not contain. A notification is a promise that something can be done about
+ * it, so a build without location verification must not be told a location needs
+ * verifying: that is a dead end with a red badge on it.
+ *
+ * Exported as one list rather than checked in two places, because the BELL counts and
+ * the CENTRE lists, and a badge that disagrees with the sheet it opens is worse than
+ * either being wrong alone.
+ */
+export const NOTIFICATION_KINDS = [
+  'missed_call',
+  'review',
+  ...(FEATURES.locationVerify ? ['verify'] : []),
+]
 
 /** For the one place that should say which build this is: Profile's footer. */
 export const SCOPE_LABEL = IS_MVP ? 'MVP' : 'Full'

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { FEATURES } from './lib/features.js'
+import { FEATURES, IS_MVP } from './lib/features.js'
 import { AnimatePresence, motion, MotionConfig } from 'framer-motion'
 
 import PhoneFrame from './components/PhoneFrame.jsx'
@@ -359,7 +359,16 @@ function AppContent() {
       <NotificationCenter
         open={notifOpen}
         onClose={() => setNotifOpen(false)}
-        onNavigate={(tab) => { if (tab) setTab(tab); setNotifOpen(false) }}
+        // A notification is a promise that something can be done about it, so it has to
+        // land somewhere this build can act. Core says 'vmn' for a missed call — the
+        // Calls tab, which the launch bar does not carry — so in MVP it goes to Leads,
+        // narrowed to missed calls, exactly as Home's missed-calls row does. Anything
+        // else routes as core asked.
+        onNavigate={(tab) => {
+          if (tab === 'vmn' && IS_MVP) goTab('leads', { status: 'missed', source: 'call' })
+          else if (tab) goTab(tab)
+          setNotifOpen(false)
+        }}
       />
     </NotificationsContext.Provider>
   )

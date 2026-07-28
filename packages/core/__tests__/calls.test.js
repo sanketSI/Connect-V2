@@ -11,6 +11,7 @@ import {
 } from '../data/calls.js'
 import { LEAD_STATUSES } from '../data/leadStatus.js'
 import { getCustomerById } from '../data/customers.js'
+import { assignedStoreIds } from '../data/assignments.js'
 
 const WINDOWS = ['last24h', 'last7', 'last30', 'last90', 'last365', 'all']
 
@@ -255,13 +256,18 @@ describe('win-back selectors', () => {
   })
 
   it('totalRecoverable is the sum of non-spam missed value', () => {
-    const expected = getMissedCalls().filter(m => !m.spam).reduce((s, m) => s + m.estValue, 0)
+    // getMissedCalls() is the raw bucket — every store in the fixture, including the
+    // one belonging to a different manager. totalRecoverable() answers "mine", so the
+    // baseline has to be scoped the same way to be comparing like with like.
+    const mine = new Set(assignedStoreIds())
+    const expected = getMissedCalls().filter(m => !m.spam && mine.has(m.storeId)).reduce((s, m) => s + m.estValue, 0)
     expect(totalRecoverable()).toBe(expected)
     expect(totalRecoverable()).toBeGreaterThan(0)
   })
 
   it('highIntentCount counts exactly the high-intent missed callers', () => {
-    expect(highIntentCount()).toBe(getMissedCalls().filter(m => m.intent === 'high').length)
+    const mine = new Set(assignedStoreIds())
+    expect(highIntentCount()).toBe(getMissedCalls().filter(m => m.intent === 'high' && mine.has(m.storeId)).length)
   })
 })
 

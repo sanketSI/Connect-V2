@@ -10,6 +10,7 @@ import { Stars, StoreBadge } from './UI.jsx'
 import { useNotifications } from '../lib/notifications.js'
 import { useDataVersion } from '../lib/useDataVersion.js'
 import { cn, vibrate } from '../lib/utils'
+import { NOTIFICATION_KINDS } from '../lib/features.js'
 
 // Icon + accent per kind, escalated to red when the item is urgent (a hot lead or a
 // negative review — the ones that cost money if ignored).
@@ -105,7 +106,10 @@ export default function NotificationCenter({ open, onClose, onNavigate }) {
   const { t } = useTranslation()
   const v = useDataVersion()
   const { storeId, aggregate } = useNotifications()
-  const feed = useMemo(() => getNotifications(storeId), [v, open, storeId])
+  const feed = useMemo(
+    () => getNotifications(storeId, { kinds: NOTIFICATION_KINDS }),
+    [v, open, storeId],
+  )
   const unread = feed.reduce((n, item) => n + (item.read ? 0 : 1), 0)
   const urgent = feed.filter(n => n.urgent)
   const rest = feed.filter(n => !n.urgent)

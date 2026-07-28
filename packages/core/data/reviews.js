@@ -5,6 +5,7 @@ import {
   PRIMARY_STORE_ID,
 } from '../lib/seedData.js'
 import { resolveAt, offsetForInstant } from './format.js'
+import { queryScope } from './assignments.js'
 import { resolveWindow, previousWindow, windowDays } from './timeWindow.js'
 import { getCurrentUser } from './session.js'
 import { liveClient } from '../lib/supabase.js'
@@ -292,7 +293,8 @@ export function getReviewLeaderboard() {
 
 /** Count of reviews still awaiting a reply, ALL TIME (live listing only). */
 export function newReviewsCount(storeId) {
-  return RESOLVED.filter(r => !r.responded && !r.removed && (!storeId || r.storeId === storeId)).length
+  const scope = new Set(queryScope(storeId))
+  return RESOLVED.filter(r => !r.responded && !r.removed && scope.has(r.storeId)).length
 }
 
 // ============================================================
@@ -406,10 +408,11 @@ export function filterReviews(f = {}) {
   const { startMs, endMs } = resolveWindow(win)
   const min = Array.isArray(rating) ? rating[0] : rating?.min ?? 1
   const max = Array.isArray(rating) ? rating[1] : rating?.max ?? 5
+  const scope = new Set(queryScope(storeId))
 
   return RESOLVED.filter(r => {
-    // No storeId asked for = every store (the "All locations" view).
-    if (storeId && r.storeId !== storeId) return false
+    // No storeId asked for = every store THIS MANAGER HOLDS — see queryScope().
+    if (!scope.has(r.storeId)) return false
     if (r.atMs < startMs || r.atMs > endMs) return false
     if (!showRemoved && r.removed) return false
     if (r.rating < min || r.rating > max) return false

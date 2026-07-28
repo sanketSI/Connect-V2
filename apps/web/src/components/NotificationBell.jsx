@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { FEATURES } from '../lib/features.js'
+import { FEATURES, NOTIFICATION_KINDS } from '../lib/features.js'
 import { Bell } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { unreadNotificationCount } from '@connect/core'
@@ -16,12 +16,19 @@ import { cn, vibrate } from '../lib/utils'
 // emitChange() — drops this badge without the bell knowing what changed.
 // ============================================================
 export default function NotificationBell({ className }) {
-  // Absent from the MVP build, not disabled in it — see lib/features.js.
-  if (!FEATURES.notifications) return null
   const { t } = useTranslation()
   const { open, storeId } = useNotifications()
   const v = useDataVersion()
-  const count = useMemo(() => unreadNotificationCount(storeId), [v, storeId])
+  // Same kind list the centre lists, so the badge can never promise a row the sheet
+  // does not contain — see NOTIFICATION_KINDS.
+  const count = useMemo(
+    () => unreadNotificationCount(storeId, { kinds: NOTIFICATION_KINDS }),
+    [v, storeId],
+  )
+
+  // Absent from a build without them, not disabled in it — see lib/features.js. After
+  // the hooks: an early return above them changes the hook order between renders.
+  if (!FEATURES.notifications) return null
 
   // The label IS the accessible name and it carries the count, so a screen reader
   // announces "Notifications, 6 unread" rather than an unnamed icon button.

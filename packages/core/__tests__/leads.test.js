@@ -5,6 +5,7 @@ import {
 import { LEAD_STATUS_IDS, LEAD_SOURCES } from '../data/leadStatus.js'
 import { getCalls } from '../data/calls.js'
 import { getCustomers, customerSourceType } from '../data/customers.js'
+import { assignedStores } from '../data/assignments.js'
 import { getStoreLocations } from '../data/locations.js'
 
 describe('lead lifecycle', () => {
@@ -93,7 +94,11 @@ describe('getLeads', () => {
   it('scopes to one store, and the parts sum to the whole', () => {
     const all = getLeads()
     let summed = 0
-    for (const loc of getStoreLocations()) {
+    // The ASSIGNED stores, not every location in the fixture: an unscoped getLeads()
+    // means "mine", so the parts that sum to it are mine too. Asking explicitly for a
+    // store someone else holds still returns that store's leads — storeId is a filter,
+    // not a permission (the security boundary is RLS, see 0002_harden_rls.sql).
+    for (const loc of assignedStores()) {
       const mine = getLeads({ storeId: loc.id })
       expect(mine.every(l => l.storeId === loc.id)).toBe(true)
       summed += mine.length

@@ -10,6 +10,7 @@ import {
 import { LEAD_STATUS_IDS } from './leadStatus.js'
 import { resolveAt } from './format.js'
 import { resolveWindow } from './timeWindow.js'
+import { queryScope } from './assignments.js'
 import { getCustomerById } from './customers.js'
 import { liveClient } from '../lib/supabase.js'
 import { emitChange } from '../events.js'
@@ -116,12 +117,14 @@ export function getIvrDrops() {
 export function getCalls(win = 'all', opts = {}) {
   const { outcome, includeSpam = false, storeId } = opts
   const { startMs, endMs } = resolveWindow(win)
+  // No storeId asked for = every store THIS MANAGER HOLDS (the "All locations" view) —
+  // not every store in the fixture. See queryScope().
+  const scope = new Set(queryScope(storeId))
   return ALL.filter(c => {
     if (c.atMs < startMs || c.atMs > endMs) return false
     if (!includeSpam && c.spam) return false
     if (outcome && c.outcome !== outcome) return false
-    // No storeId asked for = every store (the "All locations" view).
-    if (storeId && c.storeId !== storeId) return false
+    if (!scope.has(c.storeId)) return false
     return true
   })
 }
@@ -231,19 +234,21 @@ export function interactionCountForCall(callOrId) {
 
 /** Total recoverable value across non-spam missed calls (today). */
 export function totalRecoverable(storeId) {
-  return MISSED.filter(m => !m.spam && (!storeId || m.storeId === storeId))
+  const scope = new Set(queryScope(storeId))
+  return MISSED.filter(m => !m.spam && scope.has(m.storeId))
     .reduce((s, m) => s + m.estValue, 0)
 }
 
 /** Count of high-intent missed callers (today). */
 export function highIntentCount(storeId) {
-  return MISSED.filter(m => m.intent === 'high' && (!storeId || m.storeId === storeId)).length
+  const scope = new Set(queryScope(storeId))
+  return MISSED.filter(m => m.intent === 'high' && scope.has(m.storeId)).length
 }
 
 /** High-intent missed callers queued for a call-back, ranked by chance-to-buy. */
 export function callbackQueue(storeId) {
   return MISSED
-    .filter(m => !m.spam && m.intent !== 'low' && (!storeId || m.storeId === storeId))
+    .filter(m => !m.spam && m.intent !== 'low' && new Set(queryScope(storeId)).has(m.storeId))
     .sort((a, b) => b.cli - a.cli)
 }
 
