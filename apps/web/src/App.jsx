@@ -100,7 +100,10 @@ function ScreenSwitch({
         {tab === 'leads' && <Leads store={store} />}
         {tab === 'network' && <Network />}
         {tab === 'customers' && <Customers store={store} />}
-        {tab === 'reviews' && <Reviews role={role} store={store} />}
+        {/* Belt and braces: nothing routes here in MVP (the tab bar drops Reviews and
+            Home's reply row is gated), but the inbox must not be one stray onGoTab away
+            from being reachable in the launch build. */}
+        {tab === 'reviews' && FEATURES.reviewsInbox && <Reviews role={role} store={store} />}
         {tab === 'profile' && (
           <Profile
             role={role}

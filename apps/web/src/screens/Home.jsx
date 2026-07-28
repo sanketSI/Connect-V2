@@ -9,6 +9,7 @@ import {
 import { Card, PrimaryButton, Avatar } from '../components/UI.jsx'
 import ReviewQrSheet from './ReviewQrSheet.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
+import { FEATURES } from '../lib/features.js'
 import {
   getCurrentUser, getLastLogin,
   callCounts, getCalls, callbackQueue, filterReviews, locationNeedsVerification,
@@ -188,9 +189,16 @@ function ReturningView({ store, onGoTab, onSwitchStore }) {
     [s.id, aggregate],
   )
 
-  const allClear = triage.missed === 0 && triage.waiting === 0
+  // The reviews INBOX is out of the MVP, so the row that opens it is not rendered and
+  // "waiting for a reply" cannot be part of what counts as clear — otherwise a store
+  // with nothing missed but replies pending would show a "Needs you now" block whose
+  // only remaining row reads "0 missed calls".
+  const showReplyTriage = FEATURES.reviewsInbox
+  const allClear = triage.missed === 0 && (!showReplyTriage || triage.waiting === 0)
   const worstNegative = triage.negatives[0]
-  const needsVerify = !!store && locationNeedsVerification(store)
+  // Same gate as the store picker: MVP has no verification flow, so a build that cannot
+  // resolve the problem must not open by naming it.
+  const needsVerify = FEATURES.locationVerify && !!store && locationNeedsVerification(store)
   const missedWindow = t(MISSED_WINDOW_KEY)
   const reviewWindow = t(REVIEW_WINDOW_KEY)
 
@@ -309,22 +317,28 @@ function ReturningView({ store, onGoTab, onSwitchStore }) {
                 : t('home.missedCallsSub')}
               cta={t('common.callNow', { defaultValue: 'Call now' })} onClick={() => onGoTab('vmn')}
             />
-            <MissedRow
-              icon={Star} tint="#CA8A04" iconColor="var(--si-warning-text)"
-              title={t('home.reviewsWaiting', {
-                count: triage.waiting,
-                defaultValue_one: '{{count}} review waiting for a reply',
-                defaultValue_other: '{{count}} reviews waiting for a reply',
-              })}
-              sub={worstNegative
-                ? t('home.worstNegative', {
-                  rating: worstNegative.rating,
-                  customer: worstNegative.customer,
-                  defaultValue: 'Worst is {{rating}}★ from {{customer}}',
-                })
-                : t('home.allReviewsHealthy')}
-              cta={t('common.reviewNow', { defaultValue: 'Review now' })} onClick={() => onGoTab('reviews')}
-            />
+            {/* Replying to a review is an inbox job, and the inbox is not in this build.
+                This was the ONE route left into it — the tab bar already drops Reviews
+                in MVP — so without this gate the launch build shipped the full inbox,
+                Premium auto-reply pitch and all. */}
+            {showReplyTriage && (
+              <MissedRow
+                icon={Star} tint="#CA8A04" iconColor="var(--si-warning-text)"
+                title={t('home.reviewsWaiting', {
+                  count: triage.waiting,
+                  defaultValue_one: '{{count}} review waiting for a reply',
+                  defaultValue_other: '{{count}} reviews waiting for a reply',
+                })}
+                sub={worstNegative
+                  ? t('home.worstNegative', {
+                    rating: worstNegative.rating,
+                    customer: worstNegative.customer,
+                    defaultValue: 'Worst is {{rating}}★ from {{customer}}',
+                  })
+                  : t('home.allReviewsHealthy')}
+                cta={t('common.reviewNow', { defaultValue: 'Review now' })} onClick={() => onGoTab('reviews')}
+              />
+            )}
           </div>
         )}
 

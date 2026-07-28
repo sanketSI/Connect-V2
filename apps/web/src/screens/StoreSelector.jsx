@@ -7,6 +7,7 @@ import {
 } from '@connect/core'
 const MAPPED_LOCATIONS = getStoreLocations()
 import { vibrate } from '../lib/utils.js'
+import { FEATURES } from '../lib/features.js'
 import { useTranslation, Trans } from 'react-i18next'
 
 // ===========================================================================
@@ -114,7 +115,11 @@ export default function StoreSelector({ mode = 'switch', current, onPick, onBack
           })()}
 
           {MAPPED_LOCATIONS.map((loc, i) => {
-            const flagged = locationNeedsVerification(loc)
+            // App refuses to open the verification sheet in MVP (see openStore), so
+            // without the same gate here the card advertises "Verify now" for a flow
+            // this build does not contain — the disabled-control-hinting-at-a-tier
+            // pattern features.js exists to prevent.
+            const flagged = FEATURES.locationVerify && locationNeedsVerification(loc)
             const isCurrent = loc.id === current?.id
             return (
               <motion.button
