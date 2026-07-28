@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronRight, ChevronLeft, PhoneCall, PhoneIncoming, Star, ArrowDownWideNarrow, ArrowUpNarrowWide, MapPin, Lock, Repeat2 } from 'lucide-react'
+import { ChevronRight, ChevronLeft, PhoneCall, PhoneIncoming, Star, ArrowDownWideNarrow, ArrowUpNarrowWide, MapPin, Lock, Repeat2, FileText, Store as StoreIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   networkRows, rankRows, assignedStoreIds, assignmentLevels,
-  getCalls, storeLabelOf, dayClock, relativeTime,
+  getCalls, getLeads, LEAD_SOURCES, storeLabelOf, dayClock, relativeTime,
 } from '@connect/core'
 import { Card, Chip, CLIPill } from '../components/UI.jsx'
 import BottomSheet from '../components/BottomSheet.jsx'
@@ -195,9 +195,27 @@ function StoreCallsSheet({ storeId }) {
   const version = useDataVersion()
   const [outcome, setOutcome] = useState('missed')
 
-  const calls = useMemo(() => getCalls('all', { storeId }), [storeId, version])
-  const missed = useMemo(() => calls.filter(c => c.outcome === 'missed'), [calls])
-  const attended = useMemo(() => calls.filter(c => c.outcome === 'attended'), [calls])
+  // LEADS, not just calls — because "where did this come from" is only a question worth
+  // printing if the answer can be something other than "a call". A form submission and a
+  // walk-in are this shop's enquiries too, and they never rang the phone.
+  const leads = useMemo(() => getLeads({ storeId }), [storeId, version])
+  // The reason someone rang lives on the CALL record, not the lead, so the two are
+  // joined here rather than duplicating the field into the lead projection.
+  const callById = useMemo(
+    () => new Map(getCalls('all', { storeId }).map(c => [c.id, c])),
+    [storeId, version],
+  )
+
+  // A missed call is the only row that is still outstanding on the phone. Everything
+  // else — answered, filled a form, walked in — is an enquiry somebody has engaged with.
+  const missed = useMemo(
+    () => leads.filter(l => l.source === 'call' && l.status === 'missed'),
+    [leads],
+  )
+  const attended = useMemo(
+    () => leads.filter(l => !(l.source === 'call' && l.status === 'missed')),
+    [leads],
+  )
   const list = outcome === 'missed' ? missed : attended
 
   return (
@@ -214,10 +232,10 @@ function StoreCallsSheet({ storeId }) {
       </div>
 
       <div className="space-y-2.5">
-        {list.map(c => (
+        {list.map(l => (
           outcome === 'missed'
-            ? <MissedRow key={c.id} call={c} />
-            : <AttendedRow key={c.id} call={c} />
+            ? <MissedRow key={l.id} lead={l} />
+            : <AttendedRow key={l.id} lead={l} call={l.recordKind === 'call' ? callById.get(l.recordId) : null} />
         ))}
         {list.length === 0 && (
           <Card className="!p-6 text-center">
@@ -231,8 +249,22 @@ function StoreCallsSheet({ storeId }) {
   )
 }
 
+/**
+ * WHEN IT CAME IN, said once.
+ *
+ * dayClock() already prefixes the day for anything that is not today ("3 days ago ·
+ * 4:31 pm"), so pasting relativeTime() after it produced "3 days ago · 4:31 pm · 3 days
+ * ago". Today's calls are the ones that need the relative half — "4:26 pm" alone does
+ * not tell you it was five minutes back — and older ones already carry it.
+ */
+function whenLine(atMs) {
+  const clock = dayClock(atMs)
+  // The separator is present only when dayClock has prefixed a day.
+  return clock.includes('·') ? clock : `${clock} · ${relativeTime(atMs)}`
+}
+
 /** Missed: how often they tried, and how long they have been waiting. */
-function MissedRow({ call }) {
+function MissedRow({ lead }) {
   const { t } = useTranslation()
   return (
     <Card className="!p-3.5">
@@ -246,19 +278,21 @@ function MissedRow({ call }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 min-w-0">
-              <Lock size={10} className="shrink-0 text-white/45" aria-hidden="true" />
-              <span className="m-headline text-white m-tabular truncate">{call.masked}</span>
+              {/* The padlock means "this number is masked". A lead the book has NAMED
+                  shows no number, so there is nothing for it to be saying. */}
+              {!lead.name && <Lock size={10} className="shrink-0 text-white/45" aria-hidden="true" />}
+              <span className="m-headline text-white m-tabular truncate">{lead.name || lead.masked}</span>
             </div>
-            {call.cli != null && <CLIPill score={call.cli} size="sm" showScore={false} />}
+            {lead.cli != null && <CLIPill score={lead.cli} size="sm" showScore={false} />}
           </div>
           {/* HOW OFTEN — a second and third attempt is the strongest signal on the row. */}
           <div className="m-subhead text-white/55 mt-0.5 inline-flex items-center gap-1">
             <Repeat2 size={11} className="shrink-0" />
-            {t('vmn.calledCount', { count: call.repeats ?? 1, defaultValue: 'Called {{count}}×' })}
+            {t('vmn.calledCount', { count: lead.repeats ?? 1, defaultValue: 'Called {{count}}×' })}
           </div>
           {/* HOW LONG AGO — clock time for "when", relative for "how stale". */}
           <div className="m-caption text-white/45 mt-0.5 m-tabular">
-            {[dayClock(call.atMs), relativeTime(call.atMs)].filter(Boolean).join(' · ')}
+            {whenLine(lead.atMs)}
           </div>
         </div>
       </div>
@@ -266,12 +300,22 @@ function MissedRow({ call }) {
   )
 }
 
-/** Attended: where it came from, how warm, and what they rang about. */
-function AttendedRow({ call }) {
+const SOURCE_ICON = { call: PhoneIncoming, form: FileText, walk_in: StoreIcon }
+
+/** Attended: how it arrived, how warm it is, and what they wanted. */
+function AttendedRow({ lead, call }) {
   const { t } = useTranslation()
-  const reason = call.callReasonKey
+  const src = LEAD_SOURCES.find(s => s.id === lead.source)
+  const Icon = SOURCE_ICON[lead.source] || PhoneIncoming
+  // WHY THEY GOT IN TOUCH. A call that was answered has a spoken reason; a form or a
+  // walk-in has no call to have a reason ON, so the category they enquired about is the
+  // honest equivalent — it is the same question ("what do they want"), answered by the
+  // record that exists. Never the seed's guess on a MISSED call: nobody spoke.
+  const reason = call?.callReasonKey
     ? t(call.callReasonKey, { defaultValue: call.callReason })
-    : call.callReason
+    : (call?.callReason
+      || (lead.category ? t(lead.categoryKey, { defaultValue: lead.category }) : null))
+
   return (
     <Card className="!p-3.5">
       <div className="flex items-start gap-3">
@@ -279,30 +323,38 @@ function AttendedRow({ call }) {
           className="w-9 h-9 rounded-xl grid place-items-center shrink-0"
           style={{ background: 'rgba(34,211,139,.10)', border: '1px solid rgba(34,211,139,.30)' }}
         >
-          <PhoneIncoming size={15} style={{ color: 'var(--si-success-text)' }} />
+          <Icon size={15} style={{ color: 'var(--si-success-text)' }} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 min-w-0">
-              <Lock size={10} className="shrink-0 text-white/45" aria-hidden="true" />
-              <span className="m-headline text-white m-tabular truncate">{call.masked}</span>
+              {/* The padlock means "this number is masked". A lead the book has NAMED
+                  shows no number, so there is nothing for it to be saying. */}
+              {!lead.name && <Lock size={10} className="shrink-0 text-white/45" aria-hidden="true" />}
+              <span className="m-headline text-white m-tabular truncate">{lead.name || lead.masked}</span>
             </div>
             {/* HOW WARM — band only; the score is not the decision on a list like this. */}
-            {call.cli != null && <CLIPill score={call.cli} size="sm" showScore={false} />}
+            {lead.cli != null && <CLIPill score={lead.cli} size="sm" showScore={false} />}
           </div>
-          {/* WHAT THEY RANG ABOUT — attended only, because it was heard, not guessed. */}
+
+          {/* WHAT THEY WANTED. */}
           {reason && <div className="m-subhead text-white/70 mt-0.5 truncate">{reason}</div>}
-          {/* WHERE THE LEAD CAME FROM, and when. */}
-          <div className="m-caption text-white/45 mt-0.5 flex items-center gap-1.5 flex-wrap">
-            {call.source && (
+
+          <div className="m-caption text-white/45 mt-1 flex items-center gap-1.5 flex-wrap">
+            {/* HOW IT ARRIVED — call, form or walk-in. The whole point of listing leads
+                rather than calls: this field only says something when it can vary. */}
+            {src && (
               <span
-                className="px-1.5 h-5 rounded-md m-caption inline-flex items-center"
+                className="px-1.5 h-5 rounded-md inline-flex items-center gap-1"
                 style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-glass)' }}
               >
-                {call.source}
+                <Icon size={9} aria-hidden="true" />
+                {t(src.labelKey, { defaultValue: src.label })}
               </span>
             )}
-            <span className="m-tabular">{relativeTime(call.atMs)}</span>
+            {/* The channel it came through, when we know it (calls only). */}
+            {call?.source && <span>{call.source}</span>}
+            <span className="m-tabular">{relativeTime(lead.atMs)}</span>
           </div>
         </div>
       </div>
