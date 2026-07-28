@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronRight, ChevronLeft, PhoneCall, Star, ArrowDownWideNarrow, ArrowUpNarrowWide, MapPin } from 'lucide-react'
+import { ChevronRight, ChevronLeft, PhoneCall, PhoneIncoming, Star, ArrowDownWideNarrow, ArrowUpNarrowWide, MapPin, Lock, Repeat2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   networkRows, rankRows, assignedStoreIds, assignmentLevels,
+  getCalls, storeLabelOf, dayClock, relativeTime,
 } from '@connect/core'
-import { Card, Chip } from '../components/UI.jsx'
+import { Card, Chip, CLIPill } from '../components/UI.jsx'
+import BottomSheet from '../components/BottomSheet.jsx'
 import { LargeTitle } from '../components/TopBar.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
 import ProfileButton from '../components/ProfileButton.jsx'
@@ -56,6 +58,8 @@ export default function Network({ onOpenProfile }) {
   const [path, setPath] = useState([])
   const [board, setBoard] = useState('calls')
   const [dir, setDir] = useState('desc')
+  // Which store's calls are open, at the last level of the drill. Store id, or null.
+  const [openStore, setOpenStore] = useState(null)
 
   const level = levels[Math.min(path.length, levels.length - 1)]
   const atStore = level === 'store'
@@ -150,13 +154,159 @@ export default function Network({ onOpenProfile }) {
                 row={r} rank={i + 1} metric={meta.metric}
                 drillable={!atStore}
                 onDrill={() => { vibrate(8); setPath(p => [...p, r.key]) }}
+                // THE LAST LEVEL IS NOT A DEAD END. Drilling state → city → store used
+                // to stop on a row that ranked a shop and then refused to say anything
+                // about it. At store level the row opens the calls behind the number.
+                onOpen={atStore ? () => { vibrate(8); setOpenStore(r.key) } : undefined}
               />
             </motion.div>
           ))}
           <div className="h-4" />
         </div>
       </div>
+
+      <BottomSheet
+        open={!!openStore}
+        onClose={() => setOpenStore(null)}
+        fullHeight
+        label={openStore ? storeLabelOf(openStore) : undefined}
+      >
+        {openStore && <StoreCallsSheet storeId={openStore} />}
+      </BottomSheet>
     </div>
+  )
+}
+
+/**
+ * WHAT THE RANKING WAS MADE OF — one store's calls, split by what happened to them.
+ *
+ * The two halves answer different questions, so they carry different facts rather than
+ * one row shape padded out with blanks:
+ *
+ *   MISSED    how often they tried and how long ago they gave up — the two things that
+ *             decide who to ring first. No reason: nobody spoke, so we do not have one,
+ *             and printing the seed's campaign guess would claim we heard them (the same
+ *             rule the Calls screen applies).
+ *   ATTENDED  where the lead came from, how warm it was, and what they rang about —
+ *             which only exists BECAUSE somebody picked up.
+ */
+function StoreCallsSheet({ storeId }) {
+  const { t } = useTranslation()
+  const version = useDataVersion()
+  const [outcome, setOutcome] = useState('missed')
+
+  const calls = useMemo(() => getCalls('all', { storeId }), [storeId, version])
+  const missed = useMemo(() => calls.filter(c => c.outcome === 'missed'), [calls])
+  const attended = useMemo(() => calls.filter(c => c.outcome === 'attended'), [calls])
+  const list = outcome === 'missed' ? missed : attended
+
+  return (
+    <div className="px-4 pb-6">
+      <div className="m-title2 text-white truncate">{storeLabelOf(storeId)}</div>
+
+      <div className="flex items-center gap-2 mt-3 mb-3">
+        <Chip active={outcome === 'missed'} onClick={() => { vibrate(6); setOutcome('missed') }}>
+          {t('calls.outcomeMissed', { defaultValue: 'Missed' })} {missed.length}
+        </Chip>
+        <Chip active={outcome === 'attended'} onClick={() => { vibrate(6); setOutcome('attended') }}>
+          {t('calls.outcomeAttended', { defaultValue: 'Attended' })} {attended.length}
+        </Chip>
+      </div>
+
+      <div className="space-y-2.5">
+        {list.map(c => (
+          outcome === 'missed'
+            ? <MissedRow key={c.id} call={c} />
+            : <AttendedRow key={c.id} call={c} />
+        ))}
+        {list.length === 0 && (
+          <Card className="!p-6 text-center">
+            <div className="m-callout text-white/70">
+              {t('leads.emptyTitle', { defaultValue: 'Nothing here' })}
+            </div>
+          </Card>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Missed: how often they tried, and how long they have been waiting. */
+function MissedRow({ call }) {
+  const { t } = useTranslation()
+  return (
+    <Card className="!p-3.5">
+      <div className="flex items-start gap-3">
+        <div
+          className="w-9 h-9 rounded-xl grid place-items-center shrink-0"
+          style={{ background: 'rgba(220,38,38,.10)', border: '1px solid rgba(220,38,38,.30)' }}
+        >
+          <PhoneCall size={15} style={{ color: '#DC2626' }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Lock size={10} className="shrink-0 text-white/45" aria-hidden="true" />
+              <span className="m-headline text-white m-tabular truncate">{call.masked}</span>
+            </div>
+            {call.cli != null && <CLIPill score={call.cli} size="sm" showScore={false} />}
+          </div>
+          {/* HOW OFTEN — a second and third attempt is the strongest signal on the row. */}
+          <div className="m-subhead text-white/55 mt-0.5 inline-flex items-center gap-1">
+            <Repeat2 size={11} className="shrink-0" />
+            {t('vmn.calledCount', { count: call.repeats ?? 1, defaultValue: 'Called {{count}}×' })}
+          </div>
+          {/* HOW LONG AGO — clock time for "when", relative for "how stale". */}
+          <div className="m-caption text-white/45 mt-0.5 m-tabular">
+            {[dayClock(call.atMs), relativeTime(call.atMs)].filter(Boolean).join(' · ')}
+          </div>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+/** Attended: where it came from, how warm, and what they rang about. */
+function AttendedRow({ call }) {
+  const { t } = useTranslation()
+  const reason = call.callReasonKey
+    ? t(call.callReasonKey, { defaultValue: call.callReason })
+    : call.callReason
+  return (
+    <Card className="!p-3.5">
+      <div className="flex items-start gap-3">
+        <div
+          className="w-9 h-9 rounded-xl grid place-items-center shrink-0"
+          style={{ background: 'rgba(34,211,139,.10)', border: '1px solid rgba(34,211,139,.30)' }}
+        >
+          <PhoneIncoming size={15} style={{ color: 'var(--si-success-text)' }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Lock size={10} className="shrink-0 text-white/45" aria-hidden="true" />
+              <span className="m-headline text-white m-tabular truncate">{call.masked}</span>
+            </div>
+            {/* HOW WARM — band only; the score is not the decision on a list like this. */}
+            {call.cli != null && <CLIPill score={call.cli} size="sm" showScore={false} />}
+          </div>
+          {/* WHAT THEY RANG ABOUT — attended only, because it was heard, not guessed. */}
+          {reason && <div className="m-subhead text-white/70 mt-0.5 truncate">{reason}</div>}
+          {/* WHERE THE LEAD CAME FROM, and when. */}
+          <div className="m-caption text-white/45 mt-0.5 flex items-center gap-1.5 flex-wrap">
+            {call.source && (
+              <span
+                className="px-1.5 h-5 rounded-md m-caption inline-flex items-center"
+                style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-glass)' }}
+              >
+                {call.source}
+              </span>
+            )}
+            <span className="m-tabular">{relativeTime(call.atMs)}</span>
+          </div>
+        </div>
+      </div>
+    </Card>
   )
 }
 
@@ -169,7 +319,7 @@ function Stat({ value, label, color, bordered }) {
   )
 }
 
-function RowCard({ row, rank, metric, drillable, onDrill }) {
+function RowCard({ row, rank, metric, drillable, onDrill, onOpen }) {
   const { t } = useTranslation()
   const pct = row[metric]
   // Both boards rank a PROBLEM, so a high number is bad on either. One colour rule for
@@ -180,7 +330,7 @@ function RowCard({ row, rank, metric, drillable, onDrill }) {
     : t('network.ofReviews', { negative: row.negative, total: row.reviews, defaultValue: '{{negative}} negative of {{total}} reviews' })
 
   return (
-    <Card onClick={drillable ? onDrill : undefined} className="!p-4">
+    <Card onClick={drillable ? onDrill : onOpen} className="!p-4">
       <div className="flex items-center gap-3">
         <div className="w-7 shrink-0 m-subhead m-tabular text-center" style={{ color: 'var(--text-tertiary)' }}>#{rank}</div>
         <div className="flex-1 min-w-0">
