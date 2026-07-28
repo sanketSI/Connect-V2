@@ -8,8 +8,13 @@ export function TopBar({ title, onBack, right, subtitle, transparent }) {
   return (
     <div
       className={cn(
-        'h-12 px-2 flex items-center justify-between sticky top-0 z-30',
-        !transparent && 'glass-tabbar'
+        'h-12 px-2 flex items-center justify-between z-30',
+        // STICKY ONLY WHEN IT HAS A BACKDROP. A transparent bar pinned over a scrolling
+        // page has nothing for the content to disappear behind, so the back chevron ends
+        // up sitting on top of whatever scrolls under it — which is exactly what it did
+        // on the store and customer pages. Transparent bars scroll away with the title
+        // they belong to.
+        transparent ? '' : 'sticky top-0 glass-tabbar'
       )}
       style={{ borderBottom: transparent ? 'none' : '1px solid rgba(255,255,255,.04)' }}
     >
@@ -33,8 +38,14 @@ export function TopBar({ title, onBack, right, subtitle, transparent }) {
           </button>
         )}
       </div>
+      {/* No title, no heading ELEMENT. Screens that use this bar purely for its back
+          control (Profile, the store drill-down) pass title="" — and an empty
+          role="heading" aria-level=1 is not nothing to a screen reader, it is a blank
+          top-level heading announced ahead of the real one below it. */}
       <div className="flex-1 min-w-0 text-center px-1">
-        <div className="m-headline text-white truncate" role="heading" aria-level={1}>{title}</div>
+        {title
+          ? <div className="m-headline text-white truncate" role="heading" aria-level={1}>{title}</div>
+          : null}
         {subtitle && <div className="m-caption text-white/55 -mt-0.5 truncate">{subtitle}</div>}
       </div>
       <div className="min-w-[var(--m-touch-min)] shrink-0 flex justify-end">{right}</div>

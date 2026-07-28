@@ -278,7 +278,9 @@ function StoreCallsPage({ storeId, onBack, onOpenProfile }) {
         </Chip>
       </div>
 
-      <div className="space-y-2.5">
+      {/* px-4 like every other list in the app — the cards line up with the title
+          above them instead of running to the screen edge. */}
+      <div className="px-4 space-y-2.5">
         {list.map(l => (
           outcome === 'missed'
             ? <MissedRow key={l.id} lead={l} />
