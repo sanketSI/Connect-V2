@@ -1,0 +1,945 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* SingleInterface Brand — shared across themes */
+  --si-primary-deep: #0E0071;       /* deep indigo (brand anchor) */
+  --si-primary-accent: #0070FC;     /* electric blue — primary */
+  --si-primary-hover: #0A0054;      /* accent hover */
+  --si-primary-active: #060038;     /* accent active */
+  --si-secondary: #0070FC;          /* electric blue */
+  --si-ai-gradient: linear-gradient(90deg, #0E0071 0%, #0070FC 100%);
+  --si-ai-gradient-warm: linear-gradient(135deg, #0E0071 0%, #0070FC 100%);
+  /* Surface/shimmer ramps live in TOKENS, not class declarations, for a build-tool
+     reason proven in production: esbuild deletes `in oklab` from normal declarations
+     (even inside @supports) but passes custom-property values through verbatim — the
+     gate below can therefore only upgrade these if the classes consume vars. */
+  --ai-surface-grad: linear-gradient(135deg, rgba(14,0,113,.45) 0%, rgba(0,112,252,.20) 100%);
+  --ai-shimmer-grad: linear-gradient(90deg, rgba(14,0,113,.35) 0%, rgba(0,112,252,.55) 50%, rgba(14,0,113,.35) 100%);
+
+  /* ---- ACCESSIBLE TEXT VARIANTS — the brand colours at a readable step -------------
+     The brand palette is fixed (deep indigo #0E0071, electric blue #0070FC, near-white)
+     and it is NOT changed here. But two of those values were carrying TEXT and
+     measured under the 4.5:1 AA floor for normal-size copy:
+
+       #0070FC on white              4.45   #0070FC on #F4FBFF screen   4.25
+       #0070FC on the light tab bar  4.41   #0070FC on #0A0E24 dark     4.29
+       #22D38B (success) on white    1.95   ← unreadable in daylight, and it was the
+                                              colour of Home's KPI VALUES
+
+     So the fix is a pair of TEXT tokens, not a new palette. Fills, solid buttons, chip
+     backgrounds, focus rings, avatars, bars and icons keep the exact brand values (they
+     are graphical objects: WCAG 1.4.11 asks 3:1 of them and #0070FC clears that on every
+     surface here). Only glyphs move onto these.
+
+     Both are derived FROM the brand, not invented next to it:
+       light --si-primary-text  = #0070FC pulled 24% toward the brand indigo #0E0071.
+                                  It is a point on the app's own AI gradient.
+                                  6.31 on card · 6.05 on screen · 5.53 on the 10% blue
+                                  tint · 5.29 on that tint over screen · 6.26 on tab bar
+       dark  --si-primary-text  = #0070FC lifted 36% toward white — the same family as
+                                  the link tint the app already uses (#7BB0FF).
+                                  7.45 on screen · 6.78 on card · 6.64 on sheet · 7.27 on
+                                  tab bar · 6.85 on --bg-subtle
+       light --si-success-text  = the mint #22D38B darkened 44% along its own hue, so it
+                                  still reads as the same accent.
+                                  5.63 on card · 5.40 on screen · 5.24 on its 10% tint
+       dark  --si-success-text  = #22D38B unchanged — on dark it already measures
+                                  9.77 on screen · 8.89 on card · 8.70 on sheet.
+
+       light --si-error-text    = #DC2626 unchanged — on the white sheet/card where the
+                                  form-error copy sits it already clears AA (4.83 on card,
+                                  4.63 on screen). Fills/icons keep #DC2626 everywhere.
+       dark  --si-error-text    = #DC2626 lifted to the Tailwind red-400 step (#F87171),
+                                  the same hue one stop brighter — because #DC2626 as SMALL
+                                  text on dark measured 3.95 on screen · 3.58 on sheet ·
+                                  3.56 on card, an AA fail (it stays #DC2626 for the big
+                                  "Missed" count and every icon, which are large/graphical).
+                                  #F87171 measures 6.89 on screen · 6.26 on sheet · 6.22
+                                  on card.
+     ------------------------------------------------------------------------------- */
+  --si-primary-text: #5CA4FF;       /* dark theme (default block) */
+  --si-success-text: #22D38B;
+  --si-error-text: #F87171;         /* dark theme — see block above */
+  /* The amber the palette never had a readable step for: raw #CA8A04 measures 2.94 on
+     white — under even the 3:1 graphics floor. Same hue family, darkened to text weight
+     in light (#8A5A00 → 5.93/5.67 card/screen); lifted in dark to the step the warm
+     cli-pill band already uses (#FFC061 → 11.77 on screen). */
+  --si-warning-text: #FFC061;
+
+  /* Semantic */
+  --si-success: #16A34A; --si-success-bg: #F0FDF4; --si-success-border: #86EFAC;
+  --si-warning: #CA8A04; --si-warning-bg: #FEFCE8; --si-warning-border: #FDE047;
+  --si-error:   #DC2626; --si-error-bg:   #FEF2F2; --si-error-border:   #FECACA;
+  --si-info:    #1D4ED8; --si-info-bg:    #EFF6FF; --si-info-border:    #BFDBFE;
+  --si-star: #F59E0B; --si-star-empty: #E5E7EB;
+
+  /* DARK theme tokens (alternate — retinted to the SingleInterface brand) */
+  --bg-screen: #0A0E24;
+  --bg-stage: #070A1C;
+  --bg-statusbar-grad: linear-gradient(180deg, rgba(10,14,36,.92) 0%, rgba(10,14,36,.55) 70%, rgba(10,14,36,0) 100%);
+  --bg-tabbar: rgba(12,18,44,.78);
+  --tabbar-hairline: rgba(255,255,255,.06);
+  --bg-card: linear-gradient(180deg, rgba(255,255,255,.045) 0%, rgba(255,255,255,.018) 100%);
+  --bg-card-strong: linear-gradient(180deg, rgba(255,255,255,.07) 0%, rgba(255,255,255,.03) 100%);
+  --bg-sheet: linear-gradient(180deg, rgba(18,26,60,.96) 0%, rgba(10,14,36,.98) 100%);
+  --bg-subtle: rgba(255,255,255,.04);
+  --bg-subtle-strong: rgba(255,255,255,.08);
+  --bg-pill-idle: rgba(255,255,255,.04);
+  --bg-iconbtn: rgba(255,255,255,.05);
+
+  --border-glass: rgba(255,255,255,.08);
+  --border-glass-strong: rgba(255,255,255,.14);
+  --border-subtle: rgba(255,255,255,.10);
+  --border-hairline: rgba(255,255,255,.05);
+
+  /* Text ink ramp — every level here is measured to clear WCAG AA (4.5:1 for body
+     copy, 3:1 for large/UI) against --bg-screen, --bg-card AND --bg-sheet.
+     Dark theme, measured on #0A0E24 / card / sheet:
+       primary   #F4F6FF  17.68 / 16.11 / 15.7
+       secondary #CBD5F0  13.00 / 11.84 / 11.6
+       tertiary  #93A0C8   7.36 /  6.70 /  6.54
+       muted     #8590B8   6.06 /  5.52 /  5.39   (was #64719A → 3.97/3.62, AA fail) */
+  --text-primary: #F4F6FF;
+  --text-secondary: #CBD5F0;
+  --text-tertiary: #93A0C8;
+  --text-muted: #8590B8;
+  --text-on-card: #F4F6FF;
+
+  /* The three muted levels the Tailwind text-white/NN ramp collapses onto.
+     Below AA there is no room for six distinguishable greys, so the low end of
+     the ramp resolves to these three — all of which pass. */
+  --ink-meta: rgba(255,255,255,.58);   /* 6.79 / 6.54 / 6.42 */
+  --ink-faint: rgba(255,255,255,.52);  /* 5.65 / 5.50 / 5.42 */
+  --ink-min: rgba(255,255,255,.48);    /* 4.97 / 4.88 / 4.81 — the AA floor */
+
+  --shadow-card: 0 1px 2px rgba(0,0,0,.4), 0 6px 24px rgba(0,112,252,.12);
+  --shadow-sheet: 0 -20px 60px rgba(0,0,0,.65);
+  --shadow-raised: 0 2px 6px rgba(0,0,0,.35), 0 16px 40px rgba(0,0,0,.45);
+  --screen-wash: radial-gradient(120% 46% at 50% -8%, rgba(0,112,252,.07), transparent 60%);
+
+  --device-shell: linear-gradient(160deg, #14206b 0%, #0A0E24 50%, #0E1140 100%);
+  --device-shadow: 0 30px 90px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.05), inset 0 0 0 2px rgba(255,255,255,.04);
+
+  /* Mobile chrome */
+  --m-statusbar: 44px;
+  --m-navbar: 44px;
+  --m-tabbar: 56px;
+  --m-tabbar-h: 64px;               /* BottomTabBar row height (h-16) */
+  --m-homeind: 34px;
+  --m-fab: 56px;
+  --m-touch-min: 44px;
+  /* Toasts dock ABOVE the tab bar so they can never sit on a screen title or its
+     header controls (both of which live under the 44px status band). */
+  --m-toast-inset: calc(var(--m-tabbar-h) + var(--m-homeind) + 10px);
+  --m-radius-input: 10px;
+  --m-radius-card: 14px;
+  --m-radius-sheet: 20px;
+
+  /* Easing */
+  --m-ease-out: cubic-bezier(.25,.46,.45,.94);
+  --m-ease-in-out: cubic-bezier(.4,0,.2,1);
+  --m-ease-sheet: cubic-bezier(.32,.72,0,1);
+  --m-dur-fast: 160ms;
+  --m-dur-base: 240ms;
+  --m-dur-slow: 320ms;
+
+  /* Layout — the single standard mobile content gutter (Material compact window = 16dp).
+     Every screen's left/right content margin resolves to this. */
+  --m-gutter: 16px;
+
+  /* Material 3 "emphasized" easing — expressive enter/exit motion */
+  --m-ease-emphasized: cubic-bezier(.2, 0, 0, 1);
+  --m-ease-emphasized-accel: cubic-bezier(.3, 0, .8, .15);
+}
+
+/* ===== LIGHT THEME — SingleInterface blue-tinted near-white (DEFAULT) ===== */
+[data-theme="light"] {
+  /* Accessible text variants of the brand blue / success mint — see the block in :root
+     for the derivation and the measured ratios. Fills and icons stay on brand. */
+  --si-primary-text: #0355DB;
+  --si-success-text: #13764E;
+  --si-error-text: #DC2626;       /* light — already clears AA on the white sheet/card */
+  --si-warning-text: #8A5A00;     /* amber at text weight — 5.93 card / 5.67 screen */
+
+  --bg-screen: #F4FBFF;            /* base — blue-tinted near-white */
+  --bg-stage: #EEF2FB;
+  /* Built from --bg-screen's OWN rgb (244,251,255). The status bar fades scrolled content
+     out against the screen, so any drift between these two shows as a visible seam under
+     the clock — change one and you must change the other. */
+  --bg-statusbar-grad: linear-gradient(180deg, rgba(244,251,255,.92) 0%, rgba(244,251,255,.55) 70%, rgba(244,251,255,0) 100%);
+  --bg-tabbar: rgba(255,255,255,.72); /* more translucent — the blur+saturate does the work */
+  --tabbar-hairline: rgba(15,23,42,.08);
+  --bg-card: #FFFFFF;
+  --bg-card-strong: linear-gradient(180deg, #FFFFFF 0%, #F6F9FF 100%);
+  --bg-sheet: #FFFFFF;
+  --bg-subtle: rgba(0,112,252,.05);
+  --bg-subtle-strong: rgba(0,112,252,.10);
+  --bg-pill-idle: #FFFFFF;
+  --bg-iconbtn: #FFFFFF;
+
+  /* Blue-leaning neutrals (same lightness as the grays they replace): on the bluer
+     #F4FBFF field a pure-gray border reads faintly dirty; tinting the border toward the
+     brand hue keeps white cards crisp AND cohesive. */
+  --border-glass: #DEE7F2;
+  --border-glass-strong: #C7D5E8;
+  --border-subtle: #EFF4FA;
+  --border-hairline: rgba(15,23,42,.05);
+
+  /* Light theme, measured on #FFFFFF card / #F4FBFF screen / #F2F7FF tinted subtle:
+       primary   #111827  17.74 / 17.00 / 16.49
+       secondary #374151  10.31 /  9.88 /  9.58
+       tertiary  #5F6878   5.62 /  5.38 /  5.22   (was #6B7280 → 4.83/4.63/4.49, no margin)
+       muted     #69707E   4.98 /  4.77 /  4.63   (was #9CA3AF → 2.54/2.43/2.36, AA fail) */
+  --text-primary: #111827;        /* ink */
+  --text-secondary: #374151;      /* ink2 */
+  --text-tertiary: #5F6878;       /* ink3 */
+  --text-muted: #69707E;
+  --text-on-card: #111827;
+
+  --ink-meta: #5F6878;   /* 5.62 / 5.38 / 5.22 */
+  --ink-faint: #69707E;  /* 4.98 / 4.77 / 4.63 */
+  --ink-min: #69707E;    /* 4.98 / 4.77 / 4.63 — the AA floor */
+
+  /* Two-layer soft depth: a tight contact shadow + a wide brand-tinted ambient. The
+     separation work moves HERE from the card border (which recedes to a hairline in
+     .si-card below) — strokes read hard, diffuse light reads premium. */
+  --shadow-card: 0 1px 2px rgba(16,24,40,.04), 0 6px 16px rgba(0,112,252,.06);
+  --shadow-raised: 0 2px 6px rgba(16,24,40,.05), 0 16px 40px rgba(0,112,252,.10);
+  --shadow-sheet: 0 -18px 60px rgba(15,23,42,.14);
+  /* Ambient light from above — the whisper-strength brand radial every screen sits
+     under. An image layer, so it composites over --bg-screen (see PhoneFrame). */
+  --screen-wash: radial-gradient(120% 46% at 50% -8%, rgba(0,112,252,.045), transparent 60%);
+  --ai-surface-grad: linear-gradient(135deg, rgba(0,112,252,.10) 0%, rgba(14,0,113,.06) 100%);
+  --ai-shimmer-grad: linear-gradient(90deg, rgba(14,0,113,.18) 0%, rgba(0,112,252,.30) 50%, rgba(14,0,113,.18) 100%);
+
+  --device-shell: linear-gradient(160deg, #E3ECFB 0%, #F9FAFD 50%, #DCE7FB 100%);
+  --device-shadow: 0 30px 90px rgba(0,112,252,.20), 0 0 0 1px rgba(15,23,42,.06), inset 0 0 0 2px rgba(255,255,255,.6);
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  /* --font-script is swapped per language (see src/i18n/index.js). Hanken Grotesk has no
+     Indic glyphs, so Devanagari/Tamil/Telugu/etc. fall through to the Noto font we load
+     on demand — without it those scripts render as tofu boxes. */
+  font-family: 'Hanken Grotesk', var(--font-script, 'Hanken Grotesk'), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-feature-settings: 'tnum' 1, 'ss01' 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #050609;
+  color: var(--text-primary);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+input, textarea {
+  user-select: text;
+  -webkit-user-select: text;
+  caret-color: #0070FC;
+}
+
+body {
+  overflow: hidden;
+  background:
+    radial-gradient(1200px 800px at 20% 0%, rgba(14,0,113,.14), transparent 60%),
+    radial-gradient(1200px 800px at 100% 100%, rgba(0,112,252,.10), transparent 60%),
+    var(--bg-stage);
+  transition: background 320ms var(--m-ease-out);
+}
+
+body:has([data-theme="light"]) {
+  background:
+    radial-gradient(1200px 800px at 20% 0%, rgba(0,112,252,.10), transparent 60%),
+    radial-gradient(1200px 800px at 100% 100%, rgba(14,0,113,.06), transparent 60%),
+    var(--bg-stage);
+}
+
+/* ============================================================
+   Mobile type scale — 4pt vertical rhythm.
+
+   EVERY line-height here is an absolute px multiple of 4. That is the whole point:
+   the previous scale used unitless ratios (1.19, 1.47, 1.31…) which computed to
+   38.08px, 22.05px, 17.03px — fractional line boxes that never land on the 8dp/4dp
+   padding grid and blur on non-integer-DPR screens. Ratios also drift: the computed
+   box changes the moment a font-size does, so nothing can be relied on to stack.
+
+   Absolute px, not ratios, and never `em` tracking (which re-derives per size).
+
+   Mapping to the Android/iOS token tables:
+     Display ............ m-largeTitle   32/40 — the welcome hero only, above the scale
+     Page Heading ....... m-title1       28/36 · MD3 Headline Medium · iOS Title 1
+     Card Heading ....... m-title2       22/28 · MD3 Title Large · iOS Title 2
+     Card Sub-heading ... m-subhead      13/20 (see floor note below)
+     Paragraph .......... m-body         16/24 · MD3 Body Large · iOS Body
+     Button Text ........ m-headline     16/24 semibold · iOS Callout (PrimaryButton)
+     Link Text .......... m-body         identical metrics — an inline link that
+                                         re-flows its own line box breaks the grid
+     Pill/Tag/Badge ..... m-micro        12/16 semibold (floor exception, below)
+
+   A page SUBTITLE is m-callout (14/20), not m-body. It is a secondary label; on
+   Paragraph metrics it wraps on every screen and pushes the content down.
+   ============================================================ */
+.m-largeTitle { font-size: 32px; font-weight: 700; line-height: 40px; letter-spacing: -0.5px; }
+.m-title1 { font-size: 28px; font-weight: 700; line-height: 36px; letter-spacing: -0.4px; }
+.m-title2 { font-size: 22px; font-weight: 600; line-height: 28px; letter-spacing: -0.25px; }
+.m-title3 { font-size: 18px; font-weight: 600; line-height: 24px; letter-spacing: -0.2px; }
+.m-headline { font-size: 16px; font-weight: 600; line-height: 24px; letter-spacing: -0.1px; }
+.m-body { font-size: 16px; font-weight: 400; line-height: 24px; letter-spacing: 0.15px; color: var(--text-secondary); }
+.m-callout { font-size: 14px; font-weight: 500; line-height: 20px; letter-spacing: 0.1px; }
+.m-subhead { font-size: 13px; font-weight: 500; line-height: 20px; letter-spacing: 0.1px; color: var(--text-tertiary); }
+/* 13px is the floor for CONTENT text. m-footnote (was 12px) and m-caption (was 11px)
+   both carry real labels — stat captions, meta rows, tab-bar labels — and 11px is not
+   readable one-handed in a bright shop for the 45+ owners this ships to. They keep
+   their distinct weight/tracking so the hierarchy still reads. */
+.m-footnote { font-size: 13px; font-weight: 400; line-height: 20px; color: var(--text-tertiary); }
+.m-caption { font-size: 13px; font-weight: 500; line-height: 16px; letter-spacing: 0.3px; color: var(--text-tertiary); }
+/* The ONLY sub-13px step left, and it is 12px SEMIBOLD (optically ≈ 13px regular):
+   tag text inside fixed-height badges — AI badge, unread count bubbles, intent /
+   source / chance-to-buy pills. Never use it for a sentence or a caption. 11px is
+   gone from the scale entirely. */
+.m-micro { font-size: 12px; font-weight: 600; line-height: 16px; letter-spacing: 0.3px; }
+.m-tabular { font-variant-numeric: tabular-nums; }
+
+/* Glass surfaces — theme-aware */
+.glass {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: var(--shadow-card);
+}
+/* THE CARD SURFACE — the cream. Cards only (inputs and chips keep their visible .glass
+   strokes): the full border recedes to a hairline so the two-layer shadow does the
+   separating, the fill takes a one-step white→#FBFDFF falloff so it reads as material
+   rather than blank white, and pressing settles the shadow — weight you can feel.
+   AA re-measured on the gradient's darkest foot (#FBFDFF): ink 17.40 ·
+   --si-primary-text 6.19 · --si-success-text 5.52 · --si-warning-text 5.81 ·
+   --si-error-text 4.74 · ink-min 4.88 — every floor holds. */
+[data-theme="light"] .si-card {
+  border-color: rgba(20,40,80,.07);
+  background-color: #FFFFFF;
+  background-image: linear-gradient(180deg, #FFFFFF 0%, #FBFDFF 100%);
+  transition:
+    box-shadow var(--m-dur-fast) var(--m-ease-out),
+    transform var(--m-dur-fast) var(--m-ease-emphasized),
+    opacity var(--m-dur-fast) var(--m-ease-out);
+}
+[data-theme="light"] .si-card:active { box-shadow: 0 1px 2px rgba(16,24,40,.05); }
+/* Dark: shadows cannot separate on a dark field, so the card lifts a half-step in fill
+   instead — same idea, different physics. */
+[data-theme="dark"] .si-card {
+  background-image: linear-gradient(180deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,.022) 100%);
+}
+
+.glass-strong {
+  background: var(--bg-card-strong);
+  border: 1px solid var(--border-glass-strong);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+}
+.glass-tabbar {
+  background: var(--bg-tabbar);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-top: 1px solid var(--tabbar-hairline);
+}
+
+/* AI surfaces — indigo → electric-blue, reserved for AI only (§2) */
+.ai-surface {
+  position: relative;
+  background: var(--ai-surface-grad);
+  border: 1px solid rgba(0,112,252,.30);
+  overflow: hidden;
+}
+.ai-surface::before {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  background: radial-gradient(circle at 30% 20%, rgba(14,0,113,.35) 0%, transparent 50%);
+  filter: blur(40px);
+  pointer-events: none;
+  animation: aurora 12s ease-in-out infinite;
+}
+.ai-text {
+  background: linear-gradient(90deg, #BFD7FF 0%, #7BB0FF 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+[data-theme="light"] .ai-text {
+  background: linear-gradient(90deg, #0E0071 0%, #0070FC 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Scrollbar */
+.scroll-y { overflow-y: auto; overflow-x: hidden; }
+.scroll-y::-webkit-scrollbar { width: 0; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+/* Shimmer (loading) */
+.shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,.04) 0%, rgba(255,255,255,.10) 50%, rgba(255,255,255,.04) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+[data-theme="light"] .shimmer {
+  background: linear-gradient(90deg, rgba(15,23,42,.05) 0%, rgba(15,23,42,.10) 50%, rgba(15,23,42,.05) 100%);
+  background-size: 200% 100%;
+}
+
+/* =========================================================
+   LIGHT THEME — Tailwind class overrides
+   The bulk of the app uses Tailwind's text-white/bg-white opacity utilities.
+   In light mode we flip those to ink-on-white equivalents.
+   ========================================================= */
+/* Every step below resolves to an OPAQUE ink that clears AA on card, screen and the
+   tinted --bg-subtle surface. The old ramp faded translucent grey towards white and
+   bottomed out at 2.16:1 (/40) and 1.60:1 (/30) — unreadable in daylight. Six greys
+   cannot all pass AA and stay distinguishable, so the low end deliberately collapses
+   onto the two token levels. Ratios in comments: card / screen / tinted-subtle. */
+[data-theme="light"] .text-white { color: #111827 !important; }
+[data-theme="light"] .text-white\/95 { color: #111827 !important; }           /* 17.74 / 17.00 / 16.49 */
+[data-theme="light"] .text-white\/95 { color: oklch(21.01% 0.0318 264.66) !important; }
+[data-theme="light"] .text-white\/90 { color: #1F2937 !important; }           /* 14.68 / 14.06 / 13.65 */
+[data-theme="light"] .text-white\/90 { color: oklch(27.81% 0.0296 256.85) !important; }
+[data-theme="light"] .text-white\/85 { color: #2F3948 !important; }           /* 11.67 / 11.18 / 10.85 */
+[data-theme="light"] .text-white\/85 { color: oklch(34.19% 0.0297 258.35) !important; }
+[data-theme="light"] .text-white\/80 { color: #374151 !important; }           /* 10.31 /  9.88 /  9.58 */
+[data-theme="light"] .text-white\/80 { color: oklch(37.29% 0.0306 259.73) !important; }
+[data-theme="light"] .text-white\/75 { color: #3B4453 !important; }           /*  9.82 /  9.41 /  9.13 */
+[data-theme="light"] .text-white\/75 { color: oklch(38.46% 0.0283 260.61) !important; }
+[data-theme="light"] .text-white\/70 { color: #434C5C !important; }           /*  8.65 /  8.29 /  8.04 */
+[data-theme="light"] .text-white\/70 { color: oklch(41.49% 0.0293 261.93) !important; }
+[data-theme="light"] .text-white\/65 { color: #47505F !important; }           /*  8.14 /  7.80 /  7.57 */
+[data-theme="light"] .text-white\/65 { color: oklch(42.91% 0.0275 260.64) !important; }
+[data-theme="light"] .text-white\/60 { color: #4B5563 !important; }           /*  7.56 /  7.24 /  7.03 */
+[data-theme="light"] .text-white\/60 { color: oklch(44.61% 0.0263 256.80) !important; }
+[data-theme="light"] .text-white\/55 { color: var(--ink-meta) !important; }   /*  5.62 /  5.38 /  5.22 */
+[data-theme="light"] .text-white\/50 { color: var(--ink-meta) !important; }   /*  5.62 /  5.38 /  5.22 */
+[data-theme="light"] .text-white\/45 { color: var(--ink-faint) !important; }  /*  4.98 /  4.77 /  4.63 */
+[data-theme="light"] .text-white\/40 { color: var(--ink-faint) !important; }  /*  4.98 /  4.77 /  4.63 */
+[data-theme="light"] .text-white\/35 { color: var(--ink-min) !important; }    /*  4.98 /  4.77 /  4.63 */
+[data-theme="light"] .text-white\/30 { color: var(--ink-min) !important; }    /*  4.98 /  4.77 /  4.63 */
+[data-theme="light"] .placeholder\:text-white\/35::placeholder { color: var(--ink-min) !important; }
+[data-theme="light"] .placeholder\:text-white\/40::placeholder { color: var(--ink-min) !important; }
+[data-theme="light"] .placeholder\:text-white\/30::placeholder { color: var(--ink-min) !important; }
+
+/* Dark theme uses Tailwind's raw text-white/NN and its low end fails too
+   (/45 = 4.45:1 on a card, /40 = 3.79:1, /35 = 3.21:1). Same three-level collapse. */
+[data-theme="dark"] .text-white\/55 { color: var(--ink-meta) !important; }    /*  6.79 /  6.54 /  6.42 */
+[data-theme="dark"] .text-white\/50 { color: var(--ink-meta) !important; }    /*  6.79 /  6.54 /  6.42 */
+[data-theme="dark"] .text-white\/45 { color: var(--ink-faint) !important; }   /*  5.65 /  5.50 /  5.42 */
+[data-theme="dark"] .text-white\/40 { color: var(--ink-faint) !important; }   /*  5.65 /  5.50 /  5.42 */
+[data-theme="dark"] .text-white\/35 { color: var(--ink-min) !important; }     /*  4.97 /  4.88 /  4.81 */
+[data-theme="dark"] .text-white\/30 { color: var(--ink-min) !important; }     /*  4.97 /  4.88 /  4.81 */
+[data-theme="dark"] .placeholder\:text-white\/35::placeholder,
+[data-theme="dark"] .placeholder\:text-white\/40::placeholder,
+[data-theme="dark"] .placeholder\:text-white\/30::placeholder { color: var(--ink-min) !important; }
+
+/* =========================================================
+   .on-dark — intentionally dark/colored surfaces (solid buttons, avatars,
+   the AI copilot, the in-call screen, post previews). Their white text must
+   stay white in BOTH themes. Declared AFTER the light overrides so it wins.
+   ========================================================= */
+.on-dark .text-white, .on-dark.text-white { color: #fff !important; }
+.on-dark .text-white\/95 { color: rgba(255,255,255,.95) !important; }
+.on-dark .text-white\/90 { color: rgba(255,255,255,.90) !important; }
+.on-dark .text-white\/85 { color: rgba(255,255,255,.85) !important; }
+.on-dark .text-white\/80 { color: rgba(255,255,255,.80) !important; }
+.on-dark .text-white\/75 { color: rgba(255,255,255,.75) !important; }
+.on-dark .text-white\/70 { color: rgba(255,255,255,.70) !important; }
+.on-dark .text-white\/65 { color: rgba(255,255,255,.65) !important; }
+.on-dark .text-white\/60 { color: rgba(255,255,255,.60) !important; }
+/* Low end raised to the same AA floor: on the darkest branded surface (#0E0071) the
+   old .45 measured 3.91:1; .62 measures 6.63:1. */
+.on-dark .text-white\/55 { color: rgba(255,255,255,.70) !important; }
+.on-dark .text-white\/50 { color: rgba(255,255,255,.66) !important; }
+.on-dark .text-white\/45 { color: rgba(255,255,255,.62) !important; }
+.on-dark .text-white\/40 { color: rgba(255,255,255,.62) !important; }
+.on-dark .text-white\/35,
+.on-dark .text-white\/30 { color: rgba(255,255,255,.60) !important; }
+.on-dark .placeholder\:text-white\/40::placeholder,
+.on-dark .placeholder\:text-white\/35::placeholder,
+.on-dark .placeholder\:text-white\/30::placeholder { color: rgba(255,255,255,.62) !important; }
+
+/* =========================================================
+   BRAND COLOURS THAT CARRY TEXT → the accessible variants.
+   One rule per literal, so a screen written as `text-[#22D38B]` picks up the readable
+   step in BOTH themes without any screen being restyled. The literals stay exactly
+   where they are for fills, bars, borders and icons — this only repaints glyphs.
+   (Inline `style={{ color: … }}` cannot be reached from here; those call sites use
+   var(--si-primary-text) / var(--si-success-text) directly.)
+   ========================================================= */
+.text-\[\#22D38B\], .text-\[\#7BE3B2\], .text-\[\#16A34A\] { color: var(--si-success-text) !important; }
+.text-\[\#7BB0FF\] { color: var(--si-primary-text) !important; }
+/* The salmon negative accent is a DARK-theme colour (2.60 on a white card). It keeps its
+   glow in dark and takes the readable red step in light — same rule shape as above but
+   scoped, because in dark the literal already clears AA. */
+[data-theme="light"] .text-\[\#FF6B7E\] { color: var(--si-error-text) !important; }
+/* Missed/error red as TEXT. The literal `text-[#DC2626]` class only ever carries the small
+   form-error copy (never an icon or the large "Missed" count — those set #DC2626 inline and
+   are large/graphical), so routing just the class through the token fixes the dark-theme
+   small-text fail without touching a single fill. */
+.text-\[\#DC2626\] { color: var(--si-error-text) !important; }
+/* …except on an intentionally dark/branded surface, where the dark-theme tint is the
+   correct one in both themes (same carve-out the .on-dark ink ramp above makes). */
+.on-dark .text-\[\#22D38B\], .on-dark .text-\[\#7BE3B2\] { color: #7BE3B2 !important; }
+.on-dark .text-\[\#7BB0FF\] { color: #BFD7FF !important; }
+
+/* Backgrounds */
+[data-theme="light"] .bg-white\/5 { background: rgba(15,23,42,.04) !important; }
+[data-theme="light"] .bg-white\/8 { background: rgba(15,23,42,.06) !important; }
+[data-theme="light"] .bg-white\/10 { background: rgba(15,23,42,.08) !important; }
+[data-theme="light"] .bg-white\/12 { background: rgba(15,23,42,.10) !important; }
+[data-theme="light"] .bg-white\/16 { background: rgba(15,23,42,.10) !important; }
+[data-theme="light"] .bg-\[\#06070D\] { background: var(--bg-screen) !important; }
+
+/* Borders */
+[data-theme="light"] .border-white\/5 { border-color: rgba(15,23,42,.06) !important; }
+[data-theme="light"] .border-white\/8 { border-color: rgba(15,23,42,.08) !important; }
+[data-theme="light"] .border-white\/10 { border-color: rgba(15,23,42,.10) !important; }
+[data-theme="light"] .border-t-white\/5 { border-top-color: rgba(15,23,42,.06) !important; }
+[data-theme="light"] .border-b-white\/5 { border-bottom-color: rgba(15,23,42,.06) !important; }
+
+/* Stat dividers and arbitrary hex */
+[data-theme="light"] .bg-white\/35 { background: rgba(15,23,42,.30) !important; }
+[data-theme="light"] .bg-white\/20 { background: rgba(15,23,42,.18) !important; }
+[data-theme="light"] .bg-white\/15 { background: rgba(15,23,42,.14) !important; }
+[data-theme="light"] .bg-white\/85 { background: rgba(15,23,42,.6) !important; }
+
+/* OTP boxes adapt */
+[data-theme="light"] .otp-box {
+  background: rgba(15,23,42,.03);
+  border-color: rgba(15,23,42,.12);
+  color: #111827;
+}
+[data-theme="light"] .otp-box.filled {
+  background: rgba(0,112,252,.08);
+  border-color: rgba(0,112,252,.55);
+}
+
+/* Subtle utility tints that map fine */
+[data-theme="light"] .bg-\[\#05060B\],
+[data-theme="light"] .bg-\[\#080912\] { background: var(--bg-screen) !important; }
+
+/* Status bar adapts */
+[data-theme="light"] .si-statusbar { background: var(--bg-statusbar-grad) !important; }
+[data-theme="light"] .si-statusbar svg,
+[data-theme="light"] .si-statusbar span { color: rgba(15,23,42,.85) !important; }
+
+/* Inline rgba surface remap via shared utility */
+.surface-sub { background: var(--bg-subtle); border: 1px solid var(--border-glass); }
+.surface-icon { background: var(--bg-iconbtn); border: 1px solid var(--border-glass); }
+
+/* Sheet scrim — dimmer in dark, lighter in light */
+.sheet-scrim { background: rgba(2,3,8,.65); }
+[data-theme="light"] .sheet-scrim { background: rgba(15,23,42,.30); }
+
+/* Intent pill colors — semantic (§7 tags) */
+.intent-pill[data-level="high"] { color: #FF8794; }
+.intent-pill[data-level="medium"] { color: #FFC061; }
+.intent-pill[data-level="low"] { color: #A6ACC4; }
+[data-theme="light"] .intent-pill[data-level="high"] { color: #DC2626; }
+[data-theme="light"] .intent-pill[data-level="medium"] { color: #CA8A04; }
+[data-theme="light"] .intent-pill[data-level="low"] { color: #6B7280; }
+
+/* Source chip — deep-indigo ink in light, blue-tint in dark */
+.source-chip { color: var(--src-text, #7BB0FF); }
+[data-theme="light"] .source-chip { color: #0E0071; }
+
+/* AI surface — softer wash in light mode */
+[data-theme="light"] .ai-surface {
+  background: var(--ai-surface-grad);
+  border: 1px solid rgba(0,112,252,.22);
+}
+[data-theme="light"] .ai-surface::before {
+  background: radial-gradient(circle at 30% 20%, rgba(0,112,252,.18) 0%, transparent 50%);
+}
+
+/* CLI score — color band (chance-to-buy) */
+.cli-pill { font-variant-numeric: tabular-nums; font-weight: 700; }
+.cli-pill[data-band="hot"]   { color: #C2410C; background: rgba(249,115,22,.12); border: 1px solid rgba(249,115,22,.30); }
+.cli-pill[data-band="warm"]  { color: #B45309; background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.30); }
+.cli-pill[data-band="cool"]  { color: #0E0071; background: rgba(0,112,252,.10); border: 1px solid rgba(0,112,252,.25); }
+.cli-pill[data-band="cold"]  { color: #4B5563; background: rgba(107,114,128,.10); border: 1px solid rgba(107,114,128,.25); }
+[data-theme="dark"] .cli-pill[data-band="hot"]   { color: #FFB088; }
+[data-theme="dark"] .cli-pill[data-band="warm"]  { color: #FFC061; }
+[data-theme="dark"] .cli-pill[data-band="cool"]  { color: #7BB0FF; }
+[data-theme="dark"] .cli-pill[data-band="cold"]  { color: #A6ACC4; }
+
+/* AI shimmer (used while Gemini is generating) */
+.ai-shimmer {
+  background: var(--ai-shimmer-grad);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+[data-theme="light"] .ai-shimmer {
+  background: var(--ai-shimmer-grad);
+  background-size: 200% 100%;
+}
+
+/* Press feedback — Material emphasized spring-out */
+.press {
+  transition: transform var(--m-dur-fast) var(--m-ease-emphasized), opacity var(--m-dur-fast) var(--m-ease-out);
+}
+.press:active { transform: scale(0.96); opacity: .92; }
+
+/* Material 3 state layer — the on-surface hover/press overlay for interactive controls.
+   Applied to leaf buttons/chips only (see UI.jsx). Overlay inherits the host's radius,
+   so no overflow clipping is needed and no stacking context is forced onto containers. */
+.md-state { position: relative; }
+.md-state::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--m-dur-fast) var(--m-ease-out);
+}
+@media (hover: hover) { .md-state:hover::after { opacity: .06; } }
+.md-state:active::after { opacity: .12; }
+
+/* ≥44px touch target (--m-touch-min) WITHOUT inflating the visual box.
+   Put it on any compact interactive element whose layout cannot grow; the
+   ::before expands the hit area symmetrically past the painted bounds.
+   (UI.jsx's Chip/IconBtn instead grow their real box, so the 44px is
+   measurable in the DOM — use this only where that would break a layout.) */
+.tap-target { position: relative; }
+.tap-target::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: max(100%, var(--m-touch-min));
+  height: max(100%, var(--m-touch-min));
+}
+
+/* Standard content gutter utility — the mobile-first left/right screen margin */
+.px-gutter { padding-left: var(--m-gutter); padding-right: var(--m-gutter); }
+.-mx-gutter { margin-left: calc(var(--m-gutter) * -1); margin-right: calc(var(--m-gutter) * -1); }
+
+/* Phone frame container — sized for typical desktop preview */
+.phone-stage {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+@media (max-width: 480px) {
+  .phone-stage { padding: 0; align-items: stretch; }
+}
+
+/* Lock noisy callouts */
+button { -webkit-appearance: none; appearance: none; background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+
+/* Hide native number arrows */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* Focus visible */
+:focus-visible { outline: 2px solid #0070FC; outline-offset: 2px; border-radius: 6px; }
+/* Text fields: the blinking blue caret is the focus cue — no outline/border on focus.
+   (Buttons/links keep their focus ring for accessibility.) */
+input:focus, input:focus-visible,
+textarea:focus, textarea:focus-visible { outline: none; }
+
+/* OTP boxes */
+.otp-box {
+  width: 44px; height: 56px;
+  background: rgba(255,255,255,.04);
+  border: 1.5px solid rgba(255,255,255,.10);
+  border-radius: 10px;
+  text-align: center;
+  font-size: 22px; font-weight: 600;
+  color: var(--text-primary);
+  caret-color: #0070FC;
+}
+.otp-box:focus { border-color: #0070FC; box-shadow: 0 0 0 4px rgba(0,112,252,.18); outline: none; }
+.otp-box.filled { background: rgba(0,112,252,.10); border-color: rgba(0,112,252,.55); }
+
+/* Spinner */
+.spin {
+  width: 16px; height: 16px;
+  border: 2px solid rgba(0,112,252,.18);
+  border-top-color: #0070FC;
+  border-radius: 999px;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Typing dots */
+.typing-dot {
+  width: 6px; height: 6px; border-radius: 999px;
+  background: rgba(123,176,255,.9);
+  animation: typing 1.2s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: .15s; }
+.typing-dot:nth-child(3) { animation-delay: .3s; }
+@keyframes typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: .5; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* =========================================================
+   RESPONSIVE FRAME — real phones (<640px) get the app
+   edge-to-edge; desktop/tablet (≥640px) keeps the decorative
+   390×844 device frame on the dark stage.
+   (PhoneFrame.jsx mirrors the 640px breakpoint for its
+   scale-down math; keep the two in sync.)
+   ========================================================= */
+
+/* No rubber-band/pull-to-refresh stealing the fixed app layout;
+   no iOS font inflation on rotate. */
+html, body { overscroll-behavior: none; }
+html { -webkit-text-size-adjust: 100%; }
+
+/* Prefer dynamic viewport height where supported — on iOS Safari 100vh
+   includes the collapsed toolbar area and would hide the tab bar. */
+.phone-stage { height: 100vh; height: 100dvh; }
+
+/* --- Desktop/tablet default: fixed iPhone 14/15 logical canvas.
+       flex:none stops the stage's flexbox from squishing it on short
+       viewports — PhoneFrame scales it down uniformly instead. --- */
+.si-device { width: 390px; height: 844px; flex: none; }
+.si-shell {
+  inset: 0;
+  border-radius: 52px;
+  background: var(--device-shell);
+  box-shadow: var(--device-shadow);
+}
+.si-screen {
+  inset: 6px;
+  border-radius: 46px;
+  background: var(--bg-screen);
+  isolation: isolate; /* keep the app's z-order (sheets/toasts) inside the screen */
+}
+
+/* --- Real phones: fill the viewport, drop all device art --- */
+@media (max-width: 639.98px) {
+  .phone-stage { display: block; padding: 0; }
+  .si-device {
+    width: 100%;
+    height: 100vh;  /* fallback for browsers without dvh */
+    height: 100dvh; /* tracks mobile browser chrome so the tab bar stays visible */
+    transform: none !important; /* mobile layout is fluid — never scaled */
+  }
+  .si-shell {
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--bg-screen); /* any safe-area strip above the app matches the app bg */
+  }
+  .si-screen {
+    border-radius: 0;
+    inset: 0;
+    /* Respect a real notch (standalone / landscape): start the app box below
+       it so the 44px status band isn't doubled under the OS status bar.
+       In a normal portrait browser tab these are 0 → truly full-bleed. */
+    top: env(safe-area-inset-top, 0px);
+    left: env(safe-area-inset-left, 0px);
+    right: env(safe-area-inset-right, 0px);
+  }
+  /* Fake hardware (9:41 clock, dynamic island, battery icons, home-indicator
+     bar, stage glow) reads as a glitch on a real phone — hide it. The 44px
+     status BAND itself stays, so every screen's top-[44px] layout holds. */
+  .si-frame-decor { display: none; }
+  /* The 34px home-indicator inset built into the tab bar & sheets doubles as
+     real home-indicator clearance; grow it if the device asks for more. */
+  :root { --m-homeind: max(34px, env(safe-area-inset-bottom, 0px)); }
+}
+
+/* ===== MODERN LAYER LAST — cascade order is the mechanism =====
+   These gates re-declare tokens and class paints 1:1 in modern colour syntax. They
+   sit at the END of the sheet because same-specificity CSS resolves by source order:
+   placed any earlier, the legacy declarations below them would win and silently undo
+   the modern layer (caught live: .ai-surface stayed sRGB until this move). */
+
+/* Why the token gate exists:
+   Custom properties cannot use the plain double-declaration fallback: any value is
+   "valid" for a --token, so the last declaration always wins and a legacy browser
+   would receive the oklch text only to fail at var() substitution. Gating the oklch
+   re-declarations here restores real fallback semantics: legacy engines never enter
+   this block and keep the hex tokens above; modern engines override them 1:1 with
+   the byte-identical oklch values (proven by round-trip assertion + pixel audit).
+   Plain declarations (.cli-pill etc.) keep their inline twins — parse-time
+   validation makes those safe everywhere. */
+@supports (color: oklch(50% 0.1 200)) {
+  :root {
+    --si-primary-deep: oklch(25.44% 0.1675 269.46);
+    --si-primary-accent: oklch(58.03% 0.2256 259.06);
+    --si-primary-hover: oklch(20.82% 0.1354 270.88);
+    --si-primary-active: oklch(16.07% 0.1027 272.97);
+    --si-secondary: oklch(58.03% 0.2256 259.06);
+    --si-primary-text: oklch(71.26% 0.1522 255.23);
+    --si-success-text: oklch(76.71% 0.1696 159.08);
+    --si-error-text: oklch(71.06% 0.1661 22.22);
+    --si-warning-text: oklch(84.74% 0.1329 75.46);
+    --si-success: oklch(62.71% 0.1699 149.21); --si-success-bg: oklch(98.19% 0.0181 155.83); --si-success-border: oklch(87.12% 0.1363 154.45);
+    --si-warning: oklch(68.06% 0.1423 75.83); --si-warning-bg: oklch(98.73% 0.0262 102.21); --si-warning-border: oklch(90.52% 0.1657 98.11);
+    --si-error: oklch(57.71% 0.2152 27.33); --si-error-bg: oklch(97.05% 0.0129 17.38); --si-error-border: oklch(88.45% 0.0593 18.33);
+    --si-info: oklch(48.82% 0.2172 264.38); --si-info-bg: oklch(97.05% 0.0142 254.60); --si-info-border: oklch(88.23% 0.0571 254.13);
+    --si-star: oklch(76.86% 0.1647 70.08); --si-star-empty: oklch(92.76% 0.0058 264.53);
+    --bg-screen: oklch(17.42% 0.0457 273.03);
+    --bg-stage: oklch(15.33% 0.0386 273.16);
+    --bg-tabbar: oklch(19.33% 0.0529 270.95 / .78);
+    --tabbar-hairline: oklch(100.00% 0.0000 0 / .06);
+    --bg-subtle: oklch(100.00% 0.0000 0 / .04);
+    --bg-subtle-strong: oklch(100.00% 0.0000 0 / .08);
+    --bg-pill-idle: oklch(100.00% 0.0000 0 / .04);
+    --bg-iconbtn: oklch(100.00% 0.0000 0 / .05);
+    --border-glass: oklch(100.00% 0.0000 0 / .08);
+    --border-glass-strong: oklch(100.00% 0.0000 0 / .14);
+    --border-subtle: oklch(100.00% 0.0000 0 / .10);
+    --border-hairline: oklch(100.00% 0.0000 0 / .05);
+    --text-primary: oklch(97.42% 0.0122 276.10);
+    --text-secondary: oklch(87.38% 0.0389 269.43);
+    --text-tertiary: oklch(70.97% 0.0604 270.76);
+    --text-muted: oklch(65.91% 0.0610 272.67);
+    --text-on-card: oklch(97.42% 0.0122 276.10);
+    --ink-meta: oklch(100.00% 0.0000 0 / .58);
+    --ink-faint: oklch(100.00% 0.0000 0 / .52);
+    --ink-min: oklch(100.00% 0.0000 0 / .48);
+    --shadow-card: 0 1px 2px oklch(0.00% 0.0000 0 / .4), 0 6px 24px oklch(58.03% 0.2256 259.06 / .12);
+    --shadow-sheet: 0 -20px 60px oklch(0.00% 0.0000 0 / .65);
+    --shadow-raised: 0 2px 6px oklch(0.00% 0.0000 0 / .35), 0 16px 40px oklch(0.00% 0.0000 0 / .45);
+    --device-shadow: 0 30px 90px oklch(0.00% 0.0000 0 / .55), 0 0 0 1px oklch(100.00% 0.0000 0 / .05), inset 0 0 0 2px oklch(100.00% 0.0000 0 / .04);
+  }
+  [data-theme="light"] {
+    --si-primary-text: oklch(49.98% 0.2161 261.22);
+    --si-success-text: oklch(50.20% 0.1074 159.99);
+    --si-error-text: oklch(57.71% 0.2152 27.33);
+    --si-warning-text: oklch(50.78% 0.1080 73.30);
+    --bg-screen: oklch(98.40% 0.0092 232.36);
+    --bg-stage: oklch(96.07% 0.0128 266.70);
+    --bg-tabbar: oklch(100.00% 0.0000 0 / .72);
+    --tabbar-hairline: oklch(20.77% 0.0398 265.75 / .08);
+    --bg-card: oklch(100.00% 0.0000 0);
+    --bg-sheet: oklch(100.00% 0.0000 0);
+    --bg-subtle: oklch(58.03% 0.2256 259.06 / .05);
+    --bg-subtle-strong: oklch(58.03% 0.2256 259.06 / .10);
+    --bg-pill-idle: oklch(100.00% 0.0000 0);
+    --bg-iconbtn: oklch(100.00% 0.0000 0);
+    --border-glass: oklch(92.44% 0.0178 253.34);
+    --border-glass-strong: oklch(86.83% 0.0304 256.02);
+    --border-subtle: oklch(96.51% 0.0097 252.81);
+    --border-hairline: oklch(20.77% 0.0398 265.75 / .05);
+    --text-primary: oklch(21.01% 0.0318 264.66);
+    --text-secondary: oklch(37.29% 0.0306 259.73);
+    --text-tertiary: oklch(51.54% 0.0277 262.00);
+    --text-muted: oklch(54.41% 0.0234 264.36);
+    --text-on-card: oklch(21.01% 0.0318 264.66);
+    --ink-meta: oklch(51.54% 0.0277 262.00);
+    --ink-faint: oklch(54.41% 0.0234 264.36);
+    --ink-min: oklch(54.41% 0.0234 264.36);
+    --shadow-card: 0 1px 2px oklch(20.99% 0.0341 263.44 / .04), 0 6px 16px oklch(58.03% 0.2256 259.06 / .06);
+    --shadow-raised: 0 2px 6px oklch(20.99% 0.0341 263.44 / .05), 0 16px 40px oklch(58.03% 0.2256 259.06 / .10);
+    --shadow-sheet: 0 -18px 60px oklch(20.77% 0.0398 265.75 / .14);
+    --device-shadow: 0 30px 90px oklch(58.03% 0.2256 259.06 / .20), 0 0 0 1px oklch(20.77% 0.0398 265.75 / .06), inset 0 0 0 2px oklch(100.00% 0.0000 0 / .6);
+  }
+  /* class-rule colour twins — moved out of the ungated sheet: the minifier collapses in-rule twins */
+  html, body, #root { background: oklch(12.23% 0.0085 268.08); }
+  input, textarea { caret-color: oklch(58.03% 0.2256 259.06); }
+  [data-theme="light"] .si-card { border-color: oklch(28.46% 0.0778 262.54 / .07); }
+  [data-theme="light"] .si-card { background-color: oklch(100.00% 0.0000 0); }
+  [data-theme="light"] .si-card:active { box-shadow: 0 1px 2px oklch(20.99% 0.0341 263.44 / .05); }
+  .ai-surface { border: 1px solid oklch(58.03% 0.2256 259.06 / .30); }
+  [data-theme="light"] .text-white { color: oklch(21.01% 0.0318 264.66) !important; }
+  .on-dark .text-white, .on-dark.text-white { color: oklch(100.00% 0.0000 0) !important; }
+  .on-dark .text-white\/95 { color: oklch(100.00% 0.0000 0 / .95) !important; }
+  .on-dark .text-white\/90 { color: oklch(100.00% 0.0000 0 / .90) !important; }
+  .on-dark .text-white\/85 { color: oklch(100.00% 0.0000 0 / .85) !important; }
+  .on-dark .text-white\/80 { color: oklch(100.00% 0.0000 0 / .80) !important; }
+  .on-dark .text-white\/75 { color: oklch(100.00% 0.0000 0 / .75) !important; }
+  .on-dark .text-white\/70 { color: oklch(100.00% 0.0000 0 / .70) !important; }
+  .on-dark .text-white\/65 { color: oklch(100.00% 0.0000 0 / .65) !important; }
+  .on-dark .text-white\/60 { color: oklch(100.00% 0.0000 0 / .60) !important; }
+  .on-dark .text-white\/55 { color: oklch(100.00% 0.0000 0 / .70) !important; }
+  .on-dark .text-white\/50 { color: oklch(100.00% 0.0000 0 / .66) !important; }
+  .on-dark .text-white\/45 { color: oklch(100.00% 0.0000 0 / .62) !important; }
+  .on-dark .text-white\/40 { color: oklch(100.00% 0.0000 0 / .62) !important; }
+  .on-dark .text-white\/30 { color: oklch(100.00% 0.0000 0 / .60) !important; }
+  .on-dark .placeholder\:text-white\/30::placeholder { color: oklch(100.00% 0.0000 0 / .62) !important; }
+  .on-dark .text-\[\#22D38B\], .on-dark .text-\[\#7BE3B2\] { color: oklch(83.96% 0.1206 161.80) !important; }
+  .on-dark .text-\[\#7BB0FF\] { color: oklch(87.46% 0.0614 260.62) !important; }
+  [data-theme="light"] .bg-white\/5 { background: oklch(20.77% 0.0398 265.75 / .04) !important; }
+  [data-theme="light"] .bg-white\/8 { background: oklch(20.77% 0.0398 265.75 / .06) !important; }
+  [data-theme="light"] .bg-white\/10 { background: oklch(20.77% 0.0398 265.75 / .08) !important; }
+  [data-theme="light"] .bg-white\/12 { background: oklch(20.77% 0.0398 265.75 / .10) !important; }
+  [data-theme="light"] .bg-white\/16 { background: oklch(20.77% 0.0398 265.75 / .10) !important; }
+  [data-theme="light"] .border-white\/5 { border-color: oklch(20.77% 0.0398 265.75 / .06) !important; }
+  [data-theme="light"] .border-white\/8 { border-color: oklch(20.77% 0.0398 265.75 / .08) !important; }
+  [data-theme="light"] .border-white\/10 { border-color: oklch(20.77% 0.0398 265.75 / .10) !important; }
+  [data-theme="light"] .border-t-white\/5 { border-top-color: oklch(20.77% 0.0398 265.75 / .06) !important; }
+  [data-theme="light"] .border-b-white\/5 { border-bottom-color: oklch(20.77% 0.0398 265.75 / .06) !important; }
+  [data-theme="light"] .bg-white\/35 { background: oklch(20.77% 0.0398 265.75 / .30) !important; }
+  [data-theme="light"] .bg-white\/20 { background: oklch(20.77% 0.0398 265.75 / .18) !important; }
+  [data-theme="light"] .bg-white\/15 { background: oklch(20.77% 0.0398 265.75 / .14) !important; }
+  [data-theme="light"] .bg-white\/85 { background: oklch(20.77% 0.0398 265.75 / .6) !important; }
+  [data-theme="light"] .otp-box { background: oklch(20.77% 0.0398 265.75 / .03); }
+  [data-theme="light"] .otp-box { border-color: oklch(20.77% 0.0398 265.75 / .12); }
+  [data-theme="light"] .otp-box { color: oklch(21.01% 0.0318 264.66); }
+  [data-theme="light"] .otp-box.filled { background: oklch(58.03% 0.2256 259.06 / .08); }
+  [data-theme="light"] .otp-box.filled { border-color: oklch(58.03% 0.2256 259.06 / .55); }
+  [data-theme="light"] .si-statusbar span { color: oklch(20.77% 0.0398 265.75 / .85) !important; }
+  .sheet-scrim { background: oklch(9.91% 0.0181 269.89 / .65); }
+  [data-theme="light"] .sheet-scrim { background: oklch(20.77% 0.0398 265.75 / .30); }
+  .intent-pill[data-level="high"] { color: oklch(75.93% 0.1457 14.33); }
+  .intent-pill[data-level="medium"] { color: oklch(84.74% 0.1329 75.46); }
+  .intent-pill[data-level="low"] { color: oklch(74.75% 0.0351 274.41); }
+  [data-theme="light"] .intent-pill[data-level="high"] { color: oklch(57.71% 0.2152 27.33); }
+  [data-theme="light"] .intent-pill[data-level="medium"] { color: oklch(68.06% 0.1423 75.83); }
+  [data-theme="light"] .intent-pill[data-level="low"] { color: oklch(55.10% 0.0234 264.36); }
+  .source-chip { color: var(--src-text, oklch(75.26% 0.1278 258.16)); }
+  [data-theme="light"] .source-chip { color: oklch(25.44% 0.1675 269.46); }
+  [data-theme="light"] .ai-surface { border: 1px solid oklch(58.03% 0.2256 259.06 / .22); }
+  .cli-pill[data-band="hot"] { color: oklch(55.34% 0.1739 38.40); background: oklch(70.49% 0.1867 47.60 / .12); border: 1px solid oklch(70.49% 0.1867 47.60 / .30); }
+  .cli-pill[data-band="warm"] { color: oklch(55.53% 0.1455 49.00); background: oklch(76.86% 0.1647 70.08 / .12); border: 1px solid oklch(76.86% 0.1647 70.08 / .30); }
+  .cli-pill[data-band="cool"] { color: oklch(25.44% 0.1675 269.46); background: oklch(58.03% 0.2256 259.06 / .10); border: 1px solid oklch(58.03% 0.2256 259.06 / .25); }
+  .cli-pill[data-band="cold"] { color: oklch(44.61% 0.0263 256.80); background: oklch(55.10% 0.0234 264.36 / .10); border: 1px solid oklch(55.10% 0.0234 264.36 / .25); }
+  [data-theme="dark"] .cli-pill[data-band="hot"] { color: oklch(82.39% 0.1072 47.63); }
+  [data-theme="dark"] .cli-pill[data-band="warm"] { color: oklch(84.74% 0.1329 75.46); }
+  [data-theme="dark"] .cli-pill[data-band="cool"] { color: oklch(75.26% 0.1278 258.16); }
+  [data-theme="dark"] .cli-pill[data-band="cold"] { color: oklch(74.75% 0.0351 274.41); }
+  :focus-visible { outline: 2px solid oklch(58.03% 0.2256 259.06); }
+  .otp-box { background: oklch(100.00% 0.0000 0 / .04); }
+  .otp-box { border: 1.5px solid oklch(100.00% 0.0000 0 / .10); }
+  .otp-box { caret-color: oklch(58.03% 0.2256 259.06); }
+  .otp-box:focus { border-color: oklch(58.03% 0.2256 259.06); box-shadow: 0 0 0 4px oklch(58.03% 0.2256 259.06 / .18); }
+  .otp-box.filled { background: oklch(58.03% 0.2256 259.06 / .10); border-color: oklch(58.03% 0.2256 259.06 / .55); }
+  .spin { border: 2px solid oklch(58.03% 0.2256 259.06 / .18); }
+  .spin { border-top-color: oklch(58.03% 0.2256 259.06); }
+  .typing-dot { background: oklch(75.26% 0.1278 258.16 / .9); }
+}
+
+/* Brand gradient, perceptual ramp (approved): the SAME two brand stops, interpolated
+   in OKLab so the indigo→blue journey stays even instead of dipping through the
+   darker sRGB mid-zone. Own gate: Safari 15.4-16.1 parses oklch() colours but not
+   `in oklab` gradient syntax, so the colour gate above is not strict enough. */
+@supports (background: linear-gradient(in oklab, red, blue)) {
+  /* CUSTOM PROPERTIES ONLY in this gate — the production finding: esbuild deletes
+     `in oklab` from normal declarations wherever they sit, but passes custom-property
+     values through verbatim. Tokens are the one vehicle that survives the toolchain. */
+  :root {
+    --si-ai-gradient: linear-gradient(90deg in oklab, #0E0071 0%, #0070FC 100%);
+    --si-ai-gradient-warm: linear-gradient(135deg in oklab, #0E0071 0%, #0070FC 100%);
+    --ai-surface-grad: linear-gradient(135deg in oklab, rgba(14,0,113,.45) 0%, rgba(0,112,252,.20) 100%);
+    --ai-shimmer-grad: linear-gradient(90deg in oklab, rgba(14,0,113,.35) 0%, rgba(0,112,252,.55) 50%, rgba(14,0,113,.35) 100%);
+  }
+  [data-theme="light"] {
+    --ai-surface-grad: linear-gradient(135deg in oklab, rgba(0,112,252,.10) 0%, rgba(14,0,113,.06) 100%);
+    --ai-shimmer-grad: linear-gradient(90deg in oklab, rgba(14,0,113,.18) 0%, rgba(0,112,252,.30) 50%, rgba(14,0,113,.18) 100%);
+  }
+}

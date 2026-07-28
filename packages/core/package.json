@@ -1,0 +1,25 @@
+{
+  "name": "@connect/core",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./analytics.js": "./analytics.js",
+    "./env.js": "./env.js",
+    "./events.js": "./events.js",
+    "./storage.js": "./storage.js",
+    "./data/hydrate.js": "./data/hydrate.js",
+    "./i18n/languages.js": "./i18n/languages.js",
+    "./locales/index.js": "./locales/index.js",
+    "./locales/en/common.json": "./locales/en/common.json"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.7",
+    "i18next": "^26.3.6"
+  }
+}

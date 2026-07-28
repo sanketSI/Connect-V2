@@ -1,0 +1,5 @@
+{
+  "installCommand": "npm install",
+  "buildCommand": "npm run lint && npm test && node scripts/i18n-lint.mjs && npm run build --workspace apps/web",
+  "outputDirectory": "apps/web/dist"
+}

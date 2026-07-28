@@ -1,0 +1,25 @@
+# dependencies / build
+node_modules/
+dist/
+
+# secrets — env files never leave this machine
+.env
+.env.*
+!.env.example
+
+# OS / editor noise
+.DS_Store
+*.log
+
+# local tool state
+.claude/settings.local.json
+
+# generated review artifacts (rebuild with npm run capture:screens / review:doc)
+screenshots/
+SingleInterface-screens.zip
+SingleInterface-Screen-Review.docx
+
+# CI workflow is written but cannot be pushed until the GitHub token
+# has `workflow` scope: run `gh auth refresh -s workflow`, then remove
+# these two lines and commit .github/workflows/ci.yml.
+.github/workflows/

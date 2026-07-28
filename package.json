@@ -1,0 +1,31 @@
+{
+  "name": "connect-v2",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w apps/web",
+    "build": "npm run build -w apps/web",
+    "preview": "npm run preview -w apps/web",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "capture:screens": "node scripts/capture-screens.mjs",
+    "review:doc": "node scripts/build-review-doc.cjs",
+    "i18n:lint": "node scripts/i18n-lint.mjs",
+    "gen:locale-index": "node scripts/gen-locale-index.mjs",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "docx": "^9.7.1",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^17.8.0",
+    "puppeteer-core": "^25.3.0",
+    "vitest": "^2.1.9"
+  },
+  "description": "Connect V2 \u2014 the MVP launch scope: leads from every source, one lifecycle, multi-location roll-up."
+}
