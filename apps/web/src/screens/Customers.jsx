@@ -44,7 +44,10 @@ const STORE = getCurrentUser().store
 // ============================================================
 
 /** The masked forms that more than one customer answers to — the collision set. */
-function collidingMasks(list) {
+// Exported with the card: two customers whose masked digits end the same way is a
+// warning the card renders, and a book that shows the card without it would be quietly
+// dropping the caution.
+export function collidingMasks(list) {
   const seen = new Map()
   for (const c of list) seen.set(c.masked, (seen.get(c.masked) || 0) + 1)
   return new Set([...seen].filter(([, n]) => n > 1).map(([m]) => m))
@@ -594,7 +597,11 @@ function IntentTag({ intent }) {
   )
 }
 
-function CustomerCard({ customer, onOpen, sharedMask, aggregate }) {
+// Exported so the store drill-down can render the customer book with the SAME card and
+// the SAME detail rather than growing a second, drifting pair. Customers is a full-build
+// SCREEN, but that is about what is routable, not about what may be imported — and the
+// bundle already carries this file either way (see lib/features.js on scope vs size).
+export function CustomerCard({ customer, onOpen, sharedMask, aggregate }) {
   const { t } = useTranslation()
   const category = categoryLabel(t, customer)
   const amount = customer.value != null ? rupees(customer.value) : null
@@ -812,7 +819,7 @@ function trackCallback(customer) {
   })
 }
 
-function CustomerDetail({ customer }) {
+export function CustomerDetail({ customer }) {
   const { t } = useTranslation()
   const [insight, setInsight] = useState(null)
   const [loading, setLoading] = useState(true)
