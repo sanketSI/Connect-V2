@@ -3,12 +3,11 @@ import { motion } from 'framer-motion'
 import { ChevronRight, ChevronLeft, PhoneCall, PhoneIncoming, Star, ArrowDownWideNarrow, ArrowUpNarrowWide, MapPin, Lock, Repeat2, FileText, Store as StoreIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
-  networkRows, rankRows, assignedStoreIds, assignmentLevels,
+  networkRows, rankRows, assignedStoreIds, assignedStores, assignmentLevels,
   getCalls, getLeads, LEAD_SOURCES, storeLabelOf, dayClock, relativeTime,
 } from '@connect/core'
 import { Card, Chip, CLIPill } from '../components/UI.jsx'
-import BottomSheet from '../components/BottomSheet.jsx'
-import { LargeTitle } from '../components/TopBar.jsx'
+import { LargeTitle, TopBar } from '../components/TopBar.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
 import ProfileButton from '../components/ProfileButton.jsx'
 import { useDataVersion } from '../lib/useDataVersion.js'
@@ -84,6 +83,21 @@ export default function Network({ onOpenProfile }) {
     negative: a.negative + r.negative, reviews: a.reviews + r.reviews,
     stores: a.stores + r.stores,
   }), { missed: 0, total: 0, negative: 0, reviews: 0, stores: 0 }), [rows])
+
+  // THE LAST LEVEL IS A DESTINATION, NOT A PEEK. A store's enquiries are something a
+  // manager reads down and works through, so the tab SWAPS to a full page rather than
+  // sliding a sheet over the leaderboard — a sheet keeps the list it came from half
+  // visible behind a scrim, which is right for a quick confirm and wrong for the screen
+  // you came all this way to reach. After the hooks above, so the hook order is fixed.
+  if (openStore) {
+    return (
+      <StoreCallsPage
+        storeId={openStore}
+        onBack={() => { vibrate(6); setOpenStore(null) }}
+        onOpenProfile={onOpenProfile}
+      />
+    )
+  }
 
   return (
     <div className="absolute top-[44px] left-0 right-0 bottom-0 pb-[88px] overflow-y-auto no-scrollbar">
@@ -165,14 +179,6 @@ export default function Network({ onOpenProfile }) {
         </div>
       </div>
 
-      <BottomSheet
-        open={!!openStore}
-        onClose={() => setOpenStore(null)}
-        fullHeight
-        label={openStore ? storeLabelOf(openStore) : undefined}
-      >
-        {openStore && <StoreCallsSheet storeId={openStore} />}
-      </BottomSheet>
     </div>
   )
 }
@@ -190,7 +196,7 @@ export default function Network({ onOpenProfile }) {
  *   ATTENDED  where the lead came from, how warm it was, and what they rang about —
  *             which only exists BECAUSE somebody picked up.
  */
-function StoreCallsSheet({ storeId }) {
+function StoreCallsPage({ storeId, onBack, onOpenProfile }) {
   const { t } = useTranslation()
   const version = useDataVersion()
   const [outcome, setOutcome] = useState('missed')
@@ -217,12 +223,24 @@ function StoreCallsSheet({ storeId }) {
     [leads],
   )
   const list = outcome === 'missed' ? missed : attended
+  const store = useMemo(() => assignedStores().find(l => l.id === storeId), [storeId, version])
 
   return (
-    <div className="px-4 pb-6">
-      <div className="m-title2 text-white truncate">{storeLabelOf(storeId)}</div>
+    <div className="absolute top-[44px] left-0 right-0 bottom-0 pb-[88px] overflow-y-auto no-scrollbar">
+      {/* The way back to the leaderboard this was opened from. The bottom bar is still
+          there — this is a page WITHIN the tab, not a screen stacked over the app — so
+          the manager can leave sideways too; this returns them to where they were. */}
+      <TopBar onBack={onBack} title="" transparent />
+      <LargeTitle
+        title={storeLabelOf(storeId)}
+        // The address, not a count: this page is about ONE shop, and "1 store assigned
+        // to you" would be answering a question nobody asked here. Data, so no catalog
+        // key needed.
+        sub={store?.address}
+        right={<div className="flex items-center"><NotificationBell /><ProfileButton onClick={onOpenProfile} /></div>}
+      />
 
-      <div className="flex items-center gap-2 mt-3 mb-3">
+      <div className="px-4 flex items-center gap-2 mb-3">
         <Chip active={outcome === 'missed'} onClick={() => { vibrate(6); setOutcome('missed') }}>
           {t('calls.outcomeMissed', { defaultValue: 'Missed' })} {missed.length}
         </Chip>
