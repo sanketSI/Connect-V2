@@ -7,6 +7,15 @@
       "runtimeArgs": ["run", "dev"],
       "port": 5175,
       "autoPort": true
+    },
+    {
+      "name": "si-mobile-full",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--mode", "development"],
+      "cwd": "apps/web",
+      "env": { "VITE_SCOPE": "full" },
+      "port": 5176,
+      "autoPort": true
     }
   ]
 }
