@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { MapPin, ChevronDown, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { getStoreLocations } from '@connect/core'
+import { assignedStores } from '@connect/core'
 import { vibrate } from '../lib/utils.js'
 import BottomSheet from './BottomSheet.jsx'
 
@@ -29,7 +29,7 @@ export default function LocationPicker({ value = 'all', onChange, groups = [], t
   // Counts come from the list BEFORE this filter is applied — otherwise selecting a
   // branch would zero every other row and the picker could not be used to switch.
   const countFor = (id) => groups.find(g => g.storeId === id)?.count ?? 0
-  const locations = getStoreLocations()
+  const locations = assignedStores()
   const current = value === 'all'
     ? t('stores.allLocations', { defaultValue: 'All locations' })
     : (locations.find(l => l.id === value)?.branch || value)

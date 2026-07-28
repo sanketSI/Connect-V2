@@ -16,6 +16,7 @@
 // resolve their own storeId from the leaf seed constant instead.
 // ============================================================
 import { getStoreLocations, storeLabelOf } from './locations.js'
+import { assignedStores } from './assignments.js'
 import { CITY_STORES, REGIONAL_CITIES, STORE_TEAM } from '../lib/seedData.js'
 import { getCalls, callCounts, CANONICAL_MISSED_WINDOW } from './calls.js'
 import { filterReviews, CANONICAL_REVIEW_WINDOW } from './reviews.js'
@@ -49,9 +50,16 @@ export function storeRollup(storeId, win = CANONICAL_MISSED_WINDOW) {
   }
 }
 
-/** Every mapped store's rollup, in the order the switcher lists them. */
+/**
+ * Every ASSIGNED store's rollup, in the order the switcher lists them.
+ *
+ * Assigned, not every location in the fixture: the totals on Home and in the switcher
+ * are "your stores", and a manager who holds one shop must not be shown a network summed
+ * over somebody else's. Everything downstream — networkRollup, the leaderboards — sums
+ * this, so scoping it here scopes all of them.
+ */
 export function storeRollups(win = CANONICAL_MISSED_WINDOW) {
-  return getStoreLocations().map(l => ({ ...storeRollup(l.id, win), branch: l.branch, name: l.name }))
+  return assignedStores().map(l => ({ ...storeRollup(l.id, win), branch: l.branch, name: l.name }))
 }
 
 /**
@@ -184,6 +192,10 @@ export function regionalRollup(win = CANONICAL_MISSED_WINDOW) {
  * without a separate check.
  */
 export function groupByStore(records = []) {
+  // getStoreLocations(), NOT the assignment: this groups a list the caller has already
+  // scoped, and `order` decides membership as well as order. Scoping it here would
+  // silently drop records the caller deliberately passed in — a grouping helper that
+  // loses rows is worse than one that shows an unexpected group.
   const order = getStoreLocations().map(l => l.id)
   const byStore = new Map()
   for (const rec of records) {
@@ -216,7 +228,7 @@ export function groupByStore(records = []) {
  * answers and a leaderboard that conflates them ranks an empty store top.
  */
 export function networkRows({ level = 'store', state = null, city = null, storeIds = null, win = CANONICAL_MISSED_WINDOW } = {}) {
-  const locs = getStoreLocations().filter(l => (
+  const locs = assignedStores().filter(l => (
     (!storeIds || storeIds.includes(l.id)) &&
     (!state || l.state === state) &&
     (!city || l.city === city)

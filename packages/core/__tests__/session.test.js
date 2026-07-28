@@ -98,9 +98,12 @@ describe('resolveStoreCode — the four outcomes', () => {
     expect(res.reason).toBe('notMapped')
     expect(res.errorKey).toBe('login.storeCodeNotMappedError')
     // …and it resolves fine for its actual owner, which is what makes the check real.
+    // Jayanagar is a real store now (it backs the single-location build), so for its own
+    // manager this succeeds outright. It used to answer 'notFound' here only because the
+    // registry row pointed at a location the fixture never defined.
     const owner = phoneOnFileFor(OTHER_DEALER_CODE)
     expect(owner).not.toBe(DEALER_PHONE)
-    expect(resolveStoreCode(OTHER_DEALER_CODE, { phone: owner }).reason).toBe('notFound')
+    expect(resolveStoreCode(OTHER_DEALER_CODE, { phone: owner }).ok).toBe(true)
   })
 
   it('the three reasons are checked in order: format before existence before ownership', () => {
@@ -110,8 +113,14 @@ describe('resolveStoreCode — the four outcomes', () => {
   })
 
   it('skips the ownership check entirely when no phone is supplied', () => {
-    expect(resolveStoreCode(OTHER_DEALER_CODE).ok).toBe(false) // no MAPPED_LOCATIONS record
+    // Another dealer's code, and it still resolves — because with no phone there is
+    // nobody to check it against. That is the whole point of the case, and it reads
+    // properly now that Jayanagar is a real store: the code fails for THIS dealer
+    // (notMapped, above) and passes when ownership is not asked about at all.
+    expect(resolveStoreCode(OTHER_DEALER_CODE).ok).toBe(true)
     expect(resolveStoreCode('LKS-KOR-02').ok).toBe(true)
+    // A registry row with no location behind it is still notFound, phone or no phone.
+    expect(resolveStoreCode('CRM-KOR-01').ok).toBe(false)
   })
 
   it('tolerates spaces and dashes in the phone number', () => {
@@ -160,7 +169,11 @@ describe('phoneOnFileFor / storeCodesFor / allStoreCodes', () => {
 
   it('storeCodesFor lists exactly this dealer’s outlets', () => {
     const mine = storeCodesFor(DEALER_PHONE)
-    expect(mine).toEqual(['LKS-IND-01', 'LKS-KOR-02', 'LKS-HSR-03'])
+    // All six. The registry used to list only the first three, so sign-in said "3 stores
+    // on this number" and the picker on the very next screen said "6 locations".
+    expect(mine).toEqual([
+      'LKS-IND-01', 'LKS-KOR-02', 'LKS-HSR-03', 'LKS-MYS-04', 'LKS-BOM-05', 'LKS-PUN-06',
+    ])
     expect(mine).not.toContain(OTHER_DEALER_CODE)
     expect(storeCodesFor('98450 12342')).toEqual(mine) // spacing-insensitive
     expect(storeCodesFor('0000000000')).toEqual([])

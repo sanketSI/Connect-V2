@@ -382,6 +382,43 @@ export const MISSED_CALLS = [
   // Records for the three stores added for the multi-state roll-up. Without these the
   // state and city levels would sum decorative fields again — the exact drift the
   // network module exists to kill.
+  // ---- JAYANAGAR ------------------------------------------------------------
+  // The single-store manager's shop. A handful of records so that build opens on a
+  // working screen rather than an empty state — one still open, one already won, one
+  // that went cold, which is enough for the lifecycle chips to all mean something.
+  {
+    id: 'mc-jay1', storeId: 'lks-jay', kind: 'missed',
+    masked: maskNumber('506'), fullMaskedDisplay: '+91 ●●●●● ●●506',
+    minutesAgo: 38, time: '—', atOffsetMs: minsAgo(38),
+    source: 'SingleInterface', repeats: 2,
+    cli: 74, intent: 'high',
+    intentReason: 'Enquiry from the listing', intentReasonKey: 'seed.reason.urgentThreeCalls',
+    estValue: 42000, category: 'Refrigerator', categoryKey: 'seed.category.refrigerator',
+    sentiment: 'neutral', callReason: 'Price enquiry', callReasonKey: 'seed.callReason.priceEnquiry',
+    leadStatus: 'open', reviewLinkSent: false,
+  },
+  {
+    id: 'mc-jay2', storeId: 'lks-jay', kind: 'missed',
+    masked: maskNumber('827'), fullMaskedDisplay: '+91 ●●●●● ●●827',
+    minutesAgo: 190, time: '—', atOffsetMs: minsAgo(190),
+    source: 'SingleInterface', repeats: 1,
+    cli: 58, intent: 'medium',
+    intentReason: 'Enquiry from the listing', intentReasonKey: 'seed.reason.urgentThreeCalls',
+    estValue: 21000, category: 'Washing Machine', categoryKey: 'seed.category.washingMachine',
+    sentiment: 'neutral', callReason: 'Price enquiry', callReasonKey: 'seed.callReason.priceEnquiry',
+    leadStatus: 'converted', reviewLinkSent: false,
+  },
+  {
+    id: 'mc-jay3', storeId: 'lks-jay', kind: 'missed',
+    masked: maskNumber('193'), fullMaskedDisplay: '+91 ●●●●● ●●193',
+    minutesAgo: 400, time: '—', atOffsetMs: minsAgo(400),
+    source: 'SingleInterface', repeats: 1,
+    cli: 46, intent: 'medium',
+    intentReason: 'Enquiry from the listing', intentReasonKey: 'seed.reason.urgentThreeCalls',
+    estValue: 15000, category: 'Air Conditioner', categoryKey: 'seed.category.airConditioner',
+    sentiment: 'neutral', callReason: 'Price enquiry', callReasonKey: 'seed.callReason.priceEnquiry',
+    leadStatus: 'expired', reviewLinkSent: false,
+  },
   {
     id: 'mc-mys1', storeId: 'lks-mys', kind: 'missed',
     masked: maskNumber('341'), fullMaskedDisplay: '+91 ●●●●● ●●341',
@@ -2140,6 +2177,15 @@ export const ROLES = [
 // One dealer phone number resolves to MULTIPLE mapped store locations.
 export const DEALER_PHONE = '9845012342'
 
+/**
+ * A DIFFERENT manager, holding exactly one shop.
+ *
+ * The launch build changes shape for someone with a single store — no roll-up tab, three
+ * tabs instead of four — and none of that was reachable while the fixture knew only one
+ * manager who held everything. Signing in on this number is how that build gets seen.
+ */
+export const JAYANAGAR_PHONE = '9845077777'
+
 // -------- Login: store code --------
 // Login now takes a STORE CODE alongside the mobile number, so a dealer who runs several
 // outlets lands directly in the right one.
@@ -2151,13 +2197,25 @@ export const DEALER_PHONE = '9845012342'
 export const STORE_CODE_PATTERN = /^[A-Z]{3}-[A-Z]{3}-\d{2}$/
 export const STORE_CODE_EXAMPLE = 'LKS-IND-01'
 
+// THE REGISTRY IS THE ANSWER TO "WHICH STORES ARE MINE" — so it has to list all of
+// them. Mysore, Andheri and Baner were added to MAPPED_LOCATIONS for the multi-state
+// roll-up but never registered against the owner's number, so sign-in resolved three
+// stores while every screen after it showed six. Same dealer, two counts, one screen
+// apart. The codes were already on the locations; only these rows were missing.
 export const STORE_CODE_REGISTRY = [
   { code: 'LKS-IND-01', locationId: 'lks-ind', phone: DEALER_PHONE },
   { code: 'LKS-KOR-02', locationId: 'lks-kor', phone: DEALER_PHONE },
   { code: 'LKS-HSR-03', locationId: 'lks-new', phone: DEALER_PHONE },
+  { code: 'LKS-MYS-04', locationId: 'lks-mys', phone: DEALER_PHONE },
+  { code: 'LKS-BOM-05', locationId: 'lks-bom', phone: DEALER_PHONE },
+  { code: 'LKS-PUN-06', locationId: 'lks-pun', phone: DEALER_PHONE },
   // Same brand code prefix, different owner — a valid code this dealer may not use.
-  { code: 'LKS-JAY-04', locationId: 'lks-jay', phone: '9845077777' },
-  // Another business entirely.
+  // Jayanagar is a REAL store now (see MAPPED_LOCATIONS): one shop, one manager, which
+  // is what makes the single-location build something you can sign into and see rather
+  // than a branch nobody can reach.
+  { code: 'LKS-JAY-04', locationId: 'lks-jay', phone: JAYANAGAR_PHONE },
+  // Another business entirely. No location behind it on purpose: it exists so the
+  // access-request sheet can tell "a real code that is not yours" from "no such code".
   { code: 'CRM-KOR-01', locationId: 'crm-kor', phone: '9845088888' },
 ]
 
@@ -2176,7 +2234,13 @@ export const PRIMARY_STORE_ID = 'lks-ind'
 // to a subset and the multi-location view reshapes itself: assignments.js derives the
 // roll-up depth from what is held, so ['lks-ind','lks-kor'] drills straight to stores
 // while the default spans two states and drills state → city → store.
-export const MANAGER_ASSIGNMENTS = ['*']
+// The FLAGSHIP dealer's six, named rather than '*'. '*' meant "every location in the
+// fixture", which was the same set only for as long as the fixture held exactly one
+// manager's stores — the moment Jayanagar arrived for the single-store build, '*' would
+// have handed the owner someone else's shop and quietly added it to every roll-up.
+// This is only the fallback: a real session's assignment comes from the number that
+// signed in — see setSessionAssignments() in data/assignments.js.
+export const MANAGER_ASSIGNMENTS = ['lks-ind', 'lks-kor', 'lks-new', 'lks-mys', 'lks-bom', 'lks-pun']
 
 export const MAPPED_LOCATIONS = [
   {
@@ -2247,6 +2311,19 @@ export const MAPPED_LOCATIONS = [
     missed: 4, answered: 12, recovered: 3, recovery: 75, health: 79, healthPrev: 75,
     reviews: 15, rating: 4.7, verified: true,
     addedAgo: 'Added 6 weeks ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(44),
+  },
+  // NOT the flagship dealer's. Jayanagar belongs to JAYANAGAR_PHONE, and it is here so
+  // there is a real single-store manager to sign in as. It stays out of every roll-up
+  // for the six above because those are scoped to the assignment now, not to "every
+  // location in the fixture" — see assignments.js.
+  {
+    id: 'lks-jay', storeCode: 'LKS-JAY-04', name: 'Lakshmi Electronics', branch: 'Jayanagar', city: 'Bangalore',
+    address: '11th Main, 4th Block, Jayanagar, Bangalore', pincode: '560011', state: 'Karnataka',
+    stated: { lat: 12.9299, lng: 77.5827 }, actual: { lat: 12.9299, lng: 77.5827 },
+    landmark: 'Near Cool Joint',
+    missed: 3, answered: 6, recovered: 2, recovery: 67, health: 74, healthPrev: 71,
+    reviews: 9, rating: 4.4, primary: true, verified: true,
+    addedAgo: 'Added 3 weeks ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(21),
   },
 ]
 

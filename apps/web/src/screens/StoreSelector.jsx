@@ -2,10 +2,9 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import { Building2, MapPin, ChevronRight, AlertTriangle, PhoneMissed, ShieldCheck, ChevronLeft, Navigation, Check, Layers } from 'lucide-react'
 import {
-  getStoreLocations, DEALER_PHONE, maskPhone, locationNeedsVerification,
+  assignedStores, DEALER_PHONE, maskPhone, locationNeedsVerification,
   makeAllLocationsStore, networkRollup, AGGREGATE_STORE_ID,
 } from '@connect/core'
-const MAPPED_LOCATIONS = getStoreLocations()
 import { vibrate } from '../lib/utils.js'
 import { FEATURES } from '../lib/features.js'
 import { useTranslation, Trans } from 'react-i18next'
@@ -28,6 +27,11 @@ import { useTranslation, Trans } from 'react-i18next'
 export default function StoreSelector({ mode = 'switch', current, onPick, onBack }) {
   const { t } = useTranslation()
   const switching = mode === 'switch'
+  // The stores THIS manager holds, read per render rather than snapshotted at module
+  // load: the set belongs to whoever signed in. It used to be getStoreLocations(), which
+  // is every location in the fixture — that is why the header said "6 locations" one
+  // screen after sign-in had said "3 stores on this number".
+  const myStores = assignedStores()
 
   function choose(loc) {
     vibrate(10)
@@ -61,9 +65,9 @@ export default function StoreSelector({ mode = 'switch', current, onPick, onBack
           <p className="m-body text-white/65 mt-2">
             <Trans
               i18nKey={switching ? 'store.switchSubtitle' : 'store.chooseSubtitle'}
-              count={MAPPED_LOCATIONS.length}
+              count={myStores.length}
               components={{ 1: <b className="text-white/90" /> }}
-              values={{ count: MAPPED_LOCATIONS.length }}
+              values={{ count: myStores.length }}
             />
           </p>
         </motion.div>
@@ -72,7 +76,7 @@ export default function StoreSelector({ mode = 'switch', current, onPick, onBack
           {/* ALL LOCATIONS — the cumulative view (feedback round 4). One card, first,
               because "how is the whole network doing" is the question a multi-store
               owner opens this screen with. Numbers are the summed network rollup. */}
-          {MAPPED_LOCATIONS.length > 1 && (() => {
+          {myStores.length > 1 && (() => {
             const net = networkRollup()
             const isCurrent = current?.id === AGGREGATE_STORE_ID
             return (
@@ -114,7 +118,7 @@ export default function StoreSelector({ mode = 'switch', current, onPick, onBack
             )
           })()}
 
-          {MAPPED_LOCATIONS.map((loc, i) => {
+          {myStores.map((loc, i) => {
             // App refuses to open the verification sheet in MVP (see openStore), so
             // without the same gate here the card advertises "Verify now" for a flow
             // this build does not contain — the disabled-control-hinting-at-a-tier

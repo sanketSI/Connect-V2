@@ -25,6 +25,7 @@ import BottomSheet from './components/BottomSheet.jsx'
 import {
   getStoreLocations, isReturningUser, locationNeedsVerification, markReturningUser,
   openMissedCount, reviewsWaitingCount, leadCounts,
+  setSessionAssignments, clearSessionAssignments,
 } from '@connect/core'
 import { setAnalyticsContext } from '@connect/core/analytics.js'
 import NotificationCenter from './components/NotificationCenter.jsx'
@@ -207,11 +208,23 @@ function AppContent() {
   // `picking` has to be its own flag: `store` defaults to MAPPED_LOCATIONS[0] so the
   // app always has something to render, which means a null store can never be the
   // signal for "nothing chosen yet".
-  function handleAuthed(picked) {
+  function handleAuthed(picked, myStores) {
+    // BEFORE anything renders. Login has already resolved this number to the stores it
+    // holds; handing that set to core makes it the ONE answer to "which stores are
+    // mine" — the tab bar's shape, the roll-up's depth and the picker's count all read
+    // it. Skip this and they each go back to guessing from the whole fixture.
+    setSessionAssignments((myStores || []).map(s => s.id))
     setTab('home') // a fresh session always starts on Home
     if (picked) { openStore(picked); return }
     setPicking(true)
     setStage('store')
+  }
+
+  // Sign-out has to drop the scope as well as the screen, or the next number to sign in
+  // inherits this one's stores until it happens to overwrite them.
+  function handleLogout() {
+    clearSessionAssignments()
+    setStage('login')
   }
 
   // The store picker is reached only as the in-app switcher, from Home/Profile.
@@ -270,7 +283,7 @@ function AppContent() {
               mode={picking ? 'pick' : 'switch'}
               current={picking ? null : store}
               onPick={openStore}
-              onBack={() => { if (picking) { setPicking(false); setStage('login') } else setStage('app') }}
+              onBack={() => { if (picking) { setPicking(false); handleLogout() } else setStage('app') }}
             />
           </motion.div>
         )}
@@ -284,7 +297,7 @@ function AppContent() {
               onSeenWelcome={markWelcomeSeen}
               onGoTab={(t) => setTab(t)}
               onChangeRole={changeRole}
-              onLogout={() => setStage('login')}
+              onLogout={handleLogout}
               onSwitchStore={startSwitch}
               onOpenProfile={openProfile}
               onCloseProfile={closeProfile}

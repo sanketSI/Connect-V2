@@ -16,7 +16,7 @@ import { useTranslation } from 'react-i18next'
 import {
   getCustomers, groupByStore, getCustomerById, getCustomerNotes, addCustomerNote, addCustomer,
   customerDialDigits, isIndianMobile, isEmailAddress, isManuallyAdded,
-  customerSourceType, customerSourceKey, CUSTOMER_INTENTS, getStoreLocations,
+  customerSourceType, customerSourceKey, CUSTOMER_INTENTS, assignedStores,
   getCurrentUser, rupees, askAI, relativeTime, calendarDate,
 } from '@connect/core'
 import { track } from '@connect/core/analytics.js'
@@ -448,7 +448,7 @@ function AddCustomerSheet({ storeId, onClose, onOpenExisting }) {
             {t('stores.branch', { defaultValue: 'Branch' })}
           </div>
           <div className="mt-2 flex flex-wrap gap-2" role="group" aria-labelledby="add-branch-label">
-            {getStoreLocations().map(loc => (
+            {assignedStores().map(loc => (
               <Chip key={loc.id} active={branch === loc.id} onClick={() => { vibrate(6); setBranch(loc.id) }}>
                 {loc.branch}
               </Chip>

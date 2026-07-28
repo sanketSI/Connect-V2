@@ -33,24 +33,27 @@ const FULL_TABS = [
 ]
 
 const BASE = IS_MVP ? MVP_TABS : FULL_TABS
-// One store means nothing to roll up and nothing to compare, so the tab is not there.
-const TABS = BASE.filter(tb => !tb.multiOnly || isMultiLocation())
-// Written out, not interpolated: Tailwind scans the source for literal class names, so
-// `grid-cols-${n}` produces a class that never reaches the stylesheet and a tab bar that
-// silently stacks into one column.
+
 // Literal class names: Tailwind scans source text, so `grid-cols-${n}` never reaches
 // the stylesheet and the bar silently stacks into one column.
-const COLS = { 3: 'grid-cols-3', 4: 'grid-cols-4', 5: 'grid-cols-5' }[TABS.length] || 'grid-cols-4'
+const COLS = { 3: 'grid-cols-3', 4: 'grid-cols-4', 5: 'grid-cols-5' }
 
 export default function BottomTabBar({ active, onChange, badges = {} }) {
   const { t } = useTranslation()
+  // PER RENDER, not per module load. The assignment is a property of whoever signed in,
+  // so a module-level snapshot would freeze the first session's shape for the life of
+  // the tab — sign out of a six-store account into a one-store one and the bar would
+  // still be offering a roll-up over stores this manager does not hold.
+  // One store means nothing to roll up and nothing to compare, so the tab is not there.
+  const TABS = BASE.filter(tb => !tb.multiOnly || isMultiLocation())
+  const cols = COLS[TABS.length] || 'grid-cols-4'
   return (
     <nav
       className="absolute bottom-0 left-0 right-0 z-40 glass-tabbar"
       style={{ paddingBottom: 'var(--m-homeind)' }}
       aria-label={t('nav.mainLabel', { defaultValue: 'Main navigation' })}
     >
-      <div className={cn('grid', COLS)} style={{ height: 'var(--m-tabbar-h)' }}>
+      <div className={cn('grid', cols)} style={{ height: 'var(--m-tabbar-h)' }}>
         {TABS.map(({ id, Icon, badgeKey }) => {
           const isActive = active === id
           const count = badges[badgeKey]

@@ -52,8 +52,13 @@ describe('SEED MODE — zero env vars, and nothing about it changed', () => {
     expectSignInMatrix()
   })
 
-  it('still names this dealer’s three outlets and nobody else’s', () => {
-    expect(storeCodesFor(DEALER_PHONE)).toEqual(['LKS-IND-01', 'LKS-KOR-02', 'LKS-HSR-03'])
+  it('still names this dealer’s six outlets and nobody else’s', () => {
+    // Six, not three: Mysore, Andheri and Baner are this dealer's too. They were in
+    // MAPPED_LOCATIONS but missing from the code registry, so sign-in counted three
+    // while the next screen counted six.
+    expect(storeCodesFor(DEALER_PHONE)).toEqual([
+      'LKS-IND-01', 'LKS-KOR-02', 'LKS-HSR-03', 'LKS-MYS-04', 'LKS-BOM-05', 'LKS-PUN-06',
+    ])
     expect(storeCodesFor('9845077777')).toEqual([OTHER_DEALER_CODE])
     expect(storeCodesFor('0000000000')).toEqual([])
   })

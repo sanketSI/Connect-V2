@@ -8,7 +8,7 @@ import {
 import { LargeTitle, TopBar } from '../components/TopBar.jsx'
 import { Card, AIBadge, PrimaryButton, Avatar } from '../components/UI.jsx'
 import BottomSheet from '../components/BottomSheet.jsx'
-import { getCurrentUser, ROLES, locationNeedsVerification, getStoreLocations, getStoreTeam, getAllStoreTeams, storeLabelOf } from '@connect/core'
+import { getCurrentUser, ROLES, locationNeedsVerification, assignedStores, getStoreTeam, getAllStoreTeams, storeLabelOf } from '@connect/core'
 import { useTranslation } from 'react-i18next'
 import { setLanguage } from '../i18n/index.js'
 import { languagesByRegion, getLanguage } from '@connect/core/i18n/languages.js'
@@ -39,7 +39,7 @@ export default function Profile({ role, store, onChangeRole, onLogout, onSwitchS
     if (aggregate) { setPickFor(kind); setSheet('pick') } else setSheet(kind)
   }
   const s = aggregate
-    ? { name: t('stores.allLocations', { defaultValue: 'All locations' }), branch: t('stores.nStoresShort', { count: getStoreLocations().length, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' }) }
+    ? { name: t('stores.allLocations', { defaultValue: 'All locations' }), branch: t('stores.nStoresShort', { count: assignedStores().length, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' }) }
     : (store || PRIMARY_USER.store)
   const flagged = store ? locationNeedsVerification(store) : false
   return (
@@ -199,7 +199,7 @@ function StorePickerSheet({ titleKey, onPick }) {
         {t('stores.pickBranch', { defaultValue: 'Which branch?' })}
       </div>
       <div className="space-y-2">
-        {getStoreLocations().map(loc => {
+        {assignedStores().map(loc => {
           const flagged = locationNeedsVerification(loc)
           return (
             <button
