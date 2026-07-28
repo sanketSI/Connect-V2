@@ -101,7 +101,7 @@ function ScreenSwitch({
         {/* MVP: one Leads list in place of Calls + Customers. The full build keeps
             both, so neither path is deleted — see lib/features.js. */}
         {tab === 'leads' && <Leads store={store} onOpenProfile={onOpenProfile} preset={leadsPreset} />}
-        {tab === 'network' && <Network store={store} onOpenProfile={onOpenProfile} />}
+        {tab === 'network' && <Network onOpenProfile={onOpenProfile} />}
         {tab === 'customers' && <Customers store={store} onOpenProfile={onOpenProfile} />}
         {/* Reviews became a tab in scope round 2. The guard stays: the inbox must not be
             one stray onGoTab away from being reachable in a build meant to be without it,
@@ -232,6 +232,14 @@ function AppContent() {
 
   // Sign-out has to drop the scope as well as the screen, or the next number to sign in
   // inherits this one's stores until it happens to overwrite them.
+  // The roll-up tab only exists on "All locations" (see BottomTabBar). Switching to a
+  // single branch while standing ON it would otherwise strand the manager on a screen
+  // the bar no longer offers — the same dead end the app has elsewhere been cleared of.
+  // Home, because that is where the branch they just chose is now being described.
+  useEffect(() => {
+    if (tab === 'network' && !store?.aggregate) setTab('home')
+  }, [tab, store])
+
   function handleLogout() {
     clearSessionAssignments()
     setStage('login')
@@ -316,6 +324,7 @@ function AppContent() {
 
             <BottomTabBar
               active={tab}
+              aggregate={!!store?.aggregate}
               onChange={(t) => setTab(t)}
               badges={{
                 leads: leadsBadge,

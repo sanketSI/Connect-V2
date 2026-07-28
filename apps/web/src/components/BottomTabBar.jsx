@@ -20,9 +20,17 @@ const MVP_TABS = [
   { id: 'home', Icon: Home },
   { id: 'leads', Icon: Users, badgeKey: 'leads' },
   { id: 'reviews', Icon: Star, badgeKey: 'reviews' },
-  // Only for a manager who actually holds more than one shop — see isMultiLocation().
-  // One store means nothing to roll up, so a single-location manager gets three tabs.
-  { id: 'network', Icon: Building2, multiOnly: true },
+  // Only when there is genuinely something to roll up. TWO conditions, not one:
+  //
+  //   isMultiLocation()  — a manager holding one shop has nothing to compare.
+  //   aggregate          — "All locations" is selected in the picker.
+  //
+  // The second is the one that was missing. Narrowing to a single branch used to leave
+  // this tab sitting there answering about the whole estate, and scoping it to that
+  // branch instead just made a leaderboard with one row — Home with extra steps. The
+  // honest move is for the tab to not be there: the roll-up is a thing you do to MANY
+  // stores, so it belongs to the view that has many.
+  { id: 'network', Icon: Building2, rollupOnly: true },
 ]
 
 const FULL_TABS = [
@@ -38,14 +46,14 @@ const BASE = IS_MVP ? MVP_TABS : FULL_TABS
 // the stylesheet and the bar silently stacks into one column.
 const COLS = { 3: 'grid-cols-3', 4: 'grid-cols-4', 5: 'grid-cols-5' }
 
-export default function BottomTabBar({ active, onChange, badges = {} }) {
+export default function BottomTabBar({ active, onChange, badges = {}, aggregate = false }) {
   const { t } = useTranslation()
-  // PER RENDER, not per module load. The assignment is a property of whoever signed in,
-  // so a module-level snapshot would freeze the first session's shape for the life of
-  // the tab — sign out of a six-store account into a one-store one and the bar would
-  // still be offering a roll-up over stores this manager does not hold.
-  // One store means nothing to roll up and nothing to compare, so the tab is not there.
-  const TABS = BASE.filter(tb => !tb.multiOnly || isMultiLocation())
+  // PER RENDER, not per module load. The assignment is a property of whoever signed in
+  // and `aggregate` changes every time the picker does, so a module-level snapshot would
+  // freeze the first session's shape for the life of the tab — sign out of a six-store
+  // account into a one-store one and the bar would still be offering a roll-up over
+  // stores this manager does not hold.
+  const TABS = BASE.filter(tb => !tb.rollupOnly || (isMultiLocation() && aggregate))
   const cols = COLS[TABS.length] || 'grid-cols-4'
   return (
     <nav
