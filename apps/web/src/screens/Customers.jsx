@@ -832,7 +832,7 @@ function trackCallback(customer) {
   })
 }
 
-export function CustomerDetail({ customer, canNote = true }) {
+export function CustomerDetail({ customer, canNote = true, beforeHistory = null }) {
   const { t } = useTranslation()
   const [insight, setInsight] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -1035,6 +1035,12 @@ Return ONE sentence only.`,
           </AICard>
         </div>
       )}
+
+      {/* A slot the CALLER owns, between what the AI reads and what actually happened.
+          The store drill-down puts the lead's lifecycle here: where this enquiry has got
+          to is the present tense, and it belongs above the past. Empty on the Customers
+          screen, which has a customer but no lead to move. */}
+      {beforeHistory}
 
       {/* History timeline */}
       <div className="mt-5">

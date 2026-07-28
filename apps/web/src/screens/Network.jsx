@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronRight, ChevronLeft, PhoneCall, PhoneIncoming, Star, ArrowDownWideNarrow, ArrowUpNarrowWide, MapPin, Lock, Repeat2, FileText, Store as StoreIcon } from 'lucide-react'
+import { ChevronRight, ChevronLeft, PhoneCall, PhoneIncoming, Star, ArrowDownWideNarrow, ArrowUpNarrowWide, MapPin, Lock, Repeat2, FileText, Store as StoreIcon, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   networkRows, rankRows, assignedStoreIds, assignedStores, assignmentLevels,
-  getCalls, getLeads, LEAD_SOURCES, storeLabelOf, dayClock, relativeTime,
+  getCalls, getLeads, LEAD_SOURCES, LEAD_STATUSES, updateLeadStatus, storeLabelOf, dayClock, relativeTime,
   getCustomers, getCustomerById,
 } from '@connect/core'
 import { Card, Chip, CLIPill } from '../components/UI.jsx'
@@ -232,6 +232,10 @@ function StoreCallsPage({ storeId, onBack, onOpenProfile }) {
   // the RICHEST truthful thing about them is: the customer when there is one, the lead
   // itself when there is not. Never a screen that invents a person to fill the gap.
   const [openSubject, setOpenSubject] = useState(null)
+  // The lead id, not the lead: moving it along the lifecycle mutates the record in
+  // place, so the page has to re-read it rather than hold a copy that has gone stale.
+  const [openLeadId, setOpenLeadId] = useState(null)
+  const openLead = useMemo(() => leads.find(l => l.id === openLeadId) || null, [leads, openLeadId])
   const customers = useMemo(() => getCustomers(storeId), [storeId, version])
   const sharedMasks = useMemo(() => collidingMasks(customers), [customers])
   const store = useMemo(() => assignedStores().find(l => l.id === storeId), [storeId, version])
@@ -243,7 +247,8 @@ function StoreCallsPage({ storeId, onBack, onOpenProfile }) {
     return (
       <CustomerPage
         subject={openSubject}
-        onBack={() => { vibrate(6); setOpenSubject(null) }}
+        lead={openLead}
+        onBack={() => { vibrate(6); setOpenSubject(null); setOpenLeadId(null) }}
         onOpenProfile={onOpenProfile}
       />
     )
@@ -284,7 +289,7 @@ function StoreCallsPage({ storeId, onBack, onOpenProfile }) {
                 call={l.recordKind === 'call' ? callById.get(l.recordId) : null}
                 customer={l.customerId ? getCustomerById(l.customerId) : null}
                 sharedMask={sharedMasks}
-                onOpen={setOpenSubject}
+                onOpen={(subject, l) => { setOpenSubject(subject); setOpenLeadId(l.id) }}
               />
             )
         ))}
@@ -433,7 +438,7 @@ function AttendedRow({ lead, call, customer, sharedMask, onOpen }) {
     <CustomerCard
       customer={subject}
       aggregate={false}
-      onOpen={() => { vibrate(8); onOpen(subject) }}
+      onOpen={() => { vibrate(8); onOpen(subject, lead) }}
       sharedMask={sharedMask?.has?.(subject.masked)}
       // The reason rides in the card's footer slot: it belongs to THIS call, not to the
       // person, so it cannot live in the customer record above it.
@@ -450,11 +455,57 @@ function AttendedRow({ lead, call, customer, sharedMask, onOpen }) {
 }
 
 /**
+ * WHERE THIS ENQUIRY HAS GOT TO — and the one control that moves it.
+ *
+ * LEAD_STATUSES is already the lifecycle in order (missed → contacted → converted →
+ * review requested → expired), so the list is rendered in that order rather than sorted
+ * here: one definition of the sequence, in the data layer, where the selectors that
+ * count each state also read it.
+ *
+ * Writes through updateLeadStatus(), which mutates the record and emits — so the store
+ * page behind, the tab badges and Home's triage all re-derive without being told.
+ */
+function LeadStatusPicker({ lead }) {
+  const { t } = useTranslation()
+
+  return (
+    <div className="mt-5">
+      <div className="m-headline text-white mb-2">
+        {t('calls.leadStatusTitle', { defaultValue: 'Lead status' })}
+      </div>
+      <div className="space-y-2">
+        {LEAD_STATUSES.map(s => {
+          const on = lead.status === s.id
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => { vibrate(10); updateLeadStatus(lead, s.id) }}
+              aria-pressed={on}
+              className="w-full flex items-center gap-3 px-3 h-12 rounded-xl press text-left"
+              style={{
+                background: on ? 'rgba(0,112,252,.10)' : 'var(--bg-subtle)',
+                border: on ? '1px solid rgba(0,112,252,.40)' : '1px solid var(--border-glass)',
+              }}
+            >
+              <span className="flex-1 min-w-0 m-callout text-white truncate">
+                {t(s.labelKey, { defaultValue: s.label })}
+              </span>
+              {on && <Check size={15} className="shrink-0" style={{ color: '#0070FC' }} />}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/**
  * THE CUSTOMER, AS A PAGE. Same content the Customers screen shows in a sheet — About
  * this customer, the history, the notes, and the two actions — routed instead of
  * stacked, so it matches the store page it was opened from and the bottom bar stays put.
  */
-function CustomerPage({ subject, onBack, onOpenProfile }) {
+function CustomerPage({ subject, lead, onBack, onOpenProfile }) {
   return (
     <div className="absolute top-[44px] left-0 right-0 bottom-0 pb-[88px] overflow-y-auto no-scrollbar">
       <TopBar onBack={onBack} title="" transparent />
@@ -464,7 +515,11 @@ function CustomerPage({ subject, onBack, onOpenProfile }) {
       </div>
       {/* canNote follows the record, not the screen: a projected lead has nowhere to
           write a note to. */}
-      <CustomerDetail customer={subject} canNote={!subject.synthetic} />
+      <CustomerDetail
+        customer={subject}
+        canNote={!subject.synthetic}
+        beforeHistory={lead ? <LeadStatusPicker lead={lead} /> : null}
+      />
     </div>
   )
 }
