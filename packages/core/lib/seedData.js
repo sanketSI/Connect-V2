@@ -2257,7 +2257,7 @@ export const MANAGER_ASSIGNMENTS = ['lks-ind', 'lks-kor', 'lks-new', 'lks-mys', 
 
 export const MAPPED_LOCATIONS = [
   {
-    id: 'lks-ind', storeCode: 'LKS-IND-01', name: 'Lakshmi Electronics', branch: 'Indiranagar', city: 'Bangalore',
+    id: 'lks-ind', storeCode: 'LKS-IND-01', name: 'Lakshmi Electronics', subBrand: 'Tetley', branch: 'Indiranagar', city: 'Bangalore',
     address: '127, 100 Feet Road, Indiranagar, Bangalore', pincode: '560038', state: 'Karnataka',
     stated: { lat: 12.9719, lng: 77.6412 }, actual: { lat: 12.9719, lng: 77.6412 },
     landmark: 'Opposite Sony Centre',
@@ -2266,7 +2266,7 @@ export const MAPPED_LOCATIONS = [
     addedAgo: 'Original store', addedAgoKey: 'seed.location.addedOriginal',
   },
   {
-    id: 'lks-kor', storeCode: 'LKS-KOR-02', name: 'Lakshmi Electronics', branch: 'Koramangala', city: 'Bangalore',
+    id: 'lks-kor', storeCode: 'LKS-KOR-02', name: 'Lakshmi Electronics', subBrand: 'Tetley', branch: 'Koramangala', city: 'Bangalore',
     address: '80 Feet Road, 4th Block, Koramangala, Bangalore', pincode: '560034', state: 'Karnataka',
     // Pin drifts ~210 m from the true storefront → lat-long check fails.
     stated: { lat: 12.9352, lng: 77.6245 }, actual: { lat: 12.9366, lng: 77.6260 },
@@ -2276,7 +2276,7 @@ export const MAPPED_LOCATIONS = [
     addedAgo: 'Added 2 weeks ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(14),
   },
   {
-    id: 'lks-new', storeCode: 'LKS-HSR-03', name: 'Lakshmi Electronics', branch: 'HSR Layout', city: 'Bangalore',
+    id: 'lks-new', storeCode: 'LKS-HSR-03', name: 'Lakshmi Electronics', subBrand: 'Tetley', branch: 'HSR Layout', city: 'Bangalore',
     // Data-entry error on a recently added store, kept where it is actually CHECKED:
     // pincode 201301 is Noida/UP, not Bangalore/Karnataka, so the verification flow
     // still flags it. The city and state are the truth now — as 'Bandra, Haryana' this
@@ -2299,7 +2299,7 @@ export const MAPPED_LOCATIONS = [
   // Karnataka now has Bangalore (3) + Mysore (1); Maharashtra has Mumbai + Pune.
   // Six stores, four cities, two states, every roll-up derived from real records.
   {
-    id: 'lks-mys', storeCode: 'LKS-MYS-04', name: 'Lakshmi Electronics', branch: 'Mysore Road', city: 'Mysore',
+    id: 'lks-mys', storeCode: 'LKS-MYS-04', name: 'Lakshmi Electronics', subBrand: 'Tetley', branch: 'Mysore Road', city: 'Mysore',
     address: '14, Sayyaji Rao Road, Mysore', pincode: '570001', state: 'Karnataka',
     stated: { lat: 12.3052, lng: 76.6552 }, actual: { lat: 12.3052, lng: 76.6552 },
     landmark: 'Near Devaraja Market',
@@ -2308,7 +2308,7 @@ export const MAPPED_LOCATIONS = [
     addedAgo: 'Added 1 month ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(31),
   },
   {
-    id: 'lks-bom', storeCode: 'LKS-BOM-05', name: 'Lakshmi Electronics', subBrand: 'Lakshmi Digital', branch: 'Andheri West', city: 'Mumbai',
+    id: 'lks-bom', storeCode: 'LKS-BOM-05', name: 'Lakshmi Electronics', subBrand: 'Tata Motors', branch: 'Andheri West', city: 'Mumbai',
     address: 'Link Road, Andheri West, Mumbai', pincode: '400053', state: 'Maharashtra',
     stated: { lat: 19.1364, lng: 72.8296 }, actual: { lat: 19.1364, lng: 72.8296 },
     landmark: 'Beside Infiniti Mall',
@@ -2317,7 +2317,7 @@ export const MAPPED_LOCATIONS = [
     addedAgo: 'Added 3 weeks ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(21),
   },
   {
-    id: 'lks-pun', storeCode: 'LKS-PUN-06', name: 'Lakshmi Electronics', subBrand: 'Lakshmi Digital', branch: 'Baner', city: 'Pune',
+    id: 'lks-pun', storeCode: 'LKS-PUN-06', name: 'Lakshmi Electronics', subBrand: 'Tata Motors', branch: 'Baner', city: 'Pune',
     address: 'Baner Road, Pune', pincode: '411045', state: 'Maharashtra',
     stated: { lat: 18.5590, lng: 73.7868 }, actual: { lat: 18.5590, lng: 73.7868 },
     landmark: 'Opposite Balewadi Stadium',
@@ -2330,7 +2330,7 @@ export const MAPPED_LOCATIONS = [
   // for the six above because those are scoped to the assignment now, not to "every
   // location in the fixture" — see assignments.js.
   {
-    id: 'lks-jay', storeCode: 'LKS-JAY-04', name: 'Lakshmi Electronics', branch: 'Jayanagar', city: 'Bangalore',
+    id: 'lks-jay', storeCode: 'LKS-JAY-04', name: 'Lakshmi Electronics', subBrand: 'Tetley', branch: 'Jayanagar', city: 'Bangalore',
     address: '11th Main, 4th Block, Jayanagar, Bangalore', pincode: '560011', state: 'Karnataka',
     stated: { lat: 12.9299, lng: 77.5827 }, actual: { lat: 12.9299, lng: 77.5827 },
     landmark: 'Near Cool Joint',

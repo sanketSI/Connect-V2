@@ -160,8 +160,10 @@ export function makeAllLocationsStore() {
 // file that has never heard of sub-brands keeps working, as one sub-brand per name.
 // ============================================================
 
-/** The parent brand over every sub-brand. A proper noun, never translated. */
-export const BRAND_NAME = 'Lakshmi Group'
+/** The parent brand over every sub-brand. A proper noun, never translated.
+    The spec's own example, verbatim: TATA holds Tata Motors and Tetley; the sub-brand
+    with the most locations (Tetley) is the default a fresh session opens on. */
+export const BRAND_NAME = 'TATA'
 
 export function subBrandOf(loc) {
   return loc?.subBrand || loc?.name
