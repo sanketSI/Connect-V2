@@ -1,19 +1,18 @@
-// HOME (Phase 1). Real selectors, no stand-ins: the greeting, the roll-up strip and the
-// triage counts all come from @connect/core — the same functions apps/web/src/screens/
-// Home.jsx calls, which is the entire point of the core split.
-import { View, Text, useColorScheme } from 'react-native'
+// HOME. Real selectors, no stand-ins — the same functions apps/web/src/screens/Home.jsx
+// calls, which is the whole point of the core split.
+import { View } from 'react-native'
+import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { Layers } from 'lucide-react-native'
+import { Layers, Zap } from 'lucide-react-native'
 import {
   getCurrentUser, networkRollup, isMultiLocation,
   openMissedCount, leadCounts, reviewsWaitingCount,
 } from '@connect/core'
-import { Screen, Card, Stat, SectionLabel, Row } from '../../components/UI.jsx'
-import { themeFor, TYPE } from '../../lib/tokens.js'
+import { Screen, Card, Stat, SectionLabel, Row, Title } from '../../components/UI.jsx'
 
 export default function HomeTab() {
   const { t } = useTranslation()
-  const theme = themeFor(useColorScheme())
+  const router = useRouter()
 
   const user = getCurrentUser()
   const multi = isMultiLocation()
@@ -24,33 +23,32 @@ export default function HomeTab() {
 
   return (
     <Screen>
-      <Text style={[TYPE.largeTitle, { color: theme.textPrimary }]}>
+      <Title>
         {t('home.greeting', { name: user.name.split(' ')[0], defaultValue: 'Welcome back, {{name}}.' })}
-      </Text>
+      </Title>
 
       {multi && (
         <>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 20, marginBottom: 8 }}>
-            <Layers size={13} color={theme.primaryText} />
-            <Text style={[TYPE.subhead, { color: theme.textTertiary }]}>
-              {t('stores.acrossStores', { defaultValue: 'Across your stores' })}
-            </Text>
-          </View>
+          <SectionLabel icon={Layers}>
+            {t('stores.acrossStores', { defaultValue: 'Across your stores' })}
+          </SectionLabel>
 
-          {/* The four facts a multi-store owner scans first — and the chevron rides the
-              right edge, centred, exactly as it now does on web (commit a8260c1). */}
-          <Card>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Stat value={net.stores} label={t('stores.storesLabel', { defaultValue: 'Stores' })} tint={theme.primaryText} />
-              <Stat value={net.missed} label={t('calls.statMissed', { defaultValue: 'Missed' })} tint={theme.errorText} />
-              <Stat value={net.answered} label={t('calls.statAnswered', { defaultValue: 'Answered' })} tint={theme.successText} />
-              <Stat value={`${net.recovery}%`} label={t('stores.recoveryRate', { defaultValue: 'Recovery' })} tint={theme.successText} />
+          {/* Opens the roll-up — the strip is the way INTO it, not just a read-out. */}
+          <Card
+            onPress={() => router.push('/(tabs)/locations')}
+            label={t('stores.acrossStores', { defaultValue: 'Across your stores' })}
+          >
+            <View className="flex-row gap-2">
+              <Stat value={net.stores} label={t('stores.storesLabel', { defaultValue: 'Stores' })} tone="primary" />
+              <Stat value={net.missed} label={t('calls.statMissed', { defaultValue: 'Missed' })} tone="bad" />
+              <Stat value={net.answered} label={t('calls.statAnswered', { defaultValue: 'Answered' })} tone="ok" />
+              <Stat value={`${net.recovery}%`} label={t('stores.recoveryRate', { defaultValue: 'Recovery' })} tone="ok" />
             </View>
           </Card>
         </>
       )}
 
-      <SectionLabel>{t('home.needsYouNow', { defaultValue: 'Needs you now' })}</SectionLabel>
+      <SectionLabel icon={Zap}>{t('home.needsYouNow', { defaultValue: 'Needs you now' })}</SectionLabel>
 
       <Row
         title={t('home.missedCalls', {
@@ -59,10 +57,12 @@ export default function HomeTab() {
           defaultValue_other: '{{count}} missed calls',
         })}
         sub={t('window.last24h', { defaultValue: 'Last 24 hours' })}
+        onPress={() => router.push('/(tabs)/leads')}
       />
       <Row
         title={t('nav.leads', { defaultValue: 'Leads' })}
         sub={`${leads} ${t('leads.statusMissed', { defaultValue: 'Missed' })}`}
+        onPress={() => router.push('/(tabs)/leads')}
       />
       <Row
         title={t('nav.reviews', { defaultValue: 'Reviews' })}
@@ -71,6 +71,7 @@ export default function HomeTab() {
           defaultValue_one: '{{count}} review waiting for a reply',
           defaultValue_other: '{{count}} reviews waiting for a reply',
         })}
+        onPress={() => router.push('/(tabs)/reviews')}
       />
     </Screen>
   )

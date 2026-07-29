@@ -1,0 +1,5 @@
+/* NativeWind's entry stylesheet. Metro compiles this through Tailwind and hands the
+   resulting styles to the RN style system — it is not shipped as CSS to the device. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

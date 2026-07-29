@@ -4,7 +4,12 @@
 module.exports = function (api) {
   api.cache(true)
   return {
-    presets: ['babel-preset-expo'],
+    // jsxImportSource: nativewind — this is what teaches every RN component to accept
+    // className. babel-preset-expo must still come first; nativewind extends it.
+    presets: [
+      ['babel-preset-expo', { jsxImportSource: 'nativewind' }],
+      'nativewind/babel',
+    ],
     plugins: ['react-native-worklets/plugin'],
   }
 }

@@ -15,16 +15,24 @@
 // home indicator (react-native-safe-area-context, via the Tabs bar itself) and a real
 // platform tab bar with its own press states.
 // ============================================================
-import { Tabs } from 'expo-router'
+import { Tabs, Redirect } from 'expo-router'
 import { useColorScheme } from 'react-native'
 import { useTranslation } from 'react-i18next'
 import { Home, Users, Star, Building2 } from 'lucide-react-native'
 import { isMultiLocation } from '@connect/core'
 import { themeFor, BRAND } from '../../lib/tokens.js'
+import { useSession } from '../../lib/session.js'
 
 export default function TabsLayout() {
   const { t } = useTranslation()
   const theme = themeFor(useColorScheme())
+  const session = useSession()
+
+  // THE GUARD. Without it the tabs are reachable by URL/deep link with no session, and
+  // every scoped selector would fall back to the whole fixture — a manager would be
+  // looking at other branches' calls. Redirect, not a blank state: there is exactly one
+  // thing to do without a session, and that is sign in.
+  if (!session.authed) return <Redirect href="/" />
 
   // Per render, not per module load: the assignment belongs to whoever signed in, so a
   // module-level snapshot would freeze the first session's shape for the life of the tab.

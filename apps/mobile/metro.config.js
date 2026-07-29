@@ -22,6 +22,7 @@
 // Metro must honour the field rather than guessing at file layout.
 // ============================================================
 const { getDefaultConfig } = require('expo/metro-config')
+const { withNativeWind } = require('nativewind/metro')
 const path = require('path')
 
 const projectRoot = __dirname
@@ -72,4 +73,6 @@ config.resolver.unstable_enablePackageExports = true
 // from Expo's own entry file. The React-duplication worry it was meant to solve is
 // already handled by the ORDER of nodeModulesPaths above.
 
-module.exports = config
+// NativeWind compiles global.css through Tailwind and feeds the result to the RN style
+// system. It wraps LAST so it sees the monorepo resolver settings above.
+module.exports = withNativeWind(config, { input: './global.css' })

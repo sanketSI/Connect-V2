@@ -1,29 +1,24 @@
-// LEADS (Phase 1). The status breakdown straight from core's leadCounts() — the same
-// numbers the web Leads tab filters on. The list itself, its filters and the lead detail
-// are Phase 3; what is here is real, not a placeholder.
-import { View, Text, useColorScheme } from 'react-native'
+// LEADS. The status breakdown from core's leadCounts() — the same numbers the web Leads
+// tab filters on. The list itself, its filters and the lead detail are Phase 3.
+import { View, Text } from 'react-native'
 import { useTranslation } from 'react-i18next'
 import { leadCounts } from '@connect/core'
-import { Screen, Card, Stat, SectionLabel, Row } from '../../components/UI.jsx'
-import { themeFor, TYPE } from '../../lib/tokens.js'
+import { Screen, Card, Stat, SectionLabel, Row, Title } from '../../components/UI.jsx'
 
 export default function LeadsTab() {
   const { t } = useTranslation()
-  const theme = themeFor(useColorScheme())
   const c = leadCounts()
 
   return (
     <Screen>
-      <Text style={[TYPE.largeTitle, { color: theme.textPrimary }]}>
-        {t('nav.leads', { defaultValue: 'Leads' })}
-      </Text>
+      <Title>{t('nav.leads', { defaultValue: 'Leads' })}</Title>
 
-      <View style={{ marginTop: 16 }}>
+      <View className="mt-4">
         <Card>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View className="flex-row gap-2">
             <Stat value={c.total} label={t('common.all', { defaultValue: 'All' })} />
-            <Stat value={c.missed} label={t('leads.statusMissed', { defaultValue: 'Missed' })} tint={theme.errorText} />
-            <Stat value={c.converted} label={t('leads.statusConverted', { defaultValue: 'Converted' })} tint={theme.successText} />
+            <Stat value={c.missed} label={t('leads.statusMissed', { defaultValue: 'Missed' })} tone="bad" />
+            <Stat value={c.converted} label={t('leads.statusConverted', { defaultValue: 'Converted' })} tone="ok" />
           </View>
         </Card>
       </View>
@@ -38,6 +33,5 @@ export default function LeadsTab() {
 }
 
 function Count({ n }) {
-  const theme = themeFor(useColorScheme())
-  return <Text style={[TYPE.headline, { color: theme.textSecondary }]}>{n}</Text>
+  return <Text className="text-base font-hk-semi text-ink-2 dark:text-d-ink2">{n}</Text>
 }

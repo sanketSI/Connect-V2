@@ -1,33 +1,43 @@
 // ============================================================
-// THE UI KIT, PHASE 1 SUBSET.
+// THE UI KIT — Phase 2.
 //
-// Card / Stat / Screen / SectionLabel — the four primitives every screen below needs.
-// The full kit (AICard, Chip, pills, Stars, Avatar, Skeleton, AIShimmer, TopBar, Toast,
-// the gorhom BottomSheet wrapper) is Phase 2 in EXPO-MIGRATION.md; this is deliberately
-// the smallest set that lets Phase 1's screens be real rather than mock-ups.
+// Written in NativeWind classes, not because they are shorter but because apps/web is
+// 1,458 className strings and every primitive that answers to the SAME class name is a
+// screen that can be ported instead of redesigned.
 //
-// Card mirrors one hard-won decision from the web kit: a card with an onPress is a
-// CONTROL, so it gets a real Pressable with a native press state and an accessible
-// label — not a tappable View. On web that fix was "a clickable card is a control"
-// (commit eb97e24); the same reasoning applies here, and RN makes it cheaper.
+// The geometry is lifted from apps/web/src/components/UI.jsx rather than reinvented:
+// cards are rounded-2xl (16px) with a 1px hairline and the soft blue-cast shadow, the
+// primary button is a 48px pill-ish rounded-xl in #0070FC, ghost buttons are the same
+// height on a 5%-blue wash. Where the web uses `glass` (a backdrop blur over a tinted
+// surface), native uses the flat card colour: RN has no cheap backdrop-filter, and a
+// fake blur that costs frames on a mid-range Android is a bad trade for a dealer's phone.
+//
+// Card keeps the one rule the web kit learned the hard way: a card with an onPress is a
+// CONTROL — real Pressable, real press state, real accessible name. A card that looks
+// tappable and is not is worse than no card, which is exactly what the Phase 1 tabs got
+// wrong.
 // ============================================================
-import { View, Text, Pressable, StyleSheet, ScrollView, useColorScheme } from 'react-native'
+import { View, Text, Pressable, ScrollView, ActivityIndicator } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { themeFor, TYPE, TAP_TARGET } from '../lib/tokens.js'
+import { ChevronRight } from 'lucide-react-native'
+import { vibrate } from '../lib/haptics.js'
 
-/** A screen body: safe-area aware at the top, tab-bar aware at the bottom. */
-export function Screen({ children, scroll = true }) {
-  const theme = themeFor(useColorScheme())
+/** Screen body: safe-area at the top, tab-bar clearance at the bottom. */
+export function Screen({ children, scroll = true, className = '' }) {
   const insets = useSafeAreaInsets()
-  const pad = { paddingTop: insets.top + 8, paddingHorizontal: 16, paddingBottom: 24 }
+  const pad = { paddingTop: insets.top + 8, paddingBottom: 28 }
 
   if (!scroll) {
-    return <View style={[styles.flex, { backgroundColor: theme.screen }, pad]}>{children}</View>
+    return (
+      <View className={`flex-1 bg-screen dark:bg-d-screen px-4 ${className}`} style={pad}>
+        {children}
+      </View>
+    )
   }
   return (
     <ScrollView
-      style={[styles.flex, { backgroundColor: theme.screen }]}
-      contentContainerStyle={pad}
+      className={`flex-1 bg-screen dark:bg-d-screen ${className}`}
+      contentContainerStyle={{ ...pad, paddingHorizontal: 16 }}
       showsVerticalScrollIndicator={false}
     >
       {children}
@@ -35,64 +45,153 @@ export function Screen({ children, scroll = true }) {
   )
 }
 
-export function Card({ children, onPress, label, style }) {
-  const theme = themeFor(useColorScheme())
-  const base = [styles.card, { backgroundColor: theme.card, borderColor: theme.border }, style]
+/** The soft blue-cast card shadow the web app uses (--shadow-card), in RN terms. */
+export const CARD_SHADOW = {
+  shadowColor: '#0070FC',
+  shadowOpacity: 0.08,
+  shadowRadius: 12,
+  shadowOffset: { width: 0, height: 4 },
+  elevation: 2,
+}
 
-  if (!onPress) return <View style={base}>{children}</View>
+export function Card({ children, onPress, label, className = '' }) {
+  const base = `rounded-card border border-hairline dark:border-d-hairline bg-card dark:bg-white/5 p-4 ${className}`
+
+  if (!onPress) return <View className={base} style={CARD_SHADOW}>{children}</View>
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => { vibrate(10); onPress() }}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => [...base, pressed && styles.pressed]}
+      style={({ pressed }) => [CARD_SHADOW, pressed && { opacity: 0.85, transform: [{ scale: 0.985 }] }]}
+      className={base}
     >
       {children}
     </Pressable>
   )
 }
 
-/** One number over one word — the unit the roll-up cards are built from. */
-export function Stat({ value, label, tint }) {
-  const theme = themeFor(useColorScheme())
-  return (
-    <View style={styles.stat}>
-      <Text style={[TYPE.stat, { color: tint || theme.textPrimary }]} numberOfLines={1}>{value}</Text>
-      <Text style={[TYPE.caption, { color: theme.textTertiary }]} numberOfLines={1}>{label}</Text>
-    </View>
-  )
+export function Title({ children, className = '' }) {
+  return <Text className={`text-[30px] leading-9 font-hk-bold text-ink dark:text-d-ink ${className}`}>{children}</Text>
 }
 
-export function SectionLabel({ children }) {
-  const theme = themeFor(useColorScheme())
+export function Headline({ children, className = '', numberOfLines }) {
   return (
-    <Text style={[TYPE.subhead, { color: theme.textTertiary, marginBottom: 8, marginTop: 20 }]}>
+    <Text numberOfLines={numberOfLines} className={`text-base font-hk-semi text-ink dark:text-d-ink ${className}`}>
       {children}
     </Text>
   )
 }
 
-export function Row({ title, sub, right, onPress }) {
-  const theme = themeFor(useColorScheme())
-  const body = (
-    <View style={styles.row}>
-      <View style={styles.flex}>
-        <Text style={[TYPE.headline, { color: theme.textPrimary }]} numberOfLines={1}>{title}</Text>
-        {!!sub && <Text style={[TYPE.caption, { color: theme.textTertiary, marginTop: 2 }]} numberOfLines={1}>{sub}</Text>}
-      </View>
-      {right}
-    </View>
+export function Body({ children, className = '', numberOfLines }) {
+  return (
+    <Text numberOfLines={numberOfLines} className={`text-[15px] leading-5 text-ink-2 dark:text-d-ink2 ${className}`}>
+      {children}
+    </Text>
   )
-  return onPress ? <Card onPress={onPress} label={title} style={styles.rowCard}>{body}</Card>
-    : <Card style={styles.rowCard}>{body}</Card>
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  card: { borderRadius: 16, borderWidth: 1, padding: 14 },
-  rowCard: { marginBottom: 10 },
-  pressed: { opacity: 0.7, transform: [{ scale: 0.985 }] },
-  stat: { flex: 1, minWidth: 0 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: TAP_TARGET - 16 },
-})
+export function Caption({ children, className = '', numberOfLines }) {
+  return (
+    <Text numberOfLines={numberOfLines} className={`text-xs text-ink-3 dark:text-d-ink3 ${className}`}>
+      {children}
+    </Text>
+  )
+}
+
+/** Section label above a group — the web's `m-subhead text-white/55` slot. */
+export function SectionLabel({ children, icon: Icon }) {
+  return (
+    <View className="flex-row items-center gap-1.5 mt-5 mb-2">
+      {Icon ? <Icon size={13} color="#0355DB" /> : null}
+      <Text className="text-[13px] font-hk-medium text-ink-3 dark:text-d-ink3">{children}</Text>
+    </View>
+  )
+}
+
+/** One number over one word. `tone` picks the semantic colour, as on web. */
+export function Stat({ value, label, tone = 'ink' }) {
+  const tones = {
+    ink: 'text-ink dark:text-d-ink',
+    primary: 'text-primaryText dark:text-d-primaryText',
+    ok: 'text-ok dark:text-d-ok',
+    bad: 'text-bad dark:text-d-bad',
+  }
+  return (
+    <View className="flex-1 min-w-0">
+      <Text numberOfLines={1} className={`text-2xl font-hk-bold ${tones[tone] || tones.ink}`}>{value}</Text>
+      <Text numberOfLines={1} className="text-xs text-ink-3 dark:text-d-ink3 mt-0.5">{label}</Text>
+    </View>
+  )
+}
+
+export function PrimaryButton({ children, onPress, disabled, loading, className = '' }) {
+  const dead = disabled || loading
+  return (
+    <Pressable
+      onPress={() => { if (dead) return; vibrate(12); onPress?.() }}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: !!dead }}
+      className={`h-12 rounded-xl items-center justify-center flex-row gap-2 ${dead ? 'bg-brand-blue/40' : 'bg-brand-blue'} ${className}`}
+      style={dead ? undefined : { shadowColor: '#0070FC', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4 }}
+    >
+      {loading
+        ? <ActivityIndicator color="#fff" />
+        : <Text className="text-base font-hk-semi text-white">{children}</Text>}
+    </Pressable>
+  )
+}
+
+export function GhostButton({ children, onPress, className = '' }) {
+  return (
+    <Pressable
+      onPress={() => { vibrate(10); onPress?.() }}
+      accessibilityRole="button"
+      className={`h-12 rounded-xl items-center justify-center bg-brand-blue/10 ${className}`}
+    >
+      <Text className="text-base font-hk-semi text-primaryText dark:text-d-primaryText">{children}</Text>
+    </Pressable>
+  )
+}
+
+export function Chip({ children, active, onPress }) {
+  return (
+    <Pressable
+      onPress={() => { vibrate(8); onPress?.() }}
+      accessibilityRole="button"
+      accessibilityState={{ selected: !!active }}
+      className={`h-9 px-3.5 rounded-pill items-center justify-center border ${
+        active
+          ? 'bg-brand-blue border-brand-blue'
+          : 'bg-transparent border-hairline dark:border-d-hairline'
+      }`}
+    >
+      <Text className={`text-[13px] font-hk-medium ${active ? 'text-white' : 'text-ink-2 dark:text-d-ink2'}`}>
+        {children}
+      </Text>
+    </Pressable>
+  )
+}
+
+/**
+ * A list row that opens something. The chevron is the disclosure indicator and rides the
+ * right edge, vertically centred — the same fix the web roll-up card needed.
+ */
+export function Row({ title, sub, right, onPress, label }) {
+  const body = (
+    <View className="flex-row items-center gap-3">
+      <View className="flex-1 min-w-0">
+        <Headline numberOfLines={1}>{title}</Headline>
+        {sub ? <Caption numberOfLines={1} className="mt-0.5">{sub}</Caption> : null}
+      </View>
+      {right}
+      {onPress ? <ChevronRight size={18} color="#93A0C8" /> : null}
+    </View>
+  )
+  return (
+    <Card onPress={onPress} label={label || title} className="mb-2.5">
+      {body}
+    </Card>
+  )
+}

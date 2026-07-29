@@ -20,6 +20,7 @@
 //      routes must not mount until hydration has resolved. This is the same constraint
 //      that keeps `import App` dynamic on web — do not "simplify" it to an eager tree.
 // ============================================================
+import '../global.css' // NativeWind: must be imported once, at the root
 import { useEffect, useState } from 'react'
 import { View, Text, ActivityIndicator, StyleSheet, useColorScheme } from 'react-native'
 import { Stack } from 'expo-router'
@@ -31,6 +32,11 @@ import { configureStorage } from '@connect/core/storage.js'
 import { configureAnalytics } from '@connect/core/analytics.js'
 // STATIC, not `await import(...)` — see the note above act 3 below.
 import { hydrate } from '@connect/core/data/hydrate.js'
+import {
+  useFonts,
+  HankenGrotesk_400Regular, HankenGrotesk_500Medium,
+  HankenGrotesk_600SemiBold, HankenGrotesk_700Bold,
+} from '@expo-google-fonts/hanken-grotesk'
 import { nativeStorageDriver, preloadStorage } from '../lib/storage.js'
 import { initI18n } from '../lib/i18n.js'
 import { themeFor, TYPE, BRAND } from '../lib/tokens.js'
@@ -58,6 +64,15 @@ export default function RootLayout() {
   const theme = themeFor(scheme)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState(null)
+
+  // THE BRAND FACE. Hanken Grotesk is what apps/web loads, and without it every screen
+  // falls back to San Francisco / Roboto — which is the single biggest reason the native
+  // build stopped looking like the web one. Gated with the rest of boot rather than
+  // swapped in late: text that reflows one frame after it paints reads as a bug.
+  const [fontsLoaded] = useFonts({
+    HankenGrotesk_400Regular, HankenGrotesk_500Medium,
+    HankenGrotesk_600SemiBold, HankenGrotesk_700Bold,
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -105,13 +120,15 @@ export default function RootLayout() {
   }, [])
 
   if (error) return <BootFailure error={error} theme={theme} />
-  if (!ready) return <BootSplash theme={theme} />
+  if (!ready || !fontsLoaded) return <BootSplash theme={theme} />
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.screen } }}>
+          {/* index is Login and the app's entry; (tabs) is everything behind the session. */}
+          <Stack.Screen name="index" />
           <Stack.Screen name="(tabs)" />
         </Stack>
       </SafeAreaProvider>

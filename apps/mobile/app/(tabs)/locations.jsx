@@ -1,33 +1,29 @@
-// YOUR LOCATIONS (Phase 1) — the per-store roll-up, from core's networkRollup().perStore.
-// Reached only when the manager holds more than one store (see the tab layout). The
-// drill-down (state → city → store → calls → customer) is Phase 3/4.
-import { View, Text, useColorScheme } from 'react-native'
+// YOUR LOCATIONS — the per-store roll-up, from core's networkRollup().perStore. Reached
+// only when the manager holds more than one store (see the tab layout). The drill-down
+// (state → city → store → calls → customer) is Phase 3/4.
+import { View, Text } from 'react-native'
 import { useTranslation } from 'react-i18next'
 import { networkRollup } from '@connect/core'
-import { Screen, Card, Stat, SectionLabel, Row } from '../../components/UI.jsx'
-import { themeFor, TYPE } from '../../lib/tokens.js'
+import { Screen, Card, Stat, SectionLabel, Row, Title } from '../../components/UI.jsx'
 
 export default function LocationsTab() {
   const { t } = useTranslation()
-  const theme = themeFor(useColorScheme())
   const net = networkRollup()
 
-  // Worst recovery first: this screen exists to find the branch that is losing calls,
-  // and alphabetical order buries it. Same ranking the web roll-up uses.
+  // Worst recovery first: this screen exists to find the branch losing calls, and
+  // alphabetical order buries it.
   const stores = [...net.perStore].sort((a, b) => a.recovery - b.recovery)
 
   return (
     <Screen>
-      <Text style={[TYPE.largeTitle, { color: theme.textPrimary }]}>
-        {t('nav.network', { defaultValue: 'Your locations' })}
-      </Text>
+      <Title>{t('nav.network', { defaultValue: 'Your locations' })}</Title>
 
-      <View style={{ marginTop: 16 }}>
+      <View className="mt-4">
         <Card>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Stat value={net.stores} label={t('stores.storesLabel', { defaultValue: 'Stores' })} tint={theme.primaryText} />
-            <Stat value={net.missed} label={t('calls.statMissed', { defaultValue: 'Missed' })} tint={theme.errorText} />
-            <Stat value={`${net.recovery}%`} label={t('stores.recoveryRate', { defaultValue: 'Recovery' })} tint={theme.successText} />
+          <View className="flex-row gap-2">
+            <Stat value={net.stores} label={t('stores.storesLabel', { defaultValue: 'Stores' })} tone="primary" />
+            <Stat value={net.missed} label={t('calls.statMissed', { defaultValue: 'Missed' })} tone="bad" />
+            <Stat value={`${net.recovery}%`} label={t('stores.recoveryRate', { defaultValue: 'Recovery' })} tone="ok" />
           </View>
         </Card>
       </View>
@@ -40,7 +36,7 @@ export default function LocationsTab() {
           title={s.branch}
           sub={t('store.missedCount', { count: s.missed, defaultValue: '{{count}} missed' })}
           right={
-            <Text style={[TYPE.headline, { color: s.recovery >= 50 ? theme.successText : theme.errorText }]}>
+            <Text className={`text-base font-hk-semi ${s.recovery >= 50 ? 'text-ok dark:text-d-ok' : 'text-bad dark:text-d-bad'}`}>
               {s.recovery}%
             </Text>
           }
