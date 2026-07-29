@@ -5,9 +5,9 @@
 // and changing the cover MOVES THE MARK — the outgoing cover drops back into the
 // gallery pool, exactly the web's promoteToCover.
 //
-// Named, not hidden: the Posts segment (CreatePostSheet, 250 web lines) and camera/
-// gallery uploads (expo-image-picker + the compliance gate + 16:9 fitting) are the next
-// iteration — their chips/buttons are not drawn until they work. Seeded entries carry a
+// Named, not hidden: camera/gallery uploads (expo-image-picker + the compliance gate +
+// 16:9 fitting) are the remaining iteration — their buttons are not drawn until they
+// work. Seeded entries carry a
 // label, not a file, so thumbs render the same neutral brand-dark panel the web uses
 // (deliberately NOT the AI gradient, which is reserved for AI surfaces).
 // ============================================================
@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next'
 import { Image as ImageIcon, ShieldCheck, Trash2, Building2, ChevronRight, Check } from 'lucide-react-native'
 import { getMediaLibrary, assignedStores, getStoreLocations } from '@connect/core'
 import { Screen, Card, Title, Body, Caption, PrimaryButton } from '../components/UI.jsx'
+import CreatePost from '../components/CreatePost.jsx'
 import { BackButton } from '../components/Header.jsx'
 import { useSession } from '../lib/session.js'
 import { vibrate, notifySuccess } from '../lib/haptics.js'
@@ -25,6 +26,7 @@ import { vibrate, notifySuccess } from '../lib/haptics.js'
 const SEGMENTS = [
   { id: 'cover', labelKey: 'media.segCover', label: 'Cover photo' },
   { id: 'photos', labelKey: 'media.segPhotos', label: 'Photos' },
+  { id: 'posts', labelKey: 'media.segPosts', label: 'Posts' },
 ]
 
 function imgLabel(item, t) {
@@ -229,6 +231,10 @@ function ManageMediaBody({ storeId, t }) {
             ))}
           </View>
         </View>
+      )}
+
+      {segment === 'posts' && (
+        <CreatePost storeId={storeId} onDone={() => setSegment('cover')} />
       )}
     </Screen>
   )
