@@ -66,6 +66,25 @@ config.resolver.nodeModulesPaths = [
 // Core is ESM with an exports map; the boot gate reaches for its subpath seams.
 config.resolver.unstable_enablePackageExports = true
 
+// ONE i18next, BY FORCE. i18next is a stateful singleton and this repo holds two copies
+// of it: the app's (apps/mobile/node_modules, which lib/i18n.js initialises) and the
+// root's (which packages/core/data/format.js reaches through hierarchical lookup). On
+// web the hoist makes them the same file; here they are two instances, and core's was
+// never initialised — so rupees() asked an empty i18next for a scale word, got
+// undefined, and the WelcomeView crashed on `word.length`. Both paths were visible in
+// the dev bundle before this pin: node_modules/i18next AND ../../node_modules/i18next.
+// Every importer now gets the app's copy, whichever tree it resolves from.
+const I18NEXT = require.resolve('i18next', { paths: [projectRoot] })
+const defaultResolveRequest = config.resolver.resolveRequest
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (moduleName === 'i18next') {
+    return { type: 'sourceFile', filePath: I18NEXT }
+  }
+  return defaultResolveRequest
+    ? defaultResolveRequest(context, moduleName, platform)
+    : context.resolveRequest(context, moduleName, platform)
+}
+
 // NOTE: disableHierarchicalLookup stays OFF. It looks like the right hygiene in a
 // monorepo — pin resolution to the two paths above and nothing else — but it also stops
 // Metro walking into expo/node_modules, where the SDK keeps its own nested copies of
