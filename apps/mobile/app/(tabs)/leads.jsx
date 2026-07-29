@@ -13,6 +13,7 @@ import {
   getCustomerById, customerDialDigits, updateLeadStatus, dayClock,
 } from '@connect/core'
 import { Screen, Card, Title, Body, Caption, Chip } from '../../components/UI.jsx'
+import LocationPicker from '../../components/LocationPicker.jsx'
 import { HeaderRight } from '../../components/Header.jsx'
 import { useSession } from '../../lib/session.js'
 import { useDataVersion } from '../../lib/useDataVersion.js'
@@ -39,6 +40,7 @@ export default function LeadsTab() {
 
   const [status, setStatus] = useState('all')
   const [source, setSource] = useState('all')
+  const [branch, setBranch] = useState('all')
 
   // Preset contract: Home's "Call now" opens this tab ON missed (web: goTab preset).
   const params = useLocalSearchParams()
@@ -51,9 +53,15 @@ export default function LeadsTab() {
   // one would read zero.
   const counts = useMemo(() => leadCounts({ storeId: scopeId }), [scopeId, version])
   const list = useMemo(() => getLeads({ storeId: scopeId, status, source }), [scopeId, status, source, version])
-  const groups = useMemo(
+  // Grouped BEFORE the branch filter — the picker reads its counts off this, and a
+  // filtered grouping would show every other branch as 0.
+  const allGroups = useMemo(
     () => (aggregate ? groupByStore(list) : [{ storeId: null, label: null, count: list.length, items: list }]),
     [aggregate, list],
+  )
+  const groups = useMemo(
+    () => (branch === 'all' ? allGroups : allGroups.filter(g => g.storeId === branch)),
+    [allGroups, branch],
   )
 
   const openLead = (lead) => { if (lead.customerId) router.push(`/customer/${lead.customerId}`) }
@@ -67,6 +75,13 @@ export default function LeadsTab() {
         </View>
         <HeaderRight />
       </View>
+
+      {/* WHICH LISTINGS ARE IN PLAY — the branch picker leads on the cumulative view. */}
+      {aggregate && (
+        <View className="mt-3 -mb-1">
+          <LocationPicker value={branch} onChange={setBranch} groups={allGroups} total={list.length} />
+        </View>
+      )}
 
       {/* WHERE THE LEAD HAS GOT TO — chips carry live counts, exactly as web. */}
       <View className="flex-row flex-wrap gap-2 mt-4 mb-2.5">
@@ -86,7 +101,7 @@ export default function LeadsTab() {
           {t('leads.allSources', { defaultValue: 'All sources' })}
         </Chip>
         {LEAD_SOURCES.map(s => (
-          <Chip key={s.id} active={source === s.id} onPress={() => setSource(s.id)}>
+          <Chip key={s.id} icon={SOURCE_ICON[s.id]} active={source === s.id} onPress={() => setSource(s.id)}>
             {t(s.labelKey, { defaultValue: s.label })}
           </Chip>
         ))}
@@ -94,7 +109,7 @@ export default function LeadsTab() {
 
       {groups.map(g => (
         <View key={g.storeId ?? 'all'}>
-          {g.label ? (
+          {g.label && branch === 'all' ? (
             <View className="flex-row items-center justify-between mt-2 mb-2">
               <Caption className="font-hk-semi">{g.label}</Caption>
               <Caption>{g.count}</Caption>

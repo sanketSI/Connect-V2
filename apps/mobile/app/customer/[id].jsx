@@ -103,8 +103,8 @@ export default function CustomerPage() {
             {LEAD_STATUSES.map(s => {
               const on = lead.status === s.id
               return (
-                <Chip key={s.id} active={on} onPress={() => { vibrate(10); updateLeadStatus(lead, s.id) }}>
-                  {on ? '✓ ' : ''}{t(s.labelKey, { defaultValue: s.label })}
+                <Chip key={s.id} icon={on ? Check : undefined} active={on} onPress={() => { vibrate(10); updateLeadStatus(lead, s.id) }}>
+                  {t(s.labelKey, { defaultValue: s.label })}
                 </Chip>
               )
             })}

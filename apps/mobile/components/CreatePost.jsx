@@ -195,7 +195,7 @@ export default function CreatePost({ storeId, onDone }) {
       </LinearGradient>
 
       <View className="flex-row gap-2 mt-3">
-        <Chip onPress={() => generate()}>✦ {t('post.regenerate', { defaultValue: 'Regenerate' })}</Chip>
+        <Chip icon={Sparkles} onPress={() => generate()}>{t('post.regenerate', { defaultValue: 'Regenerate' })}</Chip>
       </View>
 
       {!detailsReady && (

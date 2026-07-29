@@ -19,7 +19,8 @@ import { Tabs, Redirect } from 'expo-router'
 import { useColorScheme } from 'react-native'
 import { useTranslation } from 'react-i18next'
 import { Home, Users, Star, Building2 } from 'lucide-react-native'
-import { isMultiLocation } from '@connect/core'
+import { isMultiLocation, leadCounts, reviewsWaitingCount } from '@connect/core'
+import { useDataVersion } from '../../lib/useDataVersion.js'
 import { themeFor, BRAND } from '../../lib/tokens.js'
 import { useSession } from '../../lib/session.js'
 
@@ -37,6 +38,15 @@ export default function TabsLayout() {
   // Per render, not per module load: the assignment belongs to whoever signed in, so a
   // module-level snapshot would freeze the first session's shape for the life of the tab.
   const showRollup = isMultiLocation()
+
+  // BADGES — the same canonical counts the web bar reads (App.jsx leadsBadge /
+  // reviewsBadge), scoped to the branch in session and re-derived on every mutation:
+  // reply to a review and the Reviews badge drops in the same render.
+  useDataVersion()
+  const scopeId = session.store?.aggregate ? undefined : session.store?.id
+  const leadsBadge = leadCounts({ storeId: scopeId }).missed
+  const reviewsBadge = reviewsWaitingCount(undefined, scopeId)
+  const badgeStyle = { backgroundColor: '#DC2626', color: '#fff', fontSize: 11 }
 
   return (
     <Tabs
@@ -63,6 +73,11 @@ export default function TabsLayout() {
         options={{
           title: t('nav.leads', { defaultValue: 'Leads' }),
           tabBarIcon: ({ color, focused }) => <Users size={22} color={color} strokeWidth={focused ? 2.4 : 1.8} />,
+          tabBarBadge: leadsBadge > 0 ? leadsBadge : undefined,
+          tabBarBadgeStyle: badgeStyle,
+          tabBarAccessibilityLabel: leadsBadge > 0
+            ? t('nav.tabWithCount', { label: t('nav.leads', { defaultValue: 'Leads' }), count: leadsBadge, defaultValue: '{{label}}, {{count}} new' })
+            : t('nav.leads', { defaultValue: 'Leads' }),
         }}
       />
       <Tabs.Screen
@@ -70,6 +85,11 @@ export default function TabsLayout() {
         options={{
           title: t('nav.reviews', { defaultValue: 'Reviews' }),
           tabBarIcon: ({ color, focused }) => <Star size={22} color={color} strokeWidth={focused ? 2.4 : 1.8} />,
+          tabBarBadge: reviewsBadge > 0 ? reviewsBadge : undefined,
+          tabBarBadgeStyle: badgeStyle,
+          tabBarAccessibilityLabel: reviewsBadge > 0
+            ? t('nav.tabWithCount', { label: t('nav.reviews', { defaultValue: 'Reviews' }), count: reviewsBadge, defaultValue: '{{label}}, {{count}} new' })
+            : t('nav.reviews', { defaultValue: 'Reviews' }),
         }}
       />
       <Tabs.Screen

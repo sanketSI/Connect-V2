@@ -7,14 +7,16 @@ import { useMemo, useState } from 'react'
 import { View, Text, TextInput, Pressable, Linking } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { Star, Copy, MessageCircle, Send, SlidersHorizontal, EyeOff, Pencil, RotateCcw, Check } from 'lucide-react-native'
+import { Star, Copy, MessageCircle, Send, SlidersHorizontal, EyeOff, Pencil, Check, CalendarRange } from 'lucide-react-native'
 import * as Clipboard from 'expo-clipboard'
 import {
   filterReviews, reviewMetrics, reviewsWaitingCount, CANONICAL_REVIEW_WINDOW,
-  storeReviewLink, getCurrentUser,
+  storeReviewLink, getCurrentUser, groupByStore, TIME_WINDOWS,
   DEFAULT_REVIEW_FILTERS, REVIEW_SENTIMENTS, REVIEW_RATING_TYPES, REVIEW_STATUSES, REVIEW_TAGS,
 } from '@connect/core'
 import { Screen, Card, Title, Body, Caption, Chip, PrimaryButton, GhostButton } from '../../components/UI.jsx'
+import LocationPicker from '../../components/LocationPicker.jsx'
+import RatingRange from '../../components/RatingRange.jsx'
 import { HeaderRight } from '../../components/Header.jsx'
 import { useSession } from '../../lib/session.js'
 import { useDataVersion } from '../../lib/useDataVersion.js'
@@ -46,6 +48,9 @@ export default function ReviewsTab() {
   const [tab, setTab] = useState('inbox')
   const [filters, setFilters] = useState({ ...DEFAULT_REVIEW_FILTERS })
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [windowOpen, setWindowOpen] = useState(false)
+  const [branch, setBranch] = useState('all')
+  const aggregate = !!session.store?.aggregate
 
   // How many controls sit off their default — the badge on the Filters chip, and the
   // gate on the "Showing X of Y" note, exactly the web's nActive.
@@ -59,6 +64,21 @@ export default function ReviewsTab() {
     filters.tags.length
 
   const scoped = useMemo(() => ({ ...filters, storeId: scopeId }), [filters, scopeId])
+
+  // The sentiment mix over the SAME set reviewMetrics() describes — every number on the
+  // hero card is talking about the same reviews. `sentiment` is the data layer's own
+  // derivation, already resolved onto each record.
+  const mix = useMemo(() => {
+    const set = filterReviews(scoped)
+    if (!set.length) return null
+    const c = { positive: 0, neutral: 0, negative: 0 }
+    set.forEach(r => { c[r.sentiment] += 1 })
+    return {
+      positive: Math.round((c.positive / set.length) * 100),
+      neutral: Math.round((c.neutral / set.length) * 100),
+      negative: Math.round((c.negative / set.length) * 100),
+    }
+  }, [scoped, version])
   // Denominator for the filtered note: the window alone (plus showRemoved, which widens).
   const windowTotal = useMemo(
     () => filterReviews({ window: filters.window, showRemoved: filters.showRemoved, storeId: scopeId }).length,
@@ -70,6 +90,16 @@ export default function ReviewsTab() {
   // ONE PREDICATE: counted off the very array rendered below, with the data layer's own
   // responded flag — the headline and the rows can never disagree. See the long audit
   // note in the web file for why this matters (four surfaces once showed four numbers).
+  // Grouped BEFORE the branch filter, so the picker's counts survive a pick.
+  const allGroups = useMemo(
+    () => (aggregate ? groupByStore(list) : [{ storeId: null, label: null, count: list.length, items: list }]),
+    [aggregate, list],
+  )
+  const groups = useMemo(
+    () => (branch === 'all' ? allGroups : allGroups.filter(g => g.storeId === branch)),
+    [allGroups, branch],
+  )
+
   const waiting = useMemo(() => list.filter(r => !r.responded && !r.removed).length, [list])
   const canonicalWaiting = useMemo(() => reviewsWaitingCount(undefined, scopeId), [version, scopeId])
 
@@ -103,12 +133,41 @@ export default function ReviewsTab() {
           onClose={() => setFiltersOpen(false)}
         />
       ) : tab === 'link' ? <ReviewLink t={t} /> : (<>
-      {/* The way into the filter sheet, with the active count as its badge. */}
-      <View className="flex-row mt-3 -mb-1">
-        <Chip active={nActive > 0} onPress={() => setFiltersOpen(true)}>
-          ⚙ {t('reviews.filters', { defaultValue: 'Filters' })}{nActive > 0 ? ` · ${nActive}` : ''}
+      {/* Scope controls — the branch picker leads (WHICH listings are in play), then the
+          period, then the filters. The web order, the web icons. */}
+      <View className="flex-row flex-wrap items-center gap-2 mt-3 -mb-1">
+        {aggregate && (
+          <LocationPicker value={branch} onChange={setBranch} groups={allGroups} total={list.length} />
+        )}
+        <Chip
+          icon={CalendarRange}
+          active={filters.window !== DEFAULT_REVIEW_FILTERS.window}
+          onPress={() => setWindowOpen(o => !o)}
+        >
+          {t(`window.${filters.window}`, { defaultValue: filters.window })}
+        </Chip>
+        <Chip icon={SlidersHorizontal} active={nActive > 0} onPress={() => setFiltersOpen(true)}>
+          {nActive > 0
+            ? t('reviews.filtersN', { count: nActive, defaultValue: 'Filters · {{count}}' })
+            : t('reviews.filters', { defaultValue: 'Filters' })}
         </Chip>
       </View>
+
+      {/* The period options — every canonical window except custom (its date-range
+          inputs need a native picker; documented deviation, not a silent drop). */}
+      {windowOpen && (
+        <View className="flex-row flex-wrap gap-2 mt-3 -mb-1">
+          {TIME_WINDOWS.filter(w => w.id !== 'custom').map(w => (
+            <Chip
+              key={w.id}
+              active={filters.window === w.id}
+              onPress={() => { setFilters(f => ({ ...f, window: w.id })); setWindowOpen(false) }}
+            >
+              {t(w.labelKey, { defaultValue: w.label })}
+            </Chip>
+          ))}
+        </View>
+      )}
       {/* Listing metrics — the CountsCard idiom, three across. */}
       <Card className="mt-4 mb-2 !p-3.5">
         <View className="flex-row">
@@ -146,11 +205,35 @@ export default function ReviewsTab() {
             </Caption>
           )}
         </View>
+
+        {/* The sentiment mix — same set as every number above, web's exact colours. */}
+        {mix ? (
+          <>
+            <View className="mt-3 h-1.5 rounded-pill overflow-hidden flex-row bg-ink-3/10">
+              {mix.positive > 0 && <View style={{ width: `${mix.positive}%`, backgroundColor: '#16A34A' }} />}
+              {mix.neutral > 0 && <View style={{ width: `${mix.neutral}%`, backgroundColor: '#F59E0B' }} />}
+              {mix.negative > 0 && <View style={{ width: `${mix.negative}%`, backgroundColor: '#FF6B7E' }} />}
+            </View>
+            <View className="mt-2 flex-row items-center justify-between">
+              <Text className="text-xs font-hk-medium text-[#16A34A]">{t('reviews.sharePositive', { pct: mix.positive, defaultValue: '{{pct}}% positive' })}</Text>
+              <Text className="text-xs font-hk-medium text-[#B45309]">{t('reviews.shareNeutral', { pct: mix.neutral, defaultValue: '{{pct}}% neutral' })}</Text>
+              <Text className="text-xs font-hk-medium text-[#DC2626]">{t('reviews.shareNegative', { pct: mix.negative, defaultValue: '{{pct}}% negative' })}</Text>
+            </View>
+          </>
+        ) : null}
       </Card>
 
       {/* Every card opens the detail — read the whole review, the reply history, and
-          reply with the AI draft. The web's setSelectedId sheet, as a route. */}
-      {list.map(r => (
+          reply with the AI draft. Grouped per listing on the cumulative view. */}
+      {groups.map(g => (
+        <View key={g.storeId ?? 'all'}>
+          {g.label && branch === 'all' ? (
+            <View className="flex-row items-center justify-between mt-2 mb-2">
+              <Caption className="font-hk-semi">{g.label}</Caption>
+              <Caption>{g.count}</Caption>
+            </View>
+          ) : null}
+          {g.items.map(r => (
         <Card key={r.id} onPress={() => router.push(`/review/${r.id}`)} label={r.customer} className="mb-2.5">
           <View className="flex-row items-center justify-between gap-2">
             <Body className="font-hk-semi text-ink dark:text-d-ink flex-1" numberOfLines={1}>{r.customer}</Body>
@@ -179,6 +262,8 @@ export default function ReviewsTab() {
             </View>
           ))}
         </Card>
+          ))}
+        </View>
       ))}
       </>)}
     </Screen>
@@ -283,26 +368,7 @@ function FiltersView({ t, value, onApply, onClose }) {
       <Body className="font-hk-semi text-ink dark:text-d-ink mb-3">{t('reviews.filters', { defaultValue: 'Filters' })}</Body>
 
       <FilterSection label={t('reviews.ratingRange', { defaultValue: 'Rating Range' })}>
-        <View className="flex-row items-center gap-2 flex-wrap">
-          {[1, 2, 3, 4, 5].map(n => (
-            <Chip
-              key={n}
-              active={n >= draft.rating.min && n <= draft.rating.max}
-              onPress={() => {
-                // Tap outside the range extends it; tap an edge shrinks it — a two-thumb
-                // range on chips.
-                const { min, max } = draft.rating
-                if (n < min) set({ rating: { min: n, max } })
-                else if (n > max) set({ rating: { min, max: n } })
-                else if (n === min && min < max) set({ rating: { min: min + 1, max } })
-                else if (n === max && max > min) set({ rating: { min, max: max - 1 } })
-                else set({ rating: { min: 1, max: 5 } })
-              }}
-            >
-              {n}★
-            </Chip>
-          ))}
-        </View>
+        <RatingRange value={draft.rating} onChange={(rating) => set({ rating })} />
       </FilterSection>
 
       <FilterSection label={t('reviews.sentiment', { defaultValue: 'Sentiment' })}>

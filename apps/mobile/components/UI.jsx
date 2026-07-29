@@ -166,18 +166,19 @@ export function GhostButton({ children, onPress, className = '' }) {
   )
 }
 
-export function Chip({ children, active, onPress }) {
+export function Chip({ children, active, onPress, icon: Icon }) {
   return (
     <Pressable
       onPress={() => { vibrate(8); onPress?.() }}
       accessibilityRole="button"
       accessibilityState={{ selected: !!active }}
-      className={`h-9 px-3.5 rounded-pill items-center justify-center border ${
+      className={`h-9 px-3.5 rounded-pill flex-row items-center justify-center gap-1.5 border ${
         active
           ? 'bg-brand-blue border-brand-blue'
           : 'bg-transparent border-hairline dark:border-d-hairline'
       }`}
     >
+      {Icon ? <Icon size={13} color={active ? '#fff' : '#5F6878'} /> : null}
       <Text className={`text-[13px] font-hk-medium ${active ? 'text-white' : 'text-ink-2 dark:text-d-ink2'}`}>
         {children}
       </Text>
