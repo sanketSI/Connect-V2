@@ -72,11 +72,25 @@ Split into workspaces; move data/i18n/logic into `packages/core`; add the storag
 injection; web app consumes core and must behave byte-identically (build + lint + browser
 pass is the gate). *This phase de-risks everything after it.*
 
-**Phase 1 — Expo skeleton boots**
-Expo app with expo-router 5-tab layout, NativeWind + tokens, fonts, i18n init (static
-catalog index — Metro has no `import.meta.glob`), Intl polyfills (below), core hydration
-(seed + Supabase modes). Gate: app opens in **Expo Go on your phone via QR**, tabs render,
-`[data] source: seed|supabase` logs.
+**Phase 1 — Expo skeleton boots** — ✅ landed, `apps/mobile`
+Expo SDK 57 + expo-router tab layout, design tokens, i18n init off the shared static
+catalog index, core hydration (seed + Supabase modes), AsyncStorage-backed storage
+driver. Gate: `[data] source: seed` logs and both platforms bundle (Android 3800
+modules / iOS 3709, HTTP 200), tabs render off real core selectors.
+
+Two deviations from what this document assumed, both deliberate:
+
+- **`apps/mobile` is NOT an npm workspace.** Expo SDK 57 needs React 19; `apps/web` is
+  on React 18. Left in the workspace glob, npm hoists one and nests the other, which is
+  a good way to break a live web app for a phone build. It keeps its own `node_modules`
+  and reaches core through the root symlink, with Metro's `nodeModulesPaths` ordered
+  app-first. `npm run build/lint/test` for web are unchanged and green.
+- **NativeWind is deferred to Phase 2.** Tokens landed as `lib/tokens.js` (the SI hexes
+  lifted verbatim from `index.css`, both themes) consumed through StyleSheet. Same
+  values, one less moving part while the boot path was being proven.
+
+Fonts and the Intl/Hermes polyfills are NOT done — English renders correctly, and the
+Indic catalogs will need the font work before they are legible on device (sharp edge #1).
 
 **Phase 2 — UI kit + chrome**
 Card/AICard/Chip/pills/buttons/Stars/Avatar/Skeleton/AIShimmer in RN; TopBar; tab bar

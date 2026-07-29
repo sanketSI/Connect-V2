@@ -31,13 +31,17 @@ export default [
       ecmaVersion: 2023,
       sourceType: 'module',
       parserOptions: { ecmaFeatures: { jsx: true } },
-      // The monorepo spans three runtimes: browser (apps/web), node (scripts,
-      // config) and vitest (tests). Declaring all three keeps `no-undef` focused
-      // on real mistakes instead of flagging `process` or `describe`.
+      // The monorepo spans four runtimes: browser (apps/web), node (scripts,
+      // config), vitest (tests) and React Native/Hermes (apps/mobile). Declaring
+      // them keeps `no-undef` focused on real mistakes instead of flagging
+      // `process`, `describe` or `__DEV__`.
       globals: {
         ...globals.browser,
         ...globals.node,
         ...globals.vitest,
+        // Hermes injects this; it is how the mobile boot gate tells a developer
+        // build from a release one, the same role import.meta.env.DEV plays on web.
+        __DEV__: 'readonly',
       },
     },
     plugins: { react },
