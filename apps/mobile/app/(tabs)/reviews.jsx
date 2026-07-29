@@ -6,13 +6,14 @@
 import { useMemo, useState } from 'react'
 import { View, Text, TextInput, Pressable, Linking } from 'react-native'
 import { useTranslation } from 'react-i18next'
-import { Star, Copy, MessageCircle, Send } from 'lucide-react-native'
+import { Star, Copy, MessageCircle, Send, SlidersHorizontal, EyeOff, Pencil, RotateCcw, Check } from 'lucide-react-native'
 import * as Clipboard from 'expo-clipboard'
 import {
   filterReviews, reviewMetrics, reviewsWaitingCount, CANONICAL_REVIEW_WINDOW,
   storeReviewLink, getCurrentUser,
+  DEFAULT_REVIEW_FILTERS, REVIEW_SENTIMENTS, REVIEW_RATING_TYPES, REVIEW_STATUSES, REVIEW_TAGS,
 } from '@connect/core'
-import { Screen, Card, Title, Body, Caption, Chip } from '../../components/UI.jsx'
+import { Screen, Card, Title, Body, Caption, Chip, PrimaryButton, GhostButton } from '../../components/UI.jsx'
 import { HeaderRight } from '../../components/Header.jsx'
 import { useSession } from '../../lib/session.js'
 import { useDataVersion } from '../../lib/useDataVersion.js'
@@ -40,8 +41,26 @@ export default function ReviewsTab() {
   const version = useDataVersion()
   const scopeId = session.store?.aggregate ? undefined : session.store?.id
   const [tab, setTab] = useState('inbox')
+  const [filters, setFilters] = useState({ ...DEFAULT_REVIEW_FILTERS })
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
-  const scoped = useMemo(() => ({ window: CANONICAL_REVIEW_WINDOW, storeId: scopeId }), [scopeId])
+  // How many controls sit off their default — the badge on the Filters chip, and the
+  // gate on the "Showing X of Y" note, exactly the web's nActive.
+  const nActive =
+    (filters.rating.min !== 1 || filters.rating.max !== 5 ? 1 : 0) +
+    (filters.sentiment !== 'all' ? 1 : 0) +
+    (filters.ratingType !== 'both' ? 1 : 0) +
+    (filters.status !== 'both' ? 1 : 0) +
+    (filters.showRemoved ? 1 : 0) +
+    (filters.editedOnly ? 1 : 0) +
+    filters.tags.length
+
+  const scoped = useMemo(() => ({ ...filters, storeId: scopeId }), [filters, scopeId])
+  // Denominator for the filtered note: the window alone (plus showRemoved, which widens).
+  const windowTotal = useMemo(
+    () => filterReviews({ window: filters.window, showRemoved: filters.showRemoved, storeId: scopeId }).length,
+    [filters.window, filters.showRemoved, version, scopeId],
+  )
   const metrics = useMemo(() => reviewMetrics(scoped), [scoped, version])
   const list = useMemo(() => filterReviews(scoped), [scoped, version])
 
@@ -73,7 +92,20 @@ export default function ReviewsTab() {
         </Chip>
       </View>
 
-      {tab === 'link' ? <ReviewLink t={t} /> : (<>
+      {filtersOpen ? (
+        <FiltersView
+          t={t}
+          value={filters}
+          onApply={(f) => { setFilters(f); setFiltersOpen(false) }}
+          onClose={() => setFiltersOpen(false)}
+        />
+      ) : tab === 'link' ? <ReviewLink t={t} /> : (<>
+      {/* The way into the filter sheet, with the active count as its badge. */}
+      <View className="flex-row mt-3 -mb-1">
+        <Chip active={nActive > 0} onPress={() => setFiltersOpen(true)}>
+          ⚙ {t('reviews.filters', { defaultValue: 'Filters' })}{nActive > 0 ? ` · ${nActive}` : ''}
+        </Chip>
+      </View>
       {/* Listing metrics — the CountsCard idiom, three across. */}
       <Card className="mt-4 mb-2 !p-3.5">
         <View className="flex-row">
@@ -92,6 +124,14 @@ export default function ReviewsTab() {
           />
         </View>
         <View className="mt-3 pt-2.5 border-t border-hairline dark:border-d-hairline">
+          {nActive > 0 && (
+            <Caption className="mb-1">
+              {t('reviews.countsFilteredNote', {
+                shown: list.length, total: windowTotal,
+                defaultValue: 'Filters on — showing {{shown}} of {{total}} reviews.',
+              })}
+            </Caption>
+          )}
           <Caption>{t('reviews.waitingMeans', { defaultValue: 'Waiting for a reply means live on your listing with no reply posted.' })}</Caption>
           {canonicalWaiting !== waiting && (
             <Caption className="mt-1">
@@ -221,5 +261,153 @@ function HeadStat({ value, label, tone = 'text-ink dark:text-d-ink', star, divid
       </View>
       <Caption numberOfLines={2} className="mt-0.5">{label}</Caption>
     </View>
+  )
+}
+
+
+/** The web FilterSheet, as a pushed view. Draft state: Cancel discards, Apply commits.
+    Deviation, documented: the web's dual-thumb RatingRange slider is two chip rows
+    (from/to) — same values, no slider dependency. */
+function FiltersView({ t, value, onApply, onClose }) {
+  const [draft, setDraft] = useState(value)
+  const matches = useMemo(() => filterReviews(draft).length, [draft])
+  const set = (patch) => setDraft(d => ({ ...d, ...patch }))
+
+  return (
+    <View className="mt-3">
+      <Body className="font-hk-semi text-ink dark:text-d-ink mb-3">{t('reviews.filters', { defaultValue: 'Filters' })}</Body>
+
+      <FilterSection label={t('reviews.ratingRange', { defaultValue: 'Rating Range' })}>
+        <View className="flex-row items-center gap-2 flex-wrap">
+          {[1, 2, 3, 4, 5].map(n => (
+            <Chip
+              key={n}
+              active={n >= draft.rating.min && n <= draft.rating.max}
+              onPress={() => {
+                // Tap outside the range extends it; tap an edge shrinks it — a two-thumb
+                // range on chips.
+                const { min, max } = draft.rating
+                if (n < min) set({ rating: { min: n, max } })
+                else if (n > max) set({ rating: { min, max: n } })
+                else if (n === min && min < max) set({ rating: { min: min + 1, max } })
+                else if (n === max && max > min) set({ rating: { min, max: max - 1 } })
+                else set({ rating: { min: 1, max: 5 } })
+              }}
+            >
+              {n}★
+            </Chip>
+          ))}
+        </View>
+      </FilterSection>
+
+      <FilterSection label={t('reviews.sentiment', { defaultValue: 'Sentiment' })}>
+        <OptionChips t={t} options={REVIEW_SENTIMENTS} selected={draft.sentiment} onSelect={sentiment => set({ sentiment })} />
+      </FilterSection>
+
+      <FilterSection label={t('reviews.ratingType', { defaultValue: 'Rating Type' })}>
+        <OptionChips t={t} options={REVIEW_RATING_TYPES} selected={draft.ratingType} onSelect={ratingType => set({ ratingType })} />
+      </FilterSection>
+
+      <FilterSection label={t('reviews.reviewStatus', { defaultValue: 'Review Status' })}>
+        <OptionChips t={t} options={REVIEW_STATUSES} selected={draft.status} onSelect={status => set({ status })} />
+      </FilterSection>
+
+      <View className="mt-4">
+        <CheckRow
+          checked={draft.showRemoved}
+          onPress={() => set({ showRemoved: !draft.showRemoved })}
+          icon={EyeOff}
+          label={t('reviews.showRemoved', { defaultValue: 'Show Removed From Google' })}
+          hint={t('reviews.showRemovedHint', { defaultValue: 'Reviews Google has taken down — not on your listing.' })}
+        />
+        <CheckRow
+          checked={draft.editedOnly}
+          onPress={() => set({ editedOnly: !draft.editedOnly })}
+          icon={Pencil}
+          label={t('reviews.editedOnly', { defaultValue: 'Edited reviews' })}
+          hint={t('reviews.editedOnlyHint', { defaultValue: 'Only reviews the customer changed after posting.' })}
+        />
+      </View>
+
+      <FilterSection label={t('reviews.tags', { defaultValue: 'Tags' })}>
+        <View className="flex-row flex-wrap gap-2">
+          {REVIEW_TAGS.map(tag => (
+            <Chip
+              key={tag.id}
+              active={draft.tags.includes(tag.id)}
+              onPress={() => set({
+                tags: draft.tags.includes(tag.id)
+                  ? draft.tags.filter(x => x !== tag.id)
+                  : [...draft.tags, tag.id],
+              })}
+            >
+              {t(tag.labelKey, { defaultValue: tag.label })}
+            </Chip>
+          ))}
+        </View>
+      </FilterSection>
+
+      <Caption className="text-center mt-5 mb-2">
+        {t('reviews.filterMatches', { count: matches, defaultValue: 'Matches · {{count}}' })}
+      </Caption>
+      <View className="flex-row gap-2">
+        <GhostButton
+          onPress={() => setDraft({ ...DEFAULT_REVIEW_FILTERS, window: draft.window })}
+          className="flex-1"
+        >
+          {t('reviews.reset', { defaultValue: 'Reset' })}
+        </GhostButton>
+        <View className="flex-[2]">
+          <PrimaryButton onPress={() => { vibrate(12); onApply(draft) }}>
+            {t('reviews.applyFilters', { defaultValue: 'Apply Filters' })}
+          </PrimaryButton>
+        </View>
+      </View>
+      <Pressable onPress={onClose} accessibilityRole="button" className="h-11 items-center justify-center mt-1">
+        <Caption>{t('common.cancel', { defaultValue: 'Cancel' })}</Caption>
+      </Pressable>
+    </View>
+  )
+}
+
+function FilterSection({ label, children }) {
+  return (
+    <View className="mt-4">
+      <Caption className="font-hk-medium mb-2">{label}</Caption>
+      {children}
+    </View>
+  )
+}
+
+function OptionChips({ t, options, selected, onSelect }) {
+  return (
+    <View className="flex-row flex-wrap gap-2">
+      {options.map(o => (
+        <Chip key={o.id} active={selected === o.id} onPress={() => onSelect(o.id)}>
+          {t(o.labelKey, { defaultValue: o.label })}
+        </Chip>
+      ))}
+    </View>
+  )
+}
+
+function CheckRow({ checked, onPress, icon: Icon, label, hint }) {
+  return (
+    <Pressable
+      onPress={() => { vibrate(8); onPress() }}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+      accessibilityLabel={label}
+      className="flex-row items-start gap-3 py-2.5"
+    >
+      <View className={`w-5 h-5 rounded items-center justify-center border ${checked ? 'bg-brand-blue border-brand-blue' : 'border-hairline dark:border-d-hairline'}`}>
+        {checked && <Check size={13} color="#fff" />}
+      </View>
+      <Icon size={15} color="#5F6878" style={{ marginTop: 2 }} />
+      <View className="flex-1 min-w-0">
+        <Body className="font-hk-medium text-ink dark:text-d-ink">{label}</Body>
+        <Caption className="mt-0.5">{hint}</Caption>
+      </View>
+    </Pressable>
   )
 }
