@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronRight, ChevronLeft, PhoneCall, PhoneIncoming, Star, ArrowDownWideNarrow, ArrowUpNarrowWide, MapPin, Lock, Repeat2, FileText, Store as StoreIcon, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -8,11 +8,13 @@ import {
   getCustomers, getCustomerById,
 } from '@connect/core'
 import { Card, Chip, CLIPill } from '../components/UI.jsx'
+import ScreenScroll from '../components/ScreenScroll.jsx'
 import { LargeTitle, TopBar } from '../components/TopBar.jsx'
 import { CustomerCard, CustomerDetail, collidingMasks } from './Customers.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
 import ProfileButton from '../components/ProfileButton.jsx'
 import { useDataVersion } from '../lib/useDataVersion.js'
+import { emitChange } from '@connect/core/events.js'
 import { vibrate } from '../lib/utils.js'
 
 // ============================================================
@@ -41,6 +43,15 @@ const BOARDS = [
 export default function Network({ onOpenProfile }) {
   const { t } = useTranslation()
   const version = useDataVersion()
+
+  // PULL TO REFRESH. The data layer is in-memory, so "refresh" means re-derive: bump the
+  // version every selector on this screen reads (see useDataVersion). The short await is
+  // not theatre — a spinner that vanishes in the same frame reads as a control that did
+  // nothing, and the gesture has to confirm it was received.
+  const refresh = useCallback(async () => {
+    emitChange()
+    await new Promise(r => setTimeout(r, 450))
+  }, [])
 
   // ALWAYS THE WHOLE ASSIGNMENT — because this screen only exists when that is what the
   // manager is looking at. The tab is offered on two conditions (see BottomTabBar):
@@ -102,7 +113,7 @@ export default function Network({ onOpenProfile }) {
   }
 
   return (
-    <div className="absolute top-[44px] left-0 right-0 bottom-0 pb-[88px] overflow-y-auto no-scrollbar">
+    <ScreenScroll onRefresh={refresh}>
       <LargeTitle
         title={t('network.title', { defaultValue: 'Your locations' })}
         sub={t('network.subtitle', {
@@ -181,7 +192,7 @@ export default function Network({ onOpenProfile }) {
         </div>
       </div>
 
-    </div>
+    </ScreenScroll>
   )
 }
 

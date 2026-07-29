@@ -964,7 +964,10 @@ Return ONE sentence only.`,
         <div className="flex-1 min-w-0">
           {/* Same identity rule as the list: the name when we have it, otherwise what
               they came in for. The number is never the headline. */}
-          <div className="m-title2 text-white truncate">
+          {/* The record's name IS the page/sheet title, so it carries the heading role.
+              As a sheet, BottomSheet's aria-label covered this; routed as a page (the
+              store drill-down) there was no h1 on the screen at all. */}
+          <div className="m-title2 text-white truncate" role="heading" aria-level={1}>
             {customer.name || category}
           </div>
           <div className="m-caption text-white/55 mt-0.5 inline-flex items-center gap-1 m-tabular">

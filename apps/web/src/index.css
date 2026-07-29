@@ -689,6 +689,12 @@ input:focus-visible, textarea:focus-visible {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Rotates an ICON in place. `.spin` above paints its own ring, so it cannot be reused
+   on a glyph that already has a shape. Honours reduced motion — the spinner stops
+   turning and simply stays visible, which still says "working". */
+.spin-icon { animation: spin 0.9s linear infinite; transform-origin: 50% 50%; }
+@media (prefers-reduced-motion: reduce) { .spin-icon { animation: none; } }
+
 /* Typing dots */
 .typing-dot {
   width: 6px; height: 6px; border-radius: 999px;

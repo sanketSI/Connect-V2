@@ -46,7 +46,8 @@
     "reviewNow": "ابھی ریویو دیکھیں",
     "starRating": "5 میں سے {{value}} ستارے",
     "undo": "واپس لائیں",
-    "offline": "آپ آف لائن ہیں — لائیو اپ ڈیٹ رک گئے ہیں"
+    "offline": "آپ آف لائن ہیں — لائیو اپ ڈیٹ رک گئے ہیں",
+    "refreshing": "Refreshing"
   },
   "login": {
     "brandTagline": "کاروبار کا صفر نقصان",

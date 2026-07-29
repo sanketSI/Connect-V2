@@ -46,7 +46,8 @@
     "reviewNow": "ਹੁਣੇ ਦੇਖੋ",
     "starRating": "5 ਵਿੱਚੋਂ {{value}} ਤਾਰੇ",
     "undo": "ਵਾਪਸ ਲਿਆਓ",
-    "offline": "ਤੁਸੀਂ ਆਫ਼ਲਾਈਨ ਹੋ — ਲਾਈਵ ਅੱਪਡੇਟ ਰੁਕੇ ਹੋਏ ਹਨ"
+    "offline": "ਤੁਸੀਂ ਆਫ਼ਲਾਈਨ ਹੋ — ਲਾਈਵ ਅੱਪਡੇਟ ਰੁਕੇ ਹੋਏ ਹਨ",
+    "refreshing": "Refreshing"
   },
   "login": {
     "brandTagline": "ਕੋਈ ਗਾਹਕ ਹੱਥੋਂ ਨਾ ਜਾਵੇ",

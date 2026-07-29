@@ -46,7 +46,8 @@
     "notifications": "Notifications",
     "starRating": "{{value}} out of 5 stars",
     "undo": "Undo",
-    "offline": "You’re offline — live updates are paused"
+    "offline": "You’re offline — live updates are paused",
+    "refreshing": "Refreshing"
   },
   "login": {
     "brandTagline": "Zero Business Loss",

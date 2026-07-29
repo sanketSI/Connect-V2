@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import React, { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -10,11 +10,12 @@ import { LargeTitle } from '../components/TopBar.jsx'
 import LocationPicker from '../components/LocationPicker.jsx'
 import { FEATURES } from '../lib/features.js'
 import { Card, AICard, AIBadge, Chip, PrimaryButton, GhostButton, Avatar, IconBtn, AIShimmer, SourceChip, StoreBadge, StoreGroupHeader } from '../components/UI.jsx'
+import ScreenScroll from '../components/ScreenScroll.jsx'
 import BottomSheet from '../components/BottomSheet.jsx'
 import {
   getReviewLeaderboard, getCurrentUser, getReviewById, getReviewReplies,
   filterReviews, reviewMetrics, canPublishReply, reviewTag, askAI, postReviewReply,
-  relativeTime, dayClock, calendarDate, dataStore,
+  relativeTime, dayClock, calendarDate, dataStore, emitChange,
   reviewsWaitingCount, storeReviewLink, groupByStore, CANONICAL_REVIEW_WINDOW,
   REVIEW_SENTIMENTS, REVIEW_RATING_TYPES, REVIEW_STATUSES, REVIEW_TAGS, PUBLISHING_PLATFORMS,
   DEFAULT_REVIEW_FILTERS, TIME_WINDOWS,
@@ -48,6 +49,13 @@ const STAR_MIN = 1
 const STAR_MAX = 5
 
 export default function Reviews({ role, store, onOpenProfile }) {
+  // PULL TO REFRESH — re-derive from the store every selector here reads. The short
+  // await is not theatre: a spinner that vanishes in the same frame reads as a control
+  // that did nothing.
+  const refresh = useCallback(async () => {
+    emitChange()
+    await new Promise(r => setTimeout(r, 450))
+  }, [])
   const { t } = useTranslation()
   // Leaderboard is a brand / roll-up feature — hidden for a single or multi-store manager.
   const isBrand = ['cluster', 'city', 'regional', 'state', 'head'].includes(role)
@@ -63,7 +71,7 @@ export default function Reviews({ role, store, onOpenProfile }) {
   }, [isBrand, tab])
 
   return (
-    <div className="absolute top-[44px] left-0 right-0 bottom-0 pb-[88px] overflow-y-auto no-scrollbar">
+    <ScreenScroll onRefresh={refresh}>
       <LargeTitle
         title={t('reviews.title')}
         // Plain shop-floor language, not the desktop analyst subtitle this replaced
@@ -88,7 +96,7 @@ export default function Reviews({ role, store, onOpenProfile }) {
           {tab === 'leaderboard' && <motion.div key="leaderboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><Leaderboard /></motion.div>}
         </AnimatePresence>
       </div>
-    </div>
+    </ScreenScroll>
   )
 }
 

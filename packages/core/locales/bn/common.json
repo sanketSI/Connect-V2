@@ -46,7 +46,8 @@
     "reviewNow": "এখনই দেখুন",
     "starRating": "5-এ {{value}} স্টার",
     "undo": "ফিরিয়ে আনুন",
-    "offline": "আপনি অফলাইন — লাইভ আপডেট থেমে আছে"
+    "offline": "আপনি অফলাইন — লাইভ আপডেট থেমে আছে",
+    "refreshing": "Refreshing"
   },
   "login": {
     "brandTagline": "একটাও ব্যবসা হাতছাড়া নয়",

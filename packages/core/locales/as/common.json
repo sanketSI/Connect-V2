@@ -46,7 +46,8 @@
     "reviewNow": "এতিয়াই ৰিভিউ চাওক",
     "starRating": "5 টাৰ ভিতৰত {{value}} টা তৰা",
     "undo": "ওভতাই আনক",
-    "offline": "আপুনি অফলাইন — লাইভ আপডেট বন্ধ আছে"
+    "offline": "আপুনি অফলাইন — লাইভ আপডেট বন্ধ আছে",
+    "refreshing": "Refreshing"
   },
   "login": {
     "brandTagline": "ব্যৱসায়ত শূন্য ক্ষতি",

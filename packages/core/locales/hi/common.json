@@ -46,7 +46,8 @@
     "reviewNow": "अभी देखें",
     "starRating": "5 में से {{value}} स्टार",
     "undo": "वापस लाएँ",
-    "offline": "आप ऑफ़लाइन हैं — लाइव अपडेट रुके हुए हैं"
+    "offline": "आप ऑफ़लाइन हैं — लाइव अपडेट रुके हुए हैं",
+    "refreshing": "Refreshing"
   },
   "login": {
     "brandTagline": "ज़ीरो बिज़नेस लॉस",

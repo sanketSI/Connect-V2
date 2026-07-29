@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { PhoneCall, FileText, Store as StoreIcon, Users as UsersIcon, Check, Lock, Repeat2, ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -8,6 +8,7 @@ import {
   getCustomerById, getCustomerNotes, addCustomerNote, customerDialDigits,
 } from '@connect/core'
 import { Card, Chip, CLIPill, StoreGroupHeader, PrimaryButton } from '../components/UI.jsx'
+import ScreenScroll from '../components/ScreenScroll.jsx'
 import { LargeTitle } from '../components/TopBar.jsx'
 import { TimelineRow } from '../components/Timeline.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
@@ -15,6 +16,7 @@ import ProfileButton from '../components/ProfileButton.jsx'
 import LocationPicker from '../components/LocationPicker.jsx'
 import BottomSheet from '../components/BottomSheet.jsx'
 import { useDataVersion } from '../lib/useDataVersion.js'
+import { emitChange } from '@connect/core/events.js'
 import { vibrate } from '../lib/utils.js'
 
 // ============================================================
@@ -35,6 +37,15 @@ const SOURCE_ICON = { call: PhoneCall, form: FileText, walk_in: StoreIcon }
 export default function Leads({ store, onOpenProfile, preset }) {
   const { t } = useTranslation()
   const version = useDataVersion()
+
+  // PULL TO REFRESH. The data layer is in-memory, so "refresh" means re-derive: bump the
+  // version every selector on this screen reads (see useDataVersion). The short await is
+  // not theatre — a spinner that vanishes in the same frame reads as a control that did
+  // nothing, and the gesture has to confirm it was received.
+  const refresh = useCallback(async () => {
+    emitChange()
+    await new Promise(r => setTimeout(r, 450))
+  }, [])
   const aggregate = !!store?.aggregate
   const scopeId = aggregate ? undefined : store?.id
 
@@ -77,7 +88,7 @@ export default function Leads({ store, onOpenProfile, preset }) {
   )
 
   return (
-    <div className="absolute top-[44px] left-0 right-0 bottom-0 pb-[88px] overflow-y-auto no-scrollbar">
+    <ScreenScroll onRefresh={refresh}>
       <LargeTitle
         title={t('leads.title', { defaultValue: 'Leads' })}
         sub={t('leads.subtitle', { defaultValue: 'Every enquiry, whatever brought it in' })}
@@ -147,7 +158,7 @@ export default function Leads({ store, onOpenProfile, preset }) {
       <BottomSheet open={!!open} onClose={() => setOpenId(null)} fullHeight label={open?.name || open?.masked}>
         {open && <LeadDetail lead={open} onClose={() => setOpenId(null)} />}
       </BottomSheet>
-    </div>
+    </ScreenScroll>
   )
 }
 

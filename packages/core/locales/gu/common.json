@@ -46,7 +46,8 @@
     "reviewNow": "રિવ્યૂ જુઓ",
     "starRating": "5 માંથી {{value}} સ્ટાર",
     "undo": "પાછું લાવો",
-    "offline": "તમે ઑફલાઇન છો — લાઇવ અપડેટ અટકી ગયાં છે"
+    "offline": "તમે ઑફલાઇન છો — લાઇવ અપડેટ અટકી ગયાં છે",
+    "refreshing": "Refreshing"
   },
   "login": {
     "brandTagline": "ધંધાનું ઝીરો નુકસાન",
