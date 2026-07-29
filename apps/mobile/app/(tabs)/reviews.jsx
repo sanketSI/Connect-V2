@@ -5,6 +5,7 @@
 // manager never sees it; the filter sheet is the remaining iteration.
 import { useMemo, useState } from 'react'
 import { View, Text, TextInput, Pressable, Linking } from 'react-native'
+import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import { Star, Copy, MessageCircle, Send, SlidersHorizontal, EyeOff, Pencil, RotateCcw, Check } from 'lucide-react-native'
 import * as Clipboard from 'expo-clipboard'
@@ -37,6 +38,7 @@ function Stars({ n }) {
 
 export default function ReviewsTab() {
   const { t } = useTranslation()
+  const router = useRouter()
   const session = useSession()
   const version = useDataVersion()
   const scopeId = session.store?.aggregate ? undefined : session.store?.id
@@ -145,8 +147,10 @@ export default function ReviewsTab() {
         </View>
       </Card>
 
+      {/* Every card opens the detail — read the whole review, the reply history, and
+          reply with the AI draft. The web's setSelectedId sheet, as a route. */}
       {list.map(r => (
-        <Card key={r.id} className="mb-2.5">
+        <Card key={r.id} onPress={() => router.push(`/review/${r.id}`)} label={r.customer} className="mb-2.5">
           <View className="flex-row items-center justify-between gap-2">
             <Body className="font-hk-semi text-ink dark:text-d-ink flex-1" numberOfLines={1}>{r.customer}</Body>
             <Stars n={r.rating} />
