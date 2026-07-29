@@ -3,17 +3,17 @@
 // the switch link and role pill, the Team quick tile, then the settings card (Alerts ·
 // Language · Privacy · Log out) and the footer line.
 //
-// Named, not hidden: the Business profile and Manage media tiles and the role switcher
-// are NOT drawn yet — their sheets (BusinessProfile.jsx 248 lines, ManageMedia.jsx 893)
-// are the next iterations, and a tile that opens nothing is a dead affordance, the one
-// thing this port keeps refusing to ship. Appearance follows the system scheme on
+// Named, not hidden: the Manage media tile and the role switcher are NOT drawn yet —
+// ManageMedia.jsx is 893 web lines and is the next iteration; a tile that opens nothing
+// is a dead affordance, the one thing this port keeps refusing to ship. Appearance follows the system scheme on
 // native (useColorScheme); the web's manual toggle has no native counterpart yet.
 // ============================================================
 import { View, Text, Pressable } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { Bell, LogOut, ChevronRight, Users, RefreshCcw, Globe, Shield } from 'lucide-react-native'
-import { getCurrentUser, assignedStores } from '@connect/core'
+import { Bell, LogOut, ChevronRight, Users, RefreshCcw, Globe, Shield, Building2 } from 'lucide-react-native'
+import { getCurrentUser, assignedStores, locationNeedsVerification } from '@connect/core'
+import { FEATURES } from '../lib/features.js'
 import { getLanguage } from '@connect/core/i18n/languages.js'
 import { Screen, Card, Title, Body, Caption } from '../components/UI.jsx'
 import { BackButton, NotificationBell } from '../components/Header.jsx'
@@ -68,7 +68,30 @@ export default function ProfileScreen() {
         </View>
       </Card>
 
-      {/* Quick actions — Team is the one whose destination exists natively today. */}
+      {/* Quick actions — drawn only once their destinations exist natively. */}
+      {FEATURES.businessProfile && (
+        <Card
+          onPress={() => router.push('/business-profile')}
+          label={t('profile.businessProfile', { defaultValue: 'Business profile' })}
+          className="mt-3"
+        >
+          <View className="flex-row items-center gap-3">
+            <View className="w-10 h-10 rounded-xl bg-brand-blue/10 items-center justify-center">
+              <Building2 size={17} color="#0070FC" />
+            </View>
+            <View className="flex-1 min-w-0">
+              <Body className="font-hk-semi text-ink dark:text-d-ink">{t('profile.businessProfile', { defaultValue: 'Business profile' })}</Body>
+              <Caption className="mt-0.5" numberOfLines={1}>
+                {!aggregate && store && locationNeedsVerification(store)
+                  ? t('profile.needsVerification', { defaultValue: 'Needs verification' })
+                  : t('profile.businessProfileSub', { defaultValue: 'Hours, category, description' })}
+              </Caption>
+            </View>
+            <ChevronRight size={16} color="#93A0C8" />
+          </View>
+        </Card>
+      )}
+
       <Card onPress={() => router.push('/team')} label={t('profile.team', { defaultValue: 'Team' })} className="mt-3">
         <View className="flex-row items-center gap-3">
           <View className="w-10 h-10 rounded-xl bg-ok/10 items-center justify-center">
