@@ -29,6 +29,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { configureEnv } from '@connect/core/env.js'
 import { configureStorage } from '@connect/core/storage.js'
 import { configureAnalytics } from '@connect/core/analytics.js'
+// STATIC, not `await import(...)` — see the note above act 3 below.
+import { hydrate } from '@connect/core/data/hydrate.js'
 import { nativeStorageDriver, preloadStorage } from '../lib/storage.js'
 import { initI18n } from '../lib/i18n.js'
 import { themeFor, TYPE, BRAND } from '../lib/tokens.js'
@@ -67,9 +69,25 @@ export default function RootLayout() {
       // Act 2 — strings before the first frame.
       await initI18n()
 
-      // Act 3 — hydrate. Imported by SUBPATH, not through the barrel: loading it must
-      // not resolve the data modules, or they would read seed records before the splice.
-      const { hydrate } = await import('@connect/core/data/hydrate.js')
+      // Act 3 — hydrate.
+      //
+      // WHY THIS IMPORT IS STATIC, when apps/web/src/main.jsx deliberately makes the
+      // same one dynamic. `await import('@connect/core/data/hydrate.js')` is a runtime
+      // request in Metro, and Metro could not resolve it: @connect/core is a symlink to
+      // a package OUTSIDE the server root, so the request came back rewritten as
+      // "./packages/core/data/hydrate" relative to apps/mobile and the app died on the
+      // boot-failure screen. The bundle built fine — this only ever failed on device,
+      // which is why the QR was the gate that caught it.
+      //
+      // Static is safe here, which is not obvious and is worth stating: hydrate.js
+      // imports exactly one thing, ../lib/seedData.js, which touches neither storage nor
+      // env at module scope. So hoisting it above the configureEnv/configureStorage
+      // calls costs nothing — what must happen after the seams is the CALL below, and
+      // that is inside this effect. (Web's reason for going dynamic was subtly
+      // different: Vite could resolve it either way, and the dynamic form kept the
+      // whole data graph out of the entry chunk.)
+      //
+      // Do not "restore" the dynamic form for symmetry with web. It breaks on device.
       const source = await hydrate() // 'seed' | 'supabase'
 
       // The Phase 1 gate in EXPO-MIGRATION.md asks for exactly this line.
