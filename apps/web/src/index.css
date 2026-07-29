@@ -652,10 +652,18 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 
 /* Focus visible */
 :focus-visible { outline: 2px solid #0070FC; outline-offset: 2px; border-radius: 6px; }
-/* Text fields: the blinking blue caret is the focus cue — no outline/border on focus.
+/* Text fields, POINTER focus: the blinking blue caret is the cue, no ring — tapping a
+   field you just tapped does not need to be announced back to you.
    (Buttons/links keep their focus ring for accessibility.) */
-input:focus, input:focus-visible,
-textarea:focus, textarea:focus-visible { outline: none; }
+input:focus, textarea:focus { outline: none; }
+
+/* Text fields, KEYBOARD focus: the ring comes back. A caret is a 1px blinking line —
+   it is not a focus indicator for someone tabbing through a form, and :focus-visible is
+   exactly the distinction that lets pointer and keyboard differ. WCAG 2.4.7. */
+input:focus-visible, textarea:focus-visible {
+  outline: 2px solid #0070FC;
+  outline-offset: 2px;
+}
 
 /* OTP boxes */
 .otp-box {

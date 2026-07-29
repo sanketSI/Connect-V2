@@ -321,7 +321,11 @@ function ReturningView({ store, onGoTab, onSwitchStore }) {
           <div className="space-y-2.5">
             <MissedRow
               icon={PhoneMissed} tint="#DC2626"
-              title={t('home.missedCalls', { count: triage.missed })}
+              title={t('home.missedCalls', {
+                count: triage.missed,
+                defaultValue_one: '{{count}} missed call',
+                defaultValue_other: '{{count}} missed calls',
+              })}
               sub={triage.topLead
                 ? t('home.topCallback', {
                   value: rupees(triage.topLead.estValue),

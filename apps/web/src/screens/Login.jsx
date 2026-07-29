@@ -66,18 +66,45 @@ export default function Login({ onAuthed, onRequestNumberChange }) {
     otpRefs.current[0]?.focus()
   }
 
+  /**
+   * One box changed.
+   *
+   * FUNCTIONAL UPDATER, not `[...otp]`. Six boxes filling in a single tick — which is
+   * exactly what SMS autofill and paste do, and autoComplete="one-time-code" invites —
+   * gave every handler the same captured `otp`, so no single call ever saw a complete
+   * code and the form silently never submitted. Each update now reads the latest state.
+   *
+   * Completion is detected in an effect below rather than here, so it fires once for a
+   * finished code however the digits arrived, and never from inside a state updater.
+   */
   function setOtpAt(i, v) {
     if (!/^\d?$/.test(v)) return
-    const next = [...otp]
-    next[i] = v
-    setOtp(next)
+    setOtp(prev => { const next = [...prev]; next[i] = v; return next })
     if (v && i < 5) otpRefs.current[i + 1]?.focus()
-    if (next.every(d => d) && next.join('').length === 6) {
-      setTimeout(() => {
-        verify(next.join(''))
-      }, 200)
-    }
   }
+
+  /**
+   * A whole code arriving at once — pasted, or handed over by the OS.
+   *
+   * Each box is maxLength=1, so without this the other five digits are dropped on the
+   * floor and the manager is left staring at a code that went in and vanished.
+   */
+  function onOtpPaste(e) {
+    const digits = (e.clipboardData?.getData('text') || '').replace(/\D/g, '').slice(0, 6)
+    if (!digits) return
+    e.preventDefault()
+    setOtp(prev => prev.map((d, i) => digits[i] ?? d))
+    otpRefs.current[Math.min(digits.length, 5)]?.focus()
+  }
+
+  // The code is complete — submit it, whichever way the digits got here. Guarded on
+  // `loading` so a re-render mid-verify cannot fire a second one.
+  useEffect(() => {
+    const code = otp.join('')
+    if (code.length !== 6 || !otp.every(Boolean) || loading) return
+    const id = setTimeout(() => verify(code), 200)
+    return () => clearTimeout(id)
+  }, [otp, loading])
 
   function verify(otpCode) {
     setLoading(true)
@@ -264,6 +291,7 @@ export default function Login({ onAuthed, onRequestNumberChange }) {
                     maxLength={1}
                     value={d}
                     onChange={e => setOtpAt(i, e.target.value.replace(/\D/g, ''))}
+                    onPaste={onOtpPaste}
                     onKeyDown={e => {
                       if (e.key === 'Backspace' && !d && i > 0) {
                         otpRefs.current[i - 1]?.focus()
