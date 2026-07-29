@@ -59,6 +59,9 @@ import {
   CUSTOMERS, REVIEWS, MAPPED_LOCATIONS, STORE_CODE_REGISTRY,
   MEDIA_LIBRARY, POST_TEMPLATES, DEALER_PHONE,
 } from '../lib/seedData.js'
+// env.js is a LEAF — no supabase-js, no data modules — so asking it whether a backend
+// is configured costs nothing. See the note in hydrate() for why that matters.
+import { getSupabaseUrl, getSupabaseAnonKey } from '../env.js'
 
 /** Overall budget for the parallel fetch — past this the seed wins. */
 export const HYDRATE_TIMEOUT_MS = 4000
@@ -74,12 +77,25 @@ export const HYDRATE_TIMEOUT_MS = 4000
  * it straight into the `app_opened` event.
  */
 export async function hydrate() {
-  // Lazy import so seed mode never downloads the supabase chunk.
-  const { supabaseEnabled, initSupabase, setSupabaseLive } = await import('../lib/supabase.js')
-  if (!supabaseEnabled()) {
+  // THE ENV CHECK COMES FIRST, and the import only after it — the order matters twice.
+  //
+  // It is what the "lazy import so seed mode never downloads the supabase chunk" note
+  // always claimed and never did: the import ran unconditionally and only then asked
+  // supabaseEnabled(), so seed mode fetched the client it was about to discard.
+  // supabaseEnabled() is nothing but `getSupabaseUrl() && getSupabaseAnonKey()`, both
+  // from env.js — a LEAF module, importable without pulling supabase-js behind it — so
+  // the question can be answered without paying for the answer.
+  //
+  // On native it is also load-bearing. A dynamic import is a runtime request to the
+  // Metro dev server, and packages/core sits outside the app's server root, so the
+  // request for '../lib/supabase.js' comes back unresolvable and takes boot down with
+  // it. Seed mode now never issues it. (A configured Supabase on native still would —
+  // see the note in apps/mobile/metro.config.js.)
+  if (!(getSupabaseUrl() && getSupabaseAnonKey())) {
     console.log('[data] source: seed')
     return 'seed'
   }
+  const { initSupabase, setSupabaseLive } = await import('../lib/supabase.js')
   try {
     const client = await initSupabase()
     const rows = await hydrateFromSupabase(client, HYDRATE_TIMEOUT_MS)
