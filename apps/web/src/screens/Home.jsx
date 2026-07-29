@@ -292,15 +292,18 @@ function ReturningView({ store, onGoTab, onSwitchStore }) {
               className="w-full text-left press"
               aria-label={t('stores.acrossStores', { defaultValue: 'Across your stores' })}
             >
+              {/* The chevron is a disclosure indicator, so it rides the card's right edge
+                  centred against the stats — not parked on a row of its own underneath,
+                  where it lined up with nothing and read as a stray glyph. */}
               <Card className="!p-3.5">
-                <div className="grid grid-cols-4 gap-2">
-                  <WeekStat value={net.stores} label={t('stores.storesLabel', { defaultValue: 'Stores' })} tint="var(--si-primary-text)" />
-                  <WeekStat value={net.missed} label={t('calls.statMissed', { defaultValue: 'Missed' })} tint="var(--si-error-text)" />
-                  <WeekStat value={net.answered} label={t('calls.statAnswered', { defaultValue: 'Answered' })} tint="var(--si-success-text)" />
-                  <WeekStat value={`${net.recovery}%`} label={t('stores.recoveryRate', { defaultValue: 'Recovery' })} tint="var(--si-success-text)" />
-                </div>
-                <div className="flex justify-end -mb-1 mt-1.5">
-                  <ChevronRight size={16} className="text-white/40" aria-hidden="true" />
+                <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-4 gap-2 flex-1 min-w-0">
+                    <WeekStat value={net.stores} label={t('stores.storesLabel', { defaultValue: 'Stores' })} tint="var(--si-primary-text)" />
+                    <WeekStat value={net.missed} label={t('calls.statMissed', { defaultValue: 'Missed' })} tint="var(--si-error-text)" />
+                    <WeekStat value={net.answered} label={t('calls.statAnswered', { defaultValue: 'Answered' })} tint="var(--si-success-text)" />
+                    <WeekStat value={`${net.recovery}%`} label={t('stores.recoveryRate', { defaultValue: 'Recovery' })} tint="var(--si-success-text)" />
+                  </div>
+                  <ChevronRight size={16} className="text-white/40 shrink-0" aria-hidden="true" />
                 </div>
               </Card>
             </button>
