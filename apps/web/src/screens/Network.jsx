@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronRight, ChevronLeft, PhoneCall, PhoneIncoming, Star, ArrowDownWideNarrow, ArrowUpNarrowWide, MapPin, Lock, Repeat2, FileText, Store as StoreIcon, Check } from 'lucide-react'
+import { ChevronRight, ChevronLeft, ChevronDown, PhoneCall, PhoneIncoming, Star, ArrowDownWideNarrow, ArrowUpNarrowWide, MapPin, Lock, Repeat2, FileText, Store as StoreIcon, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   networkRows, rankRows, assignedStoreIds, assignedStores, assignmentLevels,
@@ -40,7 +40,7 @@ const BOARDS = [
   { id: 'reviews', metric: 'negativePct', Icon: Star, labelKey: 'network.boardReviews', label: 'Reviews' },
 ]
 
-export default function Network({ onOpenProfile }) {
+export default function Network({ onOpenProfile, onSwitchStore, store }) {
   const { t } = useTranslation()
   const version = useDataVersion()
 
@@ -125,6 +125,23 @@ export default function Network({ onOpenProfile }) {
       />
 
       <div className="px-4">
+        {/* THE SCOPE DROPDOWN — which node of Brand → sub-brand → state → city this
+            whole screen is summing. One control, one code path: it opens the same
+            drill the Home pill opens, so the two can never disagree about the tree. */}
+        <button
+          onClick={() => { vibrate(6); onSwitchStore?.() }}
+          className="mb-3 inline-flex items-center gap-1.5 px-3 h-9 rounded-full press max-w-full"
+          style={{ background: 'rgba(0,112,252,.10)', border: '1px solid rgba(0,112,252,.40)', color: 'var(--si-primary-text)' }}
+        >
+          <MapPin size={13} className="shrink-0" />
+          <span className="m-subhead font-medium truncate">
+            {store?.aggregate
+              ? (store.label || t('stores.allLocations', { defaultValue: 'All locations' }))
+              : `${store?.name} · ${store?.branch}`}
+          </span>
+          <ChevronDown size={13} className="shrink-0 opacity-70" />
+        </button>
+
         {/* WHERE YOU ARE. Only shown once you have drilled — at the top level the
             title already says it. */}
         {path.length > 0 && (

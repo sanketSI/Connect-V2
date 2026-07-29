@@ -9,12 +9,13 @@ import { View, Text, Pressable } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import {
-  ChevronRight, ChevronLeft, PhoneCall, Star, MapPin,
+  ChevronRight, ChevronLeft, ChevronDown, PhoneCall, Star, MapPin,
   ArrowDownWideNarrow, ArrowUpNarrowWide,
 } from 'lucide-react-native'
 import { networkRows, rankRows, assignedStoreIds, assignmentLevels } from '@connect/core'
 import { Screen, Card, Title, Body, Caption, Chip } from '../../components/UI.jsx'
 import { HeaderRight } from '../../components/Header.jsx'
+import { useSession } from '../../lib/session.js'
 import { useDataVersion } from '../../lib/useDataVersion.js'
 import { refreshDerived } from '../../lib/refresh.js'
 import { vibrate } from '../../lib/haptics.js'
@@ -27,6 +28,7 @@ const BOARDS = [
 export default function LocationsTab() {
   const { t } = useTranslation()
   const router = useRouter()
+  const session = useSession()
   const version = useDataVersion()
 
   const storeIds = useMemo(() => assignedStoreIds(), [version])
@@ -76,6 +78,24 @@ export default function LocationsTab() {
         </View>
         <HeaderRight />
       </View>
+
+      {/* THE SCOPE DROPDOWN — which node of Brand → sub-brand → state → city this
+          screen is summing. Opens the same drill the Home pill opens (one code path),
+          so the two can never disagree about the tree. */}
+      <Pressable
+        onPress={() => { vibrate(6); router.push('/switch') }}
+        accessibilityRole="button"
+        accessibilityLabel={t('store.switchTitle', { defaultValue: 'Switch location' })}
+        className="flex-row items-center gap-1.5 self-start mt-3 h-9 px-3 rounded-pill bg-brand-blue/10 border border-brand-blue/40"
+      >
+        <MapPin size={13} color="#0355DB" />
+        <Text className="text-[13px] font-hk-medium text-primaryText dark:text-d-primaryText" numberOfLines={1}>
+          {session.store?.aggregate
+            ? (session.store.label || t('stores.allLocations', { defaultValue: 'All locations' }))
+            : `${session.store?.name} · ${session.store?.branch}`}
+        </Text>
+        <ChevronDown size={13} color="#0355DB" style={{ opacity: 0.7 }} />
+      </Pressable>
 
       {/* WHERE YOU ARE — only once you have drilled; at the top the title says it. */}
       {path.length > 0 && (
