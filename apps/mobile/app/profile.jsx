@@ -1,76 +1,149 @@
 // ============================================================
-// PROFILE — reached from the avatar, exactly as on web (it is not a tab on either
-// platform; see BottomTabBar's header comment). Phase 1 scope: who is signed in, which
-// store the session is scoped to, and the two actions that must exist for the app to be
-// honest — switch location and sign out. Listing management, language and the AI token
-// ledger are the web Profile's deeper sections and follow in Phase 3.
+// PROFILE — ported from apps/web/src/screens/Profile.jsx (the spec): identity card with
+// the switch link and role pill, the Team quick tile, then the settings card (Alerts ·
+// Language · Privacy · Log out) and the footer line.
+//
+// Named, not hidden: the Business profile and Manage media tiles and the role switcher
+// are NOT drawn yet — their sheets (BusinessProfile.jsx 248 lines, ManageMedia.jsx 893)
+// are the next iterations, and a tile that opens nothing is a dead affordance, the one
+// thing this port keeps refusing to ship. Appearance follows the system scheme on
+// native (useColorScheme); the web's manual toggle has no native counterpart yet.
 // ============================================================
-import { View, Text } from 'react-native'
+import { View, Text, Pressable } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { Building2, MapPin, LogOut, RefreshCcw } from 'lucide-react-native'
-import { getCurrentUser } from '@connect/core'
-import { Screen, Card, Title, Body, Caption, GhostButton } from '../components/UI.jsx'
-import { BackButton } from '../components/Header.jsx'
+import { Bell, LogOut, ChevronRight, Users, RefreshCcw, Globe, Shield } from 'lucide-react-native'
+import { getCurrentUser, assignedStores } from '@connect/core'
+import { getLanguage } from '@connect/core/i18n/languages.js'
+import { Screen, Card, Title, Body, Caption } from '../components/UI.jsx'
+import { BackButton, NotificationBell } from '../components/Header.jsx'
 import { useSession, signOut } from '../lib/session.js'
 import { vibrate } from '../lib/haptics.js'
 
 export default function ProfileScreen() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const router = useRouter()
   const session = useSession()
   const user = getCurrentUser()
   const store = session.store
+  const aggregate = !!store?.aggregate
+
+  const s = aggregate
+    ? {
+      name: t('stores.allLocations', { defaultValue: 'All locations' }),
+      branch: t('stores.nStoresShort', { count: assignedStores().length, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' }),
+    }
+    : (store || user.store)
 
   return (
     <Screen>
-      <BackButton />
-
-      <View className="items-center mt-6 mb-6">
-        <View className="w-20 h-20 rounded-full bg-brand-blue items-center justify-center">
-          <Text className="text-2xl font-hk-bold text-white">{user.initials}</Text>
-        </View>
-        <Title className="mt-3 text-[24px] leading-7">{user.name}</Title>
-        <Caption className="mt-1">{user.phone}</Caption>
+      <View className="flex-row items-center justify-between">
+        <BackButton />
+        <NotificationBell />
       </View>
 
-      <Card className="mb-2.5">
-        <View className="flex-row items-start gap-3">
-          <View className="w-9 h-9 rounded-xl bg-brand-blue/10 items-center justify-center">
-            <Building2 size={16} color="#0355DB" />
+      <Title className="mt-4">{t('profile.title', { defaultValue: 'Profile' })}</Title>
+      <Caption className="mt-0.5 mb-4">{t('profile.subtitle', { defaultValue: 'Store · Settings · Brand' })}</Caption>
+
+      {/* Identity */}
+      <Card className="!p-3.5">
+        <View className="flex-row items-center gap-3">
+          <View className="w-12 h-12 rounded-full bg-brand-blue items-center justify-center">
+            <Text className="text-base font-hk-bold text-white">{user.initials}</Text>
           </View>
           <View className="flex-1 min-w-0">
-            <Body className="font-hk-semi text-ink dark:text-d-ink">
-              {store?.aggregate
-                ? t('stores.allLocations', { defaultValue: 'All locations' })
-                : `${store?.name} — ${store?.branch}`}
-            </Body>
-            {!store?.aggregate && store?.address ? (
-              <View className="flex-row items-center gap-1 mt-1">
-                <MapPin size={11} color="#5F6878" />
-                <Caption numberOfLines={1} className="flex-1">{store.address}</Caption>
-              </View>
-            ) : (
-              <Caption className="mt-1">
-                {t('stores.nStores', { count: session.stores.length, defaultValue_one: '{{count}} store, one combined view', defaultValue_other: '{{count}} stores, one combined view' })}
-              </Caption>
-            )}
+            <Body className="font-hk-semi text-ink dark:text-d-ink">{user.name}</Body>
+            <Pressable onPress={() => { vibrate(8); router.push('/switch') }} accessibilityRole="button" className="flex-row items-center gap-1">
+              <Caption numberOfLines={1}>{s.name} — {s.branch}</Caption>
+              <RefreshCcw size={10} color="#93A0C8" />
+              <Caption>{t('common.switch', { defaultValue: 'Switch' })}</Caption>
+            </Pressable>
+            <Caption>{user.phone}</Caption>
+          </View>
+          <View className="h-6 px-2 rounded-pill bg-brand-blue/10 border border-brand-blue/30 items-center justify-center">
+            <Text className="text-[11px] font-hk-semi text-primaryText dark:text-d-primaryText">
+              {t('profile.manager', { defaultValue: 'Manager' })}
+            </Text>
           </View>
         </View>
       </Card>
 
-      <GhostButton onPress={() => router.push('/switch')} className="mb-2.5">
-        {t('common.switch', { defaultValue: 'Switch' })}
-      </GhostButton>
+      {/* Quick actions — Team is the one whose destination exists natively today. */}
+      <Card onPress={() => router.push('/team')} label={t('profile.team', { defaultValue: 'Team' })} className="mt-3">
+        <View className="flex-row items-center gap-3">
+          <View className="w-10 h-10 rounded-xl bg-ok/10 items-center justify-center">
+            <Users size={17} color="#16A34A" />
+          </View>
+          <View className="flex-1 min-w-0">
+            <Body className="font-hk-semi text-ink dark:text-d-ink">{t('profile.team', { defaultValue: 'Team' })}</Body>
+            <Caption className="mt-0.5">{t('profile.teamSub', { defaultValue: 'Add people' })}</Caption>
+          </View>
+          <ChevronRight size={16} color="#93A0C8" />
+        </View>
+      </Card>
 
-      <GhostButton
-        onPress={() => { vibrate(15); signOut(); router.replace('/') }}
-        className="bg-bad/10"
-      >
-        <Text className="text-base font-hk-semi text-bad dark:text-d-bad">
-          {t('profile.logout', { defaultValue: 'Log out' })}
-        </Text>
-      </GhostButton>
+      {/* Settings list — one card, hairline dividers, exactly the web order. */}
+      <Card className="mt-3 !p-0 overflow-hidden">
+        <SettingsRow
+          icon={Bell} tint="#0355DB"
+          label={t('profile.alerts', { defaultValue: 'Alerts' })}
+          sub={t('profile.alertsSub', { defaultValue: 'Missed call & bad review pings' })}
+          trailing={<Caption>{t('profile.on', { defaultValue: 'On' })}</Caption>}
+        />
+        <Hairline />
+        <SettingsRow
+          icon={Globe} tint="#0355DB"
+          label={t('profile.language', { defaultValue: 'Language' })}
+          sub={getLanguage(i18n.resolvedLanguage || i18n.language || 'en').native}
+          trailing={<ChevronRight size={16} color="#93A0C8" />}
+          onPress={() => router.push('/language')}
+        />
+        <Hairline />
+        <SettingsRow
+          icon={Shield} tint="#0355DB"
+          label={t('profile.privacy', { defaultValue: 'Privacy & data' })}
+          sub={t('profile.privacySub', { defaultValue: 'GDPR · numbers stay masked' })}
+          trailing={<Caption>{t('profile.privacyOk', { defaultValue: 'OK' })}</Caption>}
+        />
+        <Hairline />
+        <SettingsRow
+          icon={LogOut} tint="#DC2626" danger
+          label={t('profile.logout', { defaultValue: 'Log out' })}
+          onPress={() => { vibrate(15); signOut(); router.replace('/') }}
+        />
+      </Card>
+
+      <Caption className="text-center mt-4 mb-1">
+        {t('profile.footer', { defaultValue: 'SingleInterface Connect · Zero Business Loss · Built with Gemini' })}
+      </Caption>
     </Screen>
+  )
+}
+
+function Hairline() {
+  return <View className="h-px bg-hairline dark:bg-d-hairline" />
+}
+
+function SettingsRow({ icon: Icon, tint, label, sub, trailing, onPress, danger }) {
+  const body = (
+    <View className="flex-row items-center gap-3 px-4 py-3.5">
+      <Icon size={17} color={tint} />
+      <View className="flex-1 min-w-0">
+        <Body className={`font-hk-semi ${danger ? 'text-bad dark:text-d-bad' : 'text-ink dark:text-d-ink'}`}>{label}</Body>
+        {sub ? <Caption className="mt-0.5" numberOfLines={1}>{sub}</Caption> : null}
+      </View>
+      {trailing}
+    </View>
+  )
+  if (!onPress) return body
+  return (
+    <Pressable
+      onPress={() => { vibrate(8); onPress() }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => pressed && { opacity: 0.7 }}
+    >
+      {body}
+    </Pressable>
   )
 }
