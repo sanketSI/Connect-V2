@@ -1,20 +1,28 @@
-// REVIEWS — ported from apps/web/src/screens/Reviews.jsx (the spec). This iteration
-// carries the INBOX: the three-stat card (total / waiting / average), the one-predicate
-// "waiting" count taken off the very list rendered below it, and full review cards —
-// stars, platform, time, body, tags, reply state. The Review-link tab and the filter
-// sheet are the next iteration; the tab chip is not drawn until its screen exists,
-// because a tab that opens nothing is worse than none.
-import { useMemo } from 'react'
-import { View, Text } from 'react-native'
+// REVIEWS — ported from apps/web/src/screens/Reviews.jsx (the spec). Two tabs, as on
+// web: INBOX (the three-stat card, the one-predicate waiting count, full review cards)
+// and REVIEW LINK — the store's ONE link, an editable message, and real WhatsApp/SMS
+// hand-offs. The leaderboard tab is brand-roles only on web and a single/multi-store
+// manager never sees it; the filter sheet is the remaining iteration.
+import { useMemo, useState } from 'react'
+import { View, Text, TextInput, Pressable, Linking } from 'react-native'
 import { useTranslation } from 'react-i18next'
-import { Star } from 'lucide-react-native'
+import { Star, Copy, MessageCircle, Send } from 'lucide-react-native'
+import * as Clipboard from 'expo-clipboard'
 import {
   filterReviews, reviewMetrics, reviewsWaitingCount, CANONICAL_REVIEW_WINDOW,
+  storeReviewLink, getCurrentUser,
 } from '@connect/core'
-import { Screen, Card, Title, Body, Caption } from '../../components/UI.jsx'
+import { Screen, Card, Title, Body, Caption, Chip } from '../../components/UI.jsx'
 import { HeaderRight } from '../../components/Header.jsx'
 import { useSession } from '../../lib/session.js'
 import { useDataVersion } from '../../lib/useDataVersion.js'
+import { vibrate, notifySuccess } from '../../lib/haptics.js'
+
+// Same helper the web file keeps beside its ReviewLink — the phone takes over from here.
+function storeShareHrefs(message) {
+  const text = encodeURIComponent(message)
+  return { whatsapp: `https://wa.me/?text=${text}`, sms: `sms:?&body=${text}` }
+}
 
 function Stars({ n }) {
   return (
@@ -31,6 +39,7 @@ export default function ReviewsTab() {
   const session = useSession()
   const version = useDataVersion()
   const scopeId = session.store?.aggregate ? undefined : session.store?.id
+  const [tab, setTab] = useState('inbox')
 
   const scoped = useMemo(() => ({ window: CANONICAL_REVIEW_WINDOW, storeId: scopeId }), [scopeId])
   const metrics = useMemo(() => reviewMetrics(scoped), [scoped, version])
@@ -54,6 +63,17 @@ export default function ReviewsTab() {
         <HeaderRight />
       </View>
 
+      {/* Which tab — Inbox or the store's review link, the web's chip idiom. */}
+      <View className="flex-row gap-2 mt-4 mb-1">
+        <Chip active={tab === 'inbox'} onPress={() => setTab('inbox')}>
+          {t('reviews.inbox', { defaultValue: 'Inbox' })}
+        </Chip>
+        <Chip active={tab === 'link'} onPress={() => setTab('link')}>
+          {t('reviews.reviewLink', { defaultValue: 'Review link' })}
+        </Chip>
+      </View>
+
+      {tab === 'link' ? <ReviewLink t={t} /> : (<>
       {/* Listing metrics — the CountsCard idiom, three across. */}
       <Card className="mt-4 mb-2 !p-3.5">
         <View className="flex-row">
@@ -115,7 +135,80 @@ export default function ReviewsTab() {
           ))}
         </Card>
       ))}
+      </>)}
     </Screen>
+  )
+}
+
+/** The Review-link tab — the store's ONE link, every time (PM: no per-send variants). */
+function ReviewLink({ t }) {
+  const STORE = getCurrentUser().store
+  const link = storeReviewLink(STORE)
+  const [message, setMessage] = useState(() => t('reviews.storeLinkMessage', {
+    store: STORE.name, branch: STORE.branch, link,
+    defaultValue: 'Hi, thanks for shopping at {{store}}, {{branch}}. If we did right by you, could you leave us a quick review? It takes a minute: {{link}}',
+  }))
+  const hrefs = storeShareHrefs(message)
+
+  return (
+    <View className="mt-2">
+      <Card className="!p-3.5">
+        <Caption className="font-hk-medium">{t('reviews.storeLinkLabel', { defaultValue: 'Your store’s review link' })}</Caption>
+        <View className="flex-row items-center gap-2 mt-2">
+          <View className="flex-1 h-11 px-3 rounded-xl bg-brand-blue/10 border border-brand-blue/25 justify-center">
+            <Body className="font-hk-semi text-ink dark:text-d-ink" numberOfLines={1}>{link}</Body>
+          </View>
+          <Pressable
+            onPress={async () => { vibrate(10); await Clipboard.setStringAsync(link); notifySuccess() }}
+            accessibilityRole="button"
+            accessibilityLabel={t('reviewLink.copy', { defaultValue: 'Copy link' })}
+            className="w-11 h-11 rounded-xl bg-card dark:bg-white/5 border border-hairline dark:border-d-hairline items-center justify-center"
+          >
+            <Copy size={17} color="#374151" />
+          </Pressable>
+        </View>
+        <Caption className="mt-2">
+          {t('reviews.storeLinkHint', {
+            store: STORE.name, branch: STORE.branch,
+            defaultValue: 'The same link every time, for {{store}} {{branch}} — it opens the Google review box for this store. Print it, put it on the bill, or send it below.',
+          })}
+        </Caption>
+      </Card>
+
+      <Caption className="font-hk-medium mt-3 mb-2">{t('reviewLink.messageLabel', { defaultValue: 'Message' })}</Caption>
+      <Card className="!p-3.5">
+        <TextInput
+          value={message}
+          onChangeText={setMessage}
+          multiline
+          accessibilityLabel={t('reviewLink.messageLabel', { defaultValue: 'Message' })}
+          className="min-h-[92px] text-[15px] text-ink dark:text-d-ink"
+        />
+      </Card>
+
+      <Caption className="font-hk-medium mt-4 mb-2">{t('reviewLink.chooseChannel', { defaultValue: 'Send it on' })}</Caption>
+      <View className="flex-row gap-2">
+        <Pressable
+          onPress={() => { vibrate(15); Linking.openURL(hrefs.whatsapp) }}
+          accessibilityRole="button"
+          className="flex-1 h-12 rounded-xl items-center justify-center flex-row gap-2 bg-[#25D366]"
+        >
+          <MessageCircle size={18} color="#fff" />
+          <Text className="text-base font-hk-semi text-white">WhatsApp</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => { vibrate(15); Linking.openURL(hrefs.sms) }}
+          accessibilityRole="button"
+          className="flex-1 h-12 rounded-xl items-center justify-center flex-row gap-2 bg-card dark:bg-white/5 border border-hairline dark:border-d-hairline"
+        >
+          <Send size={18} color="#374151" />
+          <Text className="text-base font-hk-semi text-ink dark:text-d-ink">{t('reviewLink.sms', { defaultValue: 'SMS' })}</Text>
+        </Pressable>
+      </View>
+      <Caption className="mt-2">
+        {t('reviews.storeShareHint', { defaultValue: 'Opens WhatsApp or Messages with the message ready — you choose who it goes to and press send.' })}
+      </Caption>
+    </View>
   )
 }
 
