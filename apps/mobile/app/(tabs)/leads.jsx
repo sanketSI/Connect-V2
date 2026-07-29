@@ -1,8 +1,9 @@
 // LEADS — a real list now, not a summary. getLeads() scoped to the branch in session,
 // a working status filter (the chip row the web tab uses), and each row showing what
 // the web card leads with: who, when, status, and the chance-to-buy band.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { View, Text } from 'react-native'
+import { useLocalSearchParams } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import { getLeads, leadCounts, LEAD_STATUSES } from '@connect/core'
 import { Screen, Card, Stat, Title, Body, Caption, Chip } from '../../components/UI.jsx'
@@ -27,6 +28,14 @@ export default function LeadsTab() {
   useDataVersion()
   const scopeId = session.store?.aggregate ? undefined : session.store?.id
   const [status, setStatus] = useState(null) // null = all
+
+  // A tab can be opened ON something — Home's "Call now" pushes ?status=missed so the
+  // manager lands on exactly the rows that CTA counted, the same preset contract
+  // App.jsx's goTab(preset) keeps on web.
+  const params = useLocalSearchParams()
+  useEffect(() => {
+    if (typeof params.status === 'string' && params.status) setStatus(params.status)
+  }, [params.status])
 
   const c = leadCounts({ storeId: scopeId })
   const leads = getLeads({ storeId: scopeId })
