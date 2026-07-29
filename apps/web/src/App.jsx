@@ -26,6 +26,7 @@ import {
   getStoreLocations, isReturningUser, locationNeedsVerification, markReturningUser,
   openMissedCount, reviewsWaitingCount, leadCounts,
   setSessionAssignments, clearSessionAssignments, makeAllLocationsStore,
+  defaultSubBrand, makeScopeStore,
 } from '@connect/core'
 import { setAnalyticsContext } from '@connect/core/analytics.js'
 import NotificationCenter from './components/NotificationCenter.jsx'
@@ -147,6 +148,10 @@ function AppContent() {
   }
   const [role, setRole] = useState(CAP?.role || 'single')
   const [store, setStore] = useState(() => (CAP?.store && MAPPED_LOCATIONS.find(l => l.id === CAP.store)) || MAPPED_LOCATIONS[0])
+  // EVERYTHING this number holds, across every sub-brand — the switcher drills over
+  // this even while the session is narrowed to one node of it. Without it, narrowing
+  // to Lakshmi Electronics would make Lakshmi Digital unfindable.
+  const [fullStores, setFullStores] = useState([])
   const [verifyStore, setVerifyStore] = useState(null)
   const [firstTime, setFirstTime] = useState(() => CAP ? !!CAP.welcome : !isReturningUser())
   const toast = useToast()
@@ -208,21 +213,39 @@ function AppContent() {
     if (FEATURES.locationVerify && locationNeedsVerification(picked)) setVerifyStore(picked)
   }
 
-  // Sign-in resolves the store from the NUMBER, and opens the app on it. One outlet and
-  // there is only one answer; several and Login hands us a null, which used to mean
-  // "stop and pick one" — a full screen between the OTP and the app, asking a question
-  // the manager can already answer from inside it. A multi-store number now lands on
-  // All locations, which is that number's whole business and the switcher's own first
-  // card; narrowing to one branch is still one tap on the Home pill, but it is a
-  // choice now rather than a toll.
+  // Sign-in resolves the store from the NUMBER, and opens the app on it. One outlet
+  // and there is only one answer. Several and the DEFAULT is the sub-brand with the
+  // most locations (brand-hierarchy rule: Tetley's 500 outrank TCS's 20; here Lakshmi
+  // Electronics' 4 outrank Lakshmi Digital's 2) — the whole app opens scoped to that
+  // sub-brand's combined data, and the switcher drills Brand → sub-brand → state →
+  // city → store from the Home pill.
   function handleAuthed(picked, myStores) {
-    // BEFORE anything renders. Login has already resolved this number to the stores it
-    // holds; handing that set to core makes it the ONE answer to "which stores are
-    // mine" — the tab bar's shape, the roll-up's depth and the picker's count all read
-    // it. Skip this and they each go back to guessing from the whole fixture.
-    setSessionAssignments((myStores || []).map(s => s.id))
+    const all = myStores || []
+    setFullStores(all)
     setTab('home') // a fresh session always starts on Home
-    openStore(picked || makeAllLocationsStore())
+    if (picked) {
+      setSessionAssignments(all.map(s => s.id))
+      openStore(picked)
+      return
+    }
+    const sb = defaultSubBrand(all.map(s => s.id))
+    // The assignment IS the scope: every selector, badge and roll-up reads it, so
+    // narrowing here narrows the whole app without any screen knowing the tree exists.
+    setSessionAssignments(sb ? sb.ids : all.map(s => s.id))
+    openStore(sb ? makeScopeStore({ label: sb.name, ids: sb.ids }) : makeAllLocationsStore())
+  }
+
+  /** The switcher picked a NODE (brand/sub-brand/state/city) or a single store. */
+  function openScope(node) {
+    if (node.store) {
+      // One location: the session focuses there; the assignment stays the full set so
+      // the switcher (and the badges' scopeId path) can still see the whole holding.
+      setSessionAssignments(fullStores.map(s => s.id))
+      openStore(node.store)
+      return
+    }
+    setSessionAssignments(node.ids)
+    openStore(makeScopeStore({ label: node.name, ids: node.ids }))
   }
 
   // Sign-out has to drop the scope as well as the screen, or the next number to sign in
@@ -293,7 +316,8 @@ function AppContent() {
                 returns to it rather than to login. */}
             <StoreSelector
               current={store}
-              onPick={openStore}
+              fullStores={fullStores}
+              onPick={openScope}
               onBack={() => setStage('app')}
             />
           </motion.div>

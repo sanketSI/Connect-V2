@@ -2308,7 +2308,7 @@ export const MAPPED_LOCATIONS = [
     addedAgo: 'Added 1 month ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(31),
   },
   {
-    id: 'lks-bom', storeCode: 'LKS-BOM-05', name: 'Lakshmi Electronics', branch: 'Andheri West', city: 'Mumbai',
+    id: 'lks-bom', storeCode: 'LKS-BOM-05', name: 'Lakshmi Electronics', subBrand: 'Lakshmi Digital', branch: 'Andheri West', city: 'Mumbai',
     address: 'Link Road, Andheri West, Mumbai', pincode: '400053', state: 'Maharashtra',
     stated: { lat: 19.1364, lng: 72.8296 }, actual: { lat: 19.1364, lng: 72.8296 },
     landmark: 'Beside Infiniti Mall',
@@ -2317,7 +2317,7 @@ export const MAPPED_LOCATIONS = [
     addedAgo: 'Added 3 weeks ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(21),
   },
   {
-    id: 'lks-pun', storeCode: 'LKS-PUN-06', name: 'Lakshmi Electronics', branch: 'Baner', city: 'Pune',
+    id: 'lks-pun', storeCode: 'LKS-PUN-06', name: 'Lakshmi Electronics', subBrand: 'Lakshmi Digital', branch: 'Baner', city: 'Pune',
     address: 'Baner Road, Pune', pincode: '411045', state: 'Maharashtra',
     stated: { lat: 18.5590, lng: 73.7868 }, actual: { lat: 18.5590, lng: 73.7868 },
     landmark: 'Opposite Balewadi Stadium',

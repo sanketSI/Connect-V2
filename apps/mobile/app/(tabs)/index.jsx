@@ -179,7 +179,7 @@ function ReturningView() {
       >
         <Text className="text-[13px] font-hk-medium text-ink-2 dark:text-d-ink2" numberOfLines={1}>
           {aggregate
-            ? `${t('stores.allLocations', { defaultValue: 'All locations' })} · ${t('stores.nStoresShort', { count: networkRollup().stores, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })}`
+            ? `${store?.label || t('stores.allLocations', { defaultValue: 'All locations' })} · ${t('stores.nStoresShort', { count: networkRollup().stores, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })}`
             : `${store?.name} · ${store?.branch}`}
         </Text>
         <RefreshCcw size={12} color="#5F6878" />

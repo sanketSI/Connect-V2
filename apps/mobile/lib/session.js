@@ -20,6 +20,7 @@
 import { useSyncExternalStore } from 'react'
 import {
   setSessionAssignments, clearSessionAssignments, makeAllLocationsStore,
+  defaultSubBrand, makeScopeStore,
 } from '@connect/core'
 
 let state = { authed: false, store: null, stores: [], role: 'single' }
@@ -54,13 +55,31 @@ export function currentSession() {
  * store when there is exactly one, and null when there are several.
  */
 export function signIn(myStores, picked) {
-  // BEFORE anything renders — see the rule above.
-  setSessionAssignments((myStores || []).map(s => s.id))
+  const all = myStores || []
+  // Several outlets: the DEFAULT is the sub-brand with the most locations (the brand-
+  // hierarchy rule — Tetley's 500 outrank TCS's 20). The assignment IS the scope, so
+  // every selector, badge and roll-up narrows with it.
+  const sb = picked ? null : defaultSubBrand(all.map(s => s.id))
+  setSessionAssignments(picked ? all.map(s => s.id) : (sb ? sb.ids : all.map(s => s.id)))
   state = {
     authed: true,
-    stores: myStores || [],
-    store: picked || makeAllLocationsStore(),
+    stores: all,
+    store: picked || (sb ? makeScopeStore({ label: sb.name, ids: sb.ids }) : makeAllLocationsStore()),
     role: state.role || 'single',
+  }
+  emit()
+}
+
+/** Scope to a tree NODE (brand/sub-brand/state/city) or a single store. */
+export function setScope(node) {
+  if (node.store) {
+    // One location: focus there; the assignment stays the full holding so the
+    // switcher can still see every sub-brand.
+    setSessionAssignments(state.stores.map(s => s.id))
+    state = { ...state, store: node.store }
+  } else {
+    setSessionAssignments(node.ids)
+    state = { ...state, store: makeScopeStore({ label: node.name, ids: node.ids }) }
   }
   emit()
 }

@@ -146,6 +146,93 @@ export function makeAllLocationsStore() {
   return { id: AGGREGATE_STORE_ID, aggregate: true }
 }
 
+// ============================================================
+// THE BRAND HIERARCHY — Brand → sub-brand → state → city → store.
+//
+// A parent brand holds sub-brands (Tata holds Tanishq and Tetley; here Lakshmi Group
+// holds Lakshmi Electronics and Lakshmi Digital), and a session can be scoped to ANY
+// node of that tree. The scope MECHANISM is unchanged: setSessionAssignments() remains
+// the one authority on which stores are in play, so every selector, badge and roll-up
+// follows a scope change without knowing the tree exists. What these helpers add is
+// the vocabulary for choosing the subset.
+//
+// `subBrand` is a field on the location, falling back to the store name — a location
+// file that has never heard of sub-brands keeps working, as one sub-brand per name.
+// ============================================================
+
+/** The parent brand over every sub-brand. A proper noun, never translated. */
+export const BRAND_NAME = 'Lakshmi Group'
+
+export function subBrandOf(loc) {
+  return loc?.subBrand || loc?.name
+}
+
+/**
+ * The sub-brands across `storeIds`, LARGEST FIRST — the order IS the default rule: a
+ * fresh session opens on subBrands(ids)[0]. `storeIds` is required rather than
+ * defaulting to the session assignment: assignments.js imports this module, so reading
+ * it back would be a cycle — and the tree is honestly a pure function of the set.
+ */
+export function subBrands(storeIds) {
+  const ids = storeIds || []
+  const locs = getStoreLocations().filter(l => ids.includes(l.id))
+  const by = new Map()
+  for (const l of locs) {
+    const key = subBrandOf(l)
+    if (!by.has(key)) by.set(key, { name: key, ids: [] })
+    by.get(key).ids.push(l.id)
+  }
+  return [...by.values()]
+    .map(b => ({ ...b, count: b.ids.length }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+}
+
+/** The default scope for a fresh session: the sub-brand with the most locations. */
+export function defaultSubBrand(storeIds) {
+  return subBrands(storeIds)[0] || null
+}
+
+/**
+ * An aggregate store for a scope NODE (sub-brand / state / city). Same discriminator
+ * screens already branch on (`aggregate: true`); `label` is what the switcher pill
+ * prints, `ids` what the selection covers. Selectors never read either — they read
+ * the assignment, which the caller sets alongside this.
+ */
+export function makeScopeStore({ label, ids }) {
+  return { id: AGGREGATE_STORE_ID, aggregate: true, label, ids }
+}
+
+/**
+ * The children of a node in the drill, with per-child store counts. `path` is
+ * { subBrand?, state?, city? } — whichever keys are present narrow the set.
+ */
+export function scopeChildren(storeIds, path = {}) {
+  const ids = storeIds || []
+  let locs = getStoreLocations().filter(l => ids.includes(l.id))
+  if (path.subBrand) locs = locs.filter(l => subBrandOf(l) === path.subBrand)
+  if (!path.state) {
+    const by = new Map()
+    for (const l of locs) {
+      if (!by.has(l.state)) by.set(l.state, [])
+      by.get(l.state).push(l.id)
+    }
+    return [...by.entries()].map(([name, list]) => ({ level: 'state', name, ids: list, count: list.length }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+  }
+  locs = locs.filter(l => l.state === path.state)
+  if (!path.city) {
+    const by = new Map()
+    for (const l of locs) {
+      if (!by.has(l.city)) by.set(l.city, [])
+      by.get(l.city).push(l.id)
+    }
+    return [...by.entries()].map(([name, list]) => ({ level: 'city', name, ids: list, count: list.length }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+  }
+  locs = locs.filter(l => l.city === path.city)
+  return locs.map(l => ({ level: 'store', name: l.branch, ids: [l.id], count: 1, store: l }))
+}
+
 /**
  * The branch name for a storeId — what a location badge prints.
  *

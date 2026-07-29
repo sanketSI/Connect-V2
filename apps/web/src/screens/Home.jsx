@@ -263,7 +263,7 @@ function ReturningView({ store, onGoTab, onSwitchStore }) {
             style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-glass)', color: 'var(--text-secondary)' }}
           >
             {aggregate
-              ? `${t('stores.allLocations', { defaultValue: 'All locations' })} · ${t('stores.nStoresShort', { count: networkRollup().stores, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })}`
+              ? `${store.label || t('stores.allLocations', { defaultValue: 'All locations' })} · ${t('stores.nStoresShort', { count: networkRollup().stores, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })}`
               : `${s.name} · ${s.branch}`} <RefreshCcw size={12} /> <span className="text-white/45">{t('common.switch')}</span>
           </span>
         </button>
