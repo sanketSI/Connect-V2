@@ -3,8 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "_workspacesNote": "apps/web, NOT apps/* — apps/mobile is deliberately outside this list. Expo SDK 54 pins React 19.1.0 and apps/web is on React 18; in one hoist root npm resolves a single react-dom for both, and the web app starts depending on whichever React the phone build asked for. Mobile keeps its own node_modules and links core with file:../../packages/core. Adding apps/* back re-couples them.",
   "workspaces": [
-    "apps/*",
+    "apps/web",
     "packages/*"
   ],
   "scripts": {

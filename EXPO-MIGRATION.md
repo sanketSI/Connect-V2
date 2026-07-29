@@ -73,18 +73,25 @@ injection; web app consumes core and must behave byte-identically (build + lint 
 pass is the gate). *This phase de-risks everything after it.*
 
 **Phase 1 — Expo skeleton boots** — ✅ landed, `apps/mobile`
-Expo SDK 57 + expo-router tab layout, design tokens, i18n init off the shared static
+Expo **SDK 54** + expo-router tab layout, design tokens, i18n init off the shared static
 catalog index, core hydration (seed + Supabase modes), AsyncStorage-backed storage
-driver. Gate: `[data] source: seed` logs and both platforms bundle (Android 3800
-modules / iOS 3709, HTTP 200), tabs render off real core selectors.
+driver. Gate: `[data] source: seed` logs, the manifest serves `exposdk:54.0.0`, both
+platforms bundle (HTTP 200), tabs render off real core selectors.
 
-Two deviations from what this document assumed, both deliberate:
+Three deviations from what this document assumed, all deliberate:
 
-- **`apps/mobile` is NOT an npm workspace.** Expo SDK 57 needs React 19; `apps/web` is
-  on React 18. Left in the workspace glob, npm hoists one and nests the other, which is
-  a good way to break a live web app for a phone build. It keeps its own `node_modules`
-  and reaches core through the root symlink, with Metro's `nodeModulesPaths` ordered
-  app-first. `npm run build/lint/test` for web are unchanged and green.
+- **SDK 54, not "latest".** §3 says "Expo SDK (latest)"; that is the wrong target while
+  Expo Go is the delivery mechanism. Expo Go carries exactly ONE SDK, and a project built
+  against a newer one does not degrade — it refuses to open. The SDK is therefore pinned
+  to what is installed on the phones (54: React 19.1.0, RN 0.81.5, expo-router 6), and
+  moving it is a decision to be taken WITH the devices, not ahead of them. A custom dev
+  build (Phase 6, EAS) is what removes this ceiling.
+- **`apps/mobile` is NOT an npm workspace.** The root `workspaces` glob is `apps/web`,
+  not `apps/*`, and core is linked with `file:../../packages/core`. SDK 54 pins React
+  19.1.0 while `apps/web` is on React 18; inside one hoist root npm resolves a single
+  react-dom for both and the web app starts depending on whichever React the phone build
+  asked for. This is not theoretical — it was an ERESOLVE failure the moment the SDK
+  moved. Metro's `nodeModulesPaths` is ordered app-first for the same reason.
 - **NativeWind is deferred to Phase 2.** Tokens landed as `lib/tokens.js` (the SI hexes
   lifted verbatim from `index.css`, both themes) consumed through StyleSheet. Same
   values, one less moving part while the boot path was being proven.
