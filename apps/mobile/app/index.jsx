@@ -19,9 +19,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, ScrollView } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { ShieldCheck, Building2, ChevronLeft, AlertTriangle } from 'lucide-react-native'
-import { storeCodesFor, getStoreByCode, DEMO_PHONE, maskPhone } from '@connect/core'
-import { PrimaryButton, Title, Body, Caption, CARD_SHADOW } from '../components/UI.jsx'
+import { ShieldCheck, Building2, ChevronLeft, AlertTriangle, Check, X, Send } from 'lucide-react-native'
+import {
+  storeCodesFor, getStoreByCode, DEMO_PHONE, maskPhone,
+  normalizeStoreCode, resolveStoreCode, allStoreCodes, phoneOnFileFor, STORE_CODE_EXAMPLE,
+} from '@connect/core'
+import { PrimaryButton, GhostButton, Title, Body, Caption, Chip, CARD_SHADOW } from '../components/UI.jsx'
 import { vibrate, notifySuccess } from '../lib/haptics.js'
 import { signIn } from '../lib/session.js'
 
@@ -34,6 +37,7 @@ export default function LoginScreen() {
   const [phone, setPhone] = useState(DEMO_PHONE)
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
   const [loading, setLoading] = useState(false)
+  const [numChange, setNumChange] = useState(false)
   const [resendIn, setResendIn] = useState(0)
   const otpRefs = useRef([])
 
@@ -182,6 +186,15 @@ export default function LoginScreen() {
               <PrimaryButton onPress={sendOtp} disabled={!valid} loading={loading} className="mt-6">
                 {t('login.sendCode', { defaultValue: 'Send verification code' })}
               </PrimaryButton>
+              <Pressable
+                onPress={() => { vibrate(8); setNumChange(true) }}
+                accessibilityRole="button"
+                className="min-h-[44px] items-center justify-center mt-2"
+              >
+                <Caption className="text-primaryText dark:text-d-primaryText">
+                  {t('login.requestAccess', { defaultValue: 'Number changed or new to the team?' })}
+                </Caption>
+              </Pressable>
             </View>
           ) : (
             <View>
@@ -249,6 +262,117 @@ export default function LoginScreen() {
           </Caption>
         </View>
       </ScrollView>
+
+      {numChange && <NumberChangeSheet t={t} onClose={() => setNumChange(false)} />}
     </KeyboardAvoidingView>
+  )
+}
+
+/**
+ * REQUEST ACCESS — the web's NumberChangeSheet, as a native overlay. Everyone who
+ * reaches this does so BECAUSE their number is not on file, so the store code off the
+ * signage is the only handle they have — validated live against allStoreCodes() (is it
+ * a REAL code — ownership is not the question here), with the number on file shown once
+ * it resolves as the confirmation this is the right shop.
+ */
+function NumberChangeSheet({ t, onClose }) {
+  const [storeCode, setStoreCode] = useState('')
+  const [newNum, setNewNum] = useState('')
+  const [reason, setReason] = useState('joined')
+
+  const code = normalizeStoreCode(storeCode)
+  const resolved = resolveStoreCode(code)
+  const store = resolved.ok ? resolved.store : null
+  const stillTyping = allStoreCodes().some(c => c.startsWith(code))
+  const codeError = !store && code.length >= 3 && !stillTyping ? resolved : null
+  const onFile = store ? phoneOnFileFor(store.storeCode) : null
+  const valid = newNum.length === 10 && !!store
+
+  return (
+    <View className="absolute inset-0 z-50 justify-end">
+      <Pressable className="absolute inset-0 bg-black/40" onPress={onClose} accessibilityRole="button" accessibilityLabel={t('common.close', { defaultValue: 'Close' })} />
+      <View className="rounded-t-[28px] bg-card dark:bg-d-screen border-t border-hairline dark:border-d-hairline p-4 pb-8">
+        <View className="items-center pb-2"><View className="w-9 h-1 rounded-pill bg-hairline dark:bg-d-hairline" /></View>
+        <Text className="text-[22px] leading-7 font-hk-bold text-ink dark:text-d-ink">
+          {t('login.requestTitle', { defaultValue: 'Request access' })}
+        </Text>
+
+        {['login.requestBullet1', 'login.requestBullet2', 'login.requestBullet3'].map(key => (
+          <View key={key} className="flex-row items-start gap-2 mt-1.5">
+            <View className="w-1 h-1 rounded-full bg-brand-blue mt-[7px]" />
+            <Caption className="flex-1">{t(key)}</Caption>
+          </View>
+        ))}
+
+        <Caption className="font-hk-medium mt-3.5 mb-1.5">{t('login.storeCode', { defaultValue: 'Store code' })}</Caption>
+        <View className={`h-12 rounded-xl flex-row items-center px-3.5 bg-brand-blue/5 border ${codeError ? 'border-[#CA8A04]/60' : store ? 'border-brand-blue/50' : 'border-hairline dark:border-d-hairline'}`}>
+          <Building2 size={16} color="#5F6878" />
+          <View className="mx-3 h-6 w-px bg-hairline dark:bg-d-hairline" />
+          <TextInput
+            value={storeCode}
+            onChangeText={v => setStoreCode(normalizeStoreCode(v.replace(/[^a-zA-Z0-9-]/g, '')).slice(0, 12))}
+            placeholder={STORE_CODE_EXAMPLE}
+            placeholderTextColor="#93A0C8"
+            autoCapitalize="characters"
+            autoCorrect={false}
+            accessibilityLabel={t('login.storeCode', { defaultValue: 'Store code' })}
+            className="flex-1 text-base font-hk-semi text-ink dark:text-d-ink"
+          />
+          {store && <Check size={16} color="#16A34A" />}
+        </View>
+        <View className="min-h-[18px] mt-1.5 mb-3 px-1">
+          {codeError ? (
+            <View className="flex-row items-center gap-1.5">
+              <AlertTriangle size={11} color="#CA8A04" />
+              <Caption className="flex-1 text-[#B45309]">{t(codeError.errorKey, { defaultValue: codeError.error })}</Caption>
+            </View>
+          ) : store ? (
+            <Caption>
+              {store.name} — {store.branch}
+              {onFile ? ` · ${t('login.currentNumber', { defaultValue: 'Current number' })} ${maskPhone(onFile)}` : ''}
+            </Caption>
+          ) : (
+            <Caption>{t('login.storeCodeHint', { defaultValue: 'The code on your store signage — it tells us which store to ask about.' })}</Caption>
+          )}
+        </View>
+
+        <Caption className="font-hk-medium mb-1.5">{t('login.newNumber', { defaultValue: 'New number' })}</Caption>
+        <View className={`h-12 rounded-xl flex-row items-center px-3.5 mb-3 bg-brand-blue/5 border ${newNum ? 'border-brand-blue/50' : 'border-hairline dark:border-d-hairline'}`}>
+          <Text className="text-base font-hk-semi text-ink-3 dark:text-d-ink3">+91</Text>
+          <View className="mx-3 h-6 w-px bg-hairline dark:bg-d-hairline" />
+          <TextInput
+            value={newNum}
+            onChangeText={v => setNewNum(v.replace(/\D/g, '').slice(0, 10))}
+            keyboardType="number-pad"
+            maxLength={10}
+            placeholder={t('login.newNumberPlaceholder', { defaultValue: 'Mobile number to approve' })}
+            placeholderTextColor="#93A0C8"
+            accessibilityLabel={t('login.newNumber', { defaultValue: 'New number' })}
+            className="flex-1 text-base font-hk-semi text-ink dark:text-d-ink"
+          />
+        </View>
+
+        <Caption className="font-hk-medium mb-1.5">{t('login.reason', { defaultValue: 'Reason' })}</Caption>
+        <View className="flex-row flex-wrap gap-2 mb-4">
+          {[['joined', 'login.reasonJoined'], ['changed', 'login.reasonChanged'], ['multi', 'login.reasonMulti']].map(([id, labelKey]) => (
+            <Chip key={id} active={reason === id} onPress={() => setReason(id)}>
+              {t(labelKey)}
+            </Chip>
+          ))}
+        </View>
+
+        <View className="flex-row gap-2">
+          <GhostButton onPress={onClose} className="flex-1">{t('common.cancel', { defaultValue: 'Cancel' })}</GhostButton>
+          <View className="flex-[2]">
+            <PrimaryButton
+              disabled={!valid}
+              onPress={() => { notifySuccess(); onClose() }}
+            >
+              {t('login.requestApproval', { defaultValue: 'Request Approval' })}
+            </PrimaryButton>
+          </View>
+        </View>
+      </View>
+    </View>
   )
 }
