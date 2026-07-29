@@ -3,15 +3,17 @@
 // the switch link and role pill, the Team quick tile, then the settings card (Alerts ·
 // Language · Privacy · Log out) and the footer line.
 //
-// Named, not hidden: the role switcher tile is NOT drawn yet, and Manage media's Posts
-// segment and camera/gallery uploads are still to come; a control that opens nothing is
-// a dead affordance, the one thing this port keeps refusing to ship. Appearance follows the system scheme on
-// native (useColorScheme); the web's manual toggle has no native counterpart yet.
+// Complete against the web spec: identity, the four quick actions (Business profile,
+// Manage media, Team, Switch role), Appearance with a working light/dark switcher
+// (Appearance.setColorScheme drives RN and NativeWind together, persisted through the
+// storage seam and re-applied at boot), the settings card, and the footer.
 // ============================================================
 import { View, Text, Pressable } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { Bell, LogOut, ChevronRight, Users, RefreshCcw, Globe, Shield, Building2, Images } from 'lucide-react-native'
+import { Bell, LogOut, ChevronRight, Users, RefreshCcw, Globe, Shield, Building2, Images, Layers, Sun, Moon, Check } from 'lucide-react-native'
+import { useColorScheme } from 'react-native'
+import { setTheme } from '../lib/theme.js'
 import { getCurrentUser, assignedStores, locationNeedsVerification } from '@connect/core'
 import { FEATURES } from '../lib/features.js'
 import { getLanguage } from '@connect/core/i18n/languages.js'
@@ -124,6 +126,23 @@ export default function ProfileScreen() {
         </View>
       </Card>
 
+      <Card onPress={() => router.push('/role')} label={t('profile.switchRole', { defaultValue: 'Switch role' })} className="mt-3">
+        <View className="flex-row items-center gap-3">
+          <View className="w-10 h-10 rounded-xl bg-[#F97316]/10 items-center justify-center">
+            <Layers size={17} color="#F97316" />
+          </View>
+          <View className="flex-1 min-w-0">
+            <Body className="font-hk-semi text-ink dark:text-d-ink">{t('profile.switchRole', { defaultValue: 'Switch role' })}</Body>
+            <Caption className="mt-0.5">{t('profile.switchRoleSub', { defaultValue: 'Demo other personas' })}</Caption>
+          </View>
+          <ChevronRight size={16} color="#93A0C8" />
+        </View>
+      </Card>
+
+      {/* Appearance — the web ThemeSwitcher: two tiles, active ringed in brand blue. */}
+      <Caption className="font-hk-medium mt-4 mb-2 px-1">{t('profile.appearance', { defaultValue: 'Appearance' })}</Caption>
+      <ThemeSwitcher t={t} />
+
       {/* Settings list — one card, hairline dividers, exactly the web order. */}
       <Card className="mt-3 !p-0 overflow-hidden">
         <SettingsRow
@@ -187,5 +206,41 @@ function SettingsRow({ icon: Icon, tint, label, sub, trailing, onPress, danger }
     >
       {body}
     </Pressable>
+  )
+}
+
+
+function ThemeSwitcher({ t }) {
+  const scheme = useColorScheme()
+  const opts = [
+    { id: 'light', label: t('profile.light', { defaultValue: 'Light' }), sub: t('profile.lightSub', { defaultValue: 'Bright & clean' }), Icon: Sun, tint: '#F97316' },
+    { id: 'dark', label: t('profile.dark', { defaultValue: 'Dark' }), sub: t('profile.darkSub', { defaultValue: 'Easy on the eyes' }), Icon: Moon, tint: '#4D9AFF' },
+  ]
+  return (
+    <Card className="!p-2">
+      <View className="flex-row gap-2">
+        {opts.map(o => {
+          const active = scheme === o.id
+          return (
+            <Pressable
+              key={o.id}
+              onPress={() => { vibrate(8); setTheme(o.id) }}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              className={`flex-1 rounded-xl p-3 border ${active ? 'bg-brand-blue/10 border-brand-blue/60' : 'bg-brand-blue/5 border-hairline dark:border-d-hairline'}`}
+            >
+              <View className="flex-row items-center justify-between">
+                <View className="w-8 h-8 rounded-lg items-center justify-center bg-card dark:bg-white/10 border border-hairline dark:border-d-hairline">
+                  <o.Icon size={15} color={o.tint} />
+                </View>
+                {active && <Check size={14} color="#0070FC" />}
+              </View>
+              <Body className="font-hk-semi text-ink dark:text-d-ink mt-2">{o.label}</Body>
+              <Caption>{o.sub}</Caption>
+            </Pressable>
+          )
+        })}
+      </View>
+    </Card>
   )
 }

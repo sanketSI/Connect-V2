@@ -38,6 +38,7 @@ import {
   HankenGrotesk_600SemiBold, HankenGrotesk_700Bold,
 } from '@expo-google-fonts/hanken-grotesk'
 import { nativeStorageDriver, preloadStorage } from '../lib/storage.js'
+import { applySavedTheme } from '../lib/theme.js'
 import { initI18n } from '../lib/i18n.js'
 import { themeFor, TYPE, BRAND } from '../lib/tokens.js'
 
@@ -78,8 +79,10 @@ export default function RootLayout() {
     let cancelled = false
 
     async function boot() {
-      // Act 1 — warm the sync cache core reads through.
+      // Act 1 — warm the sync cache core reads through, then re-apply the dealer's
+      // saved theme override so a dark-mode user never sees a light flash.
       const restored = await preloadStorage()
+      applySavedTheme()
 
       // Act 2 — strings before the first frame.
       await initI18n()

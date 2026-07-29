@@ -22,7 +22,7 @@ import {
   setSessionAssignments, clearSessionAssignments, makeAllLocationsStore,
 } from '@connect/core'
 
-let state = { authed: false, store: null, stores: [] }
+let state = { authed: false, store: null, stores: [], role: 'single' }
 const listeners = new Set()
 
 function emit() {
@@ -60,6 +60,7 @@ export function signIn(myStores, picked) {
     authed: true,
     stores: myStores || [],
     store: picked || makeAllLocationsStore(),
+    role: state.role || 'single',
   }
   emit()
 }
@@ -68,6 +69,12 @@ export function signIn(myStores, picked) {
 export function setStore(store) {
   if (!store) return
   state = { ...state, store }
+  emit()
+}
+
+/** The demo viewing-role switcher, exactly the web's App.jsx `role` state. */
+export function setRole(role) {
+  state = { ...state, role }
   emit()
 }
 
