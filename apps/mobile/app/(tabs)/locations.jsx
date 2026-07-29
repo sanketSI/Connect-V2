@@ -2,12 +2,15 @@
 // only when the manager holds more than one store (see the tab layout). The drill-down
 // (state → city → store → calls → customer) is Phase 3/4.
 import { View, Text } from 'react-native'
+import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import { networkRollup } from '@connect/core'
 import { Screen, Card, Stat, SectionLabel, Row, Title } from '../../components/UI.jsx'
+import { HeaderRight } from '../../components/Header.jsx'
 
 export default function LocationsTab() {
   const { t } = useTranslation()
+  const router = useRouter()
   const net = networkRollup()
 
   // Worst recovery first: this screen exists to find the branch losing calls, and
@@ -16,7 +19,10 @@ export default function LocationsTab() {
 
   return (
     <Screen>
-      <Title>{t('nav.network', { defaultValue: 'Your locations' })}</Title>
+      <View className="flex-row items-start justify-between gap-3">
+        <Title>{t('nav.network', { defaultValue: 'Your locations' })}</Title>
+        <HeaderRight />
+      </View>
 
       <View className="mt-4">
         <Card>
@@ -35,6 +41,7 @@ export default function LocationsTab() {
           key={s.storeId}
           title={s.branch}
           sub={t('store.missedCount', { count: s.missed, defaultValue: '{{count}} missed' })}
+          onPress={() => router.push(`/store/${s.storeId}`)}
           right={
             <Text className={`text-base font-hk-semi ${s.recovery >= 50 ? 'text-ok dark:text-d-ok' : 'text-bad dark:text-d-bad'}`}>
               {s.recovery}%
