@@ -7,10 +7,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { View, Text, Pressable, Linking } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { PhoneCall, FileText, Store as StoreIcon, Users as UsersIcon, PhoneMissed } from 'lucide-react-native'
+import { PhoneCall, FileText, Store as StoreIcon, Users as UsersIcon, Lock, Repeat2, ChevronRight } from 'lucide-react-native'
 import {
   getLeads, leadCounts, groupByStore, LEAD_STATUSES, LEAD_SOURCES, rupees,
-  getCustomerById,
+  getCustomerById, customerDialDigits, updateLeadStatus, dayClock,
 } from '@connect/core'
 import { Screen, Card, Title, Body, Caption, Chip } from '../../components/UI.jsx'
 import { HeaderRight } from '../../components/Header.jsx'
@@ -142,18 +142,20 @@ function StatusPill({ status, t }) {
 }
 
 function LeadCard({ lead, t, onOpen }) {
-  const missedCall = lead.source === 'call' && lead.status === 'missed'
-  const Icon = missedCall ? PhoneMissed : (SOURCE_ICON[lead.source] || PhoneCall)
+  // A missed call is the one row with an action on it — the web gives it its own card
+  // shape (MissedCallCard), so it gets the same here, not a padded-out generic row.
+  if (lead.source === 'call' && lead.status === 'missed') {
+    return <MissedCallCard lead={lead} t={t} onOpen={onOpen} />
+  }
+  const Icon = SOURCE_ICON[lead.source] || PhoneCall
   const who = lead.name || lead.masked
   const src = LEAD_SOURCES.find(s => s.id === lead.source)
-  const customer = lead.customerId ? getCustomerById(lead.customerId) : null
-  const digits = (customer?.phone || '').replace(/\D/g, '')
 
   return (
     <Card onPress={lead.customerId ? onOpen : undefined} label={who} className="mb-2.5">
       <View className="flex-row items-start gap-3">
-        <View className={`w-11 h-11 rounded-2xl items-center justify-center ${missedCall ? 'bg-bad/10' : 'bg-brand-blue/10'}`}>
-          <Icon size={18} color={missedCall ? '#DC2626' : '#0070FC'} />
+        <View className="w-11 h-11 rounded-2xl items-center justify-center bg-brand-blue/10">
+          <Icon size={18} color="#0070FC" />
         </View>
         <View className="flex-1 min-w-0">
           <View className="flex-row items-center justify-between gap-2">
@@ -167,20 +169,100 @@ function LeadCard({ lead, t, onOpen }) {
           <Caption className="mt-0.5">{since(lead.atMs)}</Caption>
         </View>
       </View>
-      <View className="mt-2 flex-row items-center justify-between gap-2">
+      <View className="mt-2 flex-row items-center">
         <StatusPill status={lead.status} t={t} />
-        {/* The missed call is somebody still waiting to be rung back — the one row with
-            an action on it, exactly the web's treatment. */}
-        {missedCall && digits ? (
-          <Pressable
-            onPress={() => { vibrate(15); Linking.openURL(`tel:+91${digits}`) }}
-            accessibilityRole="button"
-            accessibilityLabel={t('common.callBack', { defaultValue: 'Call back' })}
-            className="h-8 px-3 rounded-pill bg-brand-blue items-center justify-center"
-          >
-            <Text className="text-[13px] font-hk-semi text-white">{t('common.callBack', { defaultValue: 'Call back' })}</Text>
-          </Pressable>
-        ) : null}
+      </View>
+    </Card>
+  )
+}
+
+/**
+ * MISSED CALL — ported from the web MissedCallCard: blue tile with the repeat badge on
+ * its corner, lock + masked number, the BAND pill without the score (on a row whose job
+ * is "ring this person back", hot/warm/cold is the whole decision and the number is
+ * noise), time · ago · Called N×, value · category, then the full-width Call back —
+ * which marks the lead CONTACTED through updateLeadStatus before the dialler opens,
+ * exactly as web.
+ */
+function MissedCallCard({ lead, t, onOpen }) {
+  const who = lead.name || lead.masked
+  const digits = lead.customerId ? customerDialDigits(lead.customerId) : null
+  const band = lead.cli >= 80 ? 'hot' : lead.cli >= 60 ? 'warm' : lead.cli >= 40 ? 'cool' : 'cold'
+  const bandCls = {
+    hot: 'bg-bad/10 text-bad', warm: 'bg-[#CA8A04]/10 text-[#B45309]',
+    cool: 'bg-brand-blue/10 text-primaryText', cold: 'bg-ink-3/10 text-ink-3',
+  }[band]
+
+  function callBack() {
+    vibrate(15)
+    updateLeadStatus(lead, 'contacted')
+    if (digits) Linking.openURL(`tel:${digits}`)
+  }
+
+  return (
+    <Card onPress={lead.customerId ? onOpen : undefined} label={who} className="mb-2.5 !p-0 overflow-hidden">
+      <View className="p-4 flex-row items-start gap-3">
+        <View className="relative">
+          <View className="w-11 h-11 rounded-2xl items-center justify-center bg-brand-blue/15 border border-brand-blue/30">
+            <PhoneCall size={18} color="#0070FC" />
+          </View>
+          {lead.repeats > 1 && (
+            <View className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-pill bg-brand-blue items-center justify-center px-1">
+              <Text className="text-[10px] font-hk-bold text-white">{lead.repeats}×</Text>
+            </View>
+          )}
+        </View>
+
+        <View className="flex-1 min-w-0">
+          <View className="flex-row items-center justify-between gap-2">
+            <View className="flex-row items-center gap-1.5 flex-1 min-w-0">
+              <Lock size={10} color="#93A0C8" />
+              <Body className="font-hk-semi text-ink dark:text-d-ink flex-shrink" numberOfLines={1}>{who}</Body>
+            </View>
+            {lead.cli != null && (
+              <View className={`h-6 px-2 rounded-pill items-center justify-center ${bandCls.split(' ')[0]}`}>
+                <Text className={`text-[11px] font-hk-semi ${bandCls.split(' ')[1]}`}>
+                  {t(`common.${band}`, { defaultValue: band })}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View className="flex-row items-center gap-1.5 mt-0.5 flex-wrap">
+            <Caption>{dayClock(lead.atMs)}</Caption>
+            <Caption className="opacity-50">·</Caption>
+            <Caption>{since(lead.atMs)}</Caption>
+            {lead.repeats > 1 && (
+              <>
+                <Caption className="opacity-50">·</Caption>
+                <Repeat2 size={10} color="#5F6878" />
+                <Caption>{t('vmn.calledCount', { count: lead.repeats, defaultValue: 'Called {{count}}×' })}</Caption>
+              </>
+            )}
+          </View>
+
+          {(lead.value || lead.category) ? (
+            <Caption numberOfLines={1} className="mt-0.5">
+              {[lead.value ? rupees(lead.value) : null, lead.category ? t(lead.categoryKey, { defaultValue: lead.category }) : null]
+                .filter(Boolean).join(' · ')}
+            </Caption>
+          ) : null}
+        </View>
+
+        <ChevronRight size={16} color="#93A0C8" style={{ alignSelf: 'center' }} />
+      </View>
+
+      <View className="px-4 pb-4 pt-3 border-t border-hairline dark:border-d-hairline">
+        <Pressable
+          onPress={callBack}
+          accessibilityRole="button"
+          accessibilityLabel={`${t('common.callBack', { defaultValue: 'Call back' })} ${who}`}
+          className="h-11 rounded-pill bg-brand-blue items-center justify-center flex-row gap-2"
+          style={{ shadowColor: '#0070FC', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4 }}
+        >
+          <PhoneCall size={16} color="#fff" />
+          <Text className="text-base font-hk-semi text-white">{t('common.callBack', { defaultValue: 'Call back' })}</Text>
+        </Pressable>
       </View>
     </Card>
   )
