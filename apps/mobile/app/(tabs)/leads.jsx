@@ -3,7 +3,7 @@
 // the web card leads with: who, when, status, and the chance-to-buy band.
 import { useEffect, useState } from 'react'
 import { View, Text } from 'react-native'
-import { useLocalSearchParams } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import { getLeads, leadCounts, LEAD_STATUSES } from '@connect/core'
 import { Screen, Card, Stat, Title, Body, Caption, Chip } from '../../components/UI.jsx'
@@ -24,6 +24,7 @@ function since(atMs) {
 
 export default function LeadsTab() {
   const { t } = useTranslation()
+  const router = useRouter()
   const session = useSession()
   useDataVersion()
   const scopeId = session.store?.aggregate ? undefined : session.store?.id
@@ -72,7 +73,12 @@ export default function LeadsTab() {
       </View>
 
       {leads.map(l => (
-        <Card key={l.id} className="mb-2.5">
+        <Card
+          key={l.id}
+          onPress={l.customerId ? () => router.push(`/customer/${l.customerId}`) : undefined}
+          label={l.name || l.masked}
+          className="mb-2.5"
+        >
           <View className="flex-row items-center gap-3">
             <View className="flex-1 min-w-0">
               <Body className="font-hk-semi text-ink dark:text-d-ink" numberOfLines={1}>
