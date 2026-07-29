@@ -3,15 +3,15 @@
 // the switch link and role pill, the Team quick tile, then the settings card (Alerts ·
 // Language · Privacy · Log out) and the footer line.
 //
-// Named, not hidden: the Manage media tile and the role switcher are NOT drawn yet —
-// ManageMedia.jsx is 893 web lines and is the next iteration; a tile that opens nothing
-// is a dead affordance, the one thing this port keeps refusing to ship. Appearance follows the system scheme on
+// Named, not hidden: the role switcher tile is NOT drawn yet, and Manage media's Posts
+// segment and camera/gallery uploads are still to come; a control that opens nothing is
+// a dead affordance, the one thing this port keeps refusing to ship. Appearance follows the system scheme on
 // native (useColorScheme); the web's manual toggle has no native counterpart yet.
 // ============================================================
 import { View, Text, Pressable } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { Bell, LogOut, ChevronRight, Users, RefreshCcw, Globe, Shield, Building2 } from 'lucide-react-native'
+import { Bell, LogOut, ChevronRight, Users, RefreshCcw, Globe, Shield, Building2, Images } from 'lucide-react-native'
 import { getCurrentUser, assignedStores, locationNeedsVerification } from '@connect/core'
 import { FEATURES } from '../lib/features.js'
 import { getLanguage } from '@connect/core/i18n/languages.js'
@@ -86,6 +86,25 @@ export default function ProfileScreen() {
                   ? t('profile.needsVerification', { defaultValue: 'Needs verification' })
                   : t('profile.businessProfileSub', { defaultValue: 'Hours, category, description' })}
               </Caption>
+            </View>
+            <ChevronRight size={16} color="#93A0C8" />
+          </View>
+        </Card>
+      )}
+
+      {FEATURES.manageMedia && (
+        <Card
+          onPress={() => router.push('/manage-media')}
+          label={t('profile.manageMedia', { defaultValue: 'Manage media' })}
+          className="mt-3"
+        >
+          <View className="flex-row items-center gap-3">
+            <View className="w-10 h-10 rounded-xl bg-brand-blue/10 items-center justify-center">
+              <Images size={17} color="#0070FC" />
+            </View>
+            <View className="flex-1 min-w-0">
+              <Body className="font-hk-semi text-ink dark:text-d-ink">{t('profile.manageMedia', { defaultValue: 'Manage media' })}</Body>
+              <Caption className="mt-0.5">{t('profile.manageMediaSub', { defaultValue: 'Cover photo, gallery, posts' })}</Caption>
             </View>
             <ChevronRight size={16} color="#93A0C8" />
           </View>
