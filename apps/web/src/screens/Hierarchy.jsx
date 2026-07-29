@@ -211,7 +211,7 @@ function HierarchyRow({ row, rank, onOpen }) {
   const answered = row.answered || (row.total - row.missed)
 
   return (
-    <Card onClick={onOpen} className="!p-3.5">
+    <Card onClick={onOpen} label={row?.label || row?.name} className="!p-3.5">
       <div className="flex items-start gap-3">
         <div className="text-center">
           <div className="m-caption text-white/45">#</div>

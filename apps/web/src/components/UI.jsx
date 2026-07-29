@@ -4,15 +4,39 @@ import { cn } from '../lib/utils'
 import { Sparkles, MapPin } from 'lucide-react'
 import { storeLabelOf } from '@connect/core'
 
-export function Card({ className, children, onClick, style }) {
+/**
+ * A CLICKABLE CARD IS A CONTROL, and has to answer to a keyboard like one.
+ *
+ * This rendered a bare <div onClick> with `cursor: pointer`. That pointer is a promise —
+ * and it was one only a mouse could collect: every row on Leads, Your locations, Reviews,
+ * Customers and the hierarchy was unreachable by Tab and absent from the accessibility
+ * tree, so a screen reader could read a lead out but never say it could be opened.
+ *
+ * role="button" + tabIndex + Enter/Space rather than an actual <button>, because two of
+ * these cards carry their own buttons inside them (Leads' "Call back", Reviews' reply
+ * chip) and a button inside a button is invalid and collapses in the a11y tree. This
+ * keeps both operable: the card takes Enter/Space, the inner control keeps its own stop.
+ *
+ * Space is preventDefault-ed — it activates the control rather than scrolling the page,
+ * which is what a real button does.
+ */
+export function Card({ className, children, onClick, style, label }) {
+  const interactive = !!onClick
   return (
     <div
       onClick={onClick}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      aria-label={interactive ? label : undefined}
+      onKeyDown={interactive ? (e) => {
+        if (e.target !== e.currentTarget) return // let the inner control have its keys
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(e) }
+      } : undefined}
       className={cn(
         // si-card layers the cream on top of .glass for CARD surfaces only — see the
         // block in index.css. Inputs/chips that also wear .glass are unaffected.
         'rounded-2xl glass si-card p-4 press',
-        onClick && 'cursor-pointer',
+        interactive && 'cursor-pointer',
         className
       )}
       style={style}

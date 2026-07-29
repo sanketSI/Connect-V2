@@ -1020,7 +1020,7 @@ function ReviewCard({ review, onOpen, onPitchAutoReply, aggregate }) {
   const cs = ['#0070FC', '#0E0071', '#F59E0B', '#22D38B', '#FF6B7E']
   const c = cs[review.customer.charCodeAt(0) % cs.length]
   return (
-    <Card onClick={onOpen} className="!p-3.5">
+    <Card onClick={onOpen} label={review.customer} className="!p-3.5">
       <div className="flex items-start gap-3">
         <Avatar initials={review.customer.split(' ').map(p => p[0]).slice(0, 2).join('')} color={c} />
         <div className="flex-1 min-w-0">

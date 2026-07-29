@@ -653,7 +653,7 @@ export function CustomerCard({ customer, onOpen, sharedMask, aggregate, footer }
   ].filter(Boolean)
 
   return (
-    <Card onClick={onOpen} className="!p-4">
+    <Card onClick={onOpen} label={title} className="!p-4">
       <div className="flex items-start gap-3">
         <div
           className="w-11 h-11 rounded-2xl grid place-items-center shrink-0"

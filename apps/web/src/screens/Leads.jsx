@@ -189,7 +189,7 @@ function LeadCard({ lead, onOpen }) {
   if (missedCall) return <MissedCallCard lead={lead} onOpen={onOpen} />
 
   return (
-    <Card onClick={onOpen} className="!p-4">
+    <Card onClick={onOpen} label={who} className="!p-4">
       <div className="flex items-start gap-3">
         <div
           className="w-11 h-11 rounded-2xl grid place-items-center shrink-0"
@@ -231,6 +231,9 @@ function LeadCard({ lead, onOpen }) {
 function MissedCallCard({ lead, onOpen }) {
   const { t } = useTranslation()
   const digits = lead.customerId ? customerDialDigits(lead.customerId) : null
+  // Eleven buttons all named "Call back" is eleven identical announcements and no way to
+  // tell whose. The visible label stays short; the ACCESSIBLE name carries the person.
+  const who = lead.name || lead.masked
 
   function callBack(e) {
     e.stopPropagation()
@@ -240,7 +243,7 @@ function MissedCallCard({ lead, onOpen }) {
   }
 
   return (
-    <Card onClick={onOpen} className="!p-0 overflow-hidden">
+    <Card onClick={onOpen} label={who} className="!p-0 overflow-hidden">
       <div className="p-4 flex items-start gap-3">
         <div className="relative shrink-0">
           <div
@@ -299,6 +302,7 @@ function MissedCallCard({ lead, onOpen }) {
       <div className="px-4 pb-4 pt-3" style={{ borderTop: '1px solid var(--border-hairline)' }}>
         <button
           onClick={callBack}
+          aria-label={t('common.callBack', { defaultValue: 'Call back' }) + ' ' + who}
           // h-11 === 44px === --m-touch-min.
           className="w-full h-11 rounded-full m-headline press inline-flex items-center justify-center gap-2"
           style={{ background: '#0070FC', color: 'white', boxShadow: '0 1px 2px rgba(15,23,42,.08)' }}

@@ -546,7 +546,7 @@ function RowCard({ row, rank, metric, drillable, onDrill, onOpen }) {
     : t('network.ofReviews', { negative: row.negative, total: row.reviews, defaultValue: '{{negative}} negative of {{total}} reviews' })
 
   return (
-    <Card onClick={drillable ? onDrill : onOpen} className="!p-4">
+    <Card onClick={drillable ? onDrill : onOpen} label={row.label} className="!p-4">
       <div className="flex items-center gap-3">
         <div className="w-7 shrink-0 m-subhead m-tabular text-center" style={{ color: 'var(--text-tertiary)' }}>#{rank}</div>
         <div className="flex-1 min-w-0">
