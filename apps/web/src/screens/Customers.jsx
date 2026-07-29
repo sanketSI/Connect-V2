@@ -983,14 +983,19 @@ Return ONE sentence only.`,
                 ? t('customers.addedBy', { who: customer.addedBy, defaultValue: 'Added by {{who}}' })
                 : '')}
           </div>
+          {/* The pill's number, in words. It belongs to the identity block, beside the
+              name it describes — as its own full-width line under the avatar it read as
+              a stray caption and sat further from the pill than from the next section. */}
+          {customer.cli != null && (
+            <div className="m-caption text-white/45 mt-0.5">
+              {t('common.chanceToBuyTitle', { score: customer.cli })}
+            </div>
+          )}
         </div>
-        {customer.cli != null && <CLIPill score={customer.cli} />}
+        {/* self-start: the pill labels the NAME, so it lines up with it rather than
+            drifting to the middle of a three-line block. */}
+        {customer.cli != null && <CLIPill score={customer.cli} className="self-start" />}
       </div>
-
-      {/* The pill's number, in words, where the dealer is about to act on it. */}
-      {customer.cli != null && (
-        <div className="m-caption text-white/45 mt-2">{t('common.chanceToBuyTitle', { score: customer.cli })}</div>
-      )}
 
       {/* What the manager recorded when he added them. Only rendered for a record that
           HAS these details — the seed's callers have neither, and an "Email —" row would
@@ -1022,10 +1027,10 @@ Return ONE sentence only.`,
       {/* Smart guess — skipped entirely when there is nothing for the AI to have read. */}
       {!handEntered && (
         <div className="mt-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles size={14} className="ai-text" />
-            <span className="m-headline text-white">{t('customers.aboutCustomer')}</span>
-          </div>
+          {/* No leading glyph — the same call CardInsight already made on the card: the
+              gradient below IS the AI signal, and the icon was pushing this heading 46px
+              right of "Lead status", "History" and "Notes" for no meaning. */}
+          <div className="m-headline text-white mb-2">{t('customers.aboutCustomer')}</div>
           <AICard className="!p-3.5">
             {loading ? (
               <div className="space-y-2">
@@ -1152,10 +1157,12 @@ Return ONE sentence only.`,
           in, the same real hand-off the review link makes to WhatsApp. Rendered as a dead
           control only when we genuinely hold no number, because a dialler we can't address
           is the one case where doing nothing is the honest outcome. */}
-      <div className="mt-5 grid grid-cols-2 gap-2">
-        <GhostButton icon={MessageCircle} full onClick={() => pushView('review-link')}>
-          {t('customers.sendReviewLink')}
-        </GhostButton>
+      {/* STACKED, not a two-column grid. Side by side gave the two actions equal weight
+          when they are not equal — ringing the customer back is the job, sending a review
+          link is the follow-up — and at 375px "Send review link" wrapped to two lines
+          against "Call back"'s one, so the pair sat ragged. Full width also stops the
+          wrap happening again in a language whose label runs longer than English. */}
+      <div className="mt-5 space-y-2">
         {dialDigits ? (
           <a
             href={`tel:+91${dialDigits}`}
@@ -1174,6 +1181,9 @@ Return ONE sentence only.`,
             <PhoneCall size={18} /> {t('common.callBack')}
           </span>
         )}
+        <GhostButton icon={MessageCircle} full onClick={() => pushView('review-link')}>
+          {t('customers.sendReviewLink')}
+        </GhostButton>
       </div>
 
     </div>

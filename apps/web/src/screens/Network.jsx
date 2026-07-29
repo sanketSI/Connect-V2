@@ -486,26 +486,24 @@ function LeadStatusPicker({ lead }) {
       <div className="m-headline text-white mb-2">
         {t('calls.leadStatusTitle', { defaultValue: 'Lead status' })}
       </div>
-      <div className="space-y-2">
+      {/* A CHIP ROW, not five stacked 56px rows.
+          This is one choice among five, and as a full-height list it took ~290px — a
+          third of the screen — on a page whose job is to tell you who this person is and
+          let you ring them back. It is also the idiom the Leads tab already uses to pick
+          a state, so the same decision now looks the same in both places.
+          Wraps rather than scrolls: a state you cannot see is a state you will not set. */}
+      <div className="flex items-center gap-2 flex-wrap">
         {LEAD_STATUSES.map(s => {
           const on = lead.status === s.id
           return (
-            <button
+            <Chip
               key={s.id}
-              type="button"
+              active={on}
+              icon={on ? Check : undefined}
               onClick={() => { vibrate(10); updateLeadStatus(lead, s.id) }}
-              aria-pressed={on}
-              className="w-full flex items-center gap-3 px-3 h-12 rounded-xl press text-left"
-              style={{
-                background: on ? 'rgba(0,112,252,.10)' : 'var(--bg-subtle)',
-                border: on ? '1px solid rgba(0,112,252,.40)' : '1px solid var(--border-glass)',
-              }}
             >
-              <span className="flex-1 min-w-0 m-callout text-white truncate">
-                {t(s.labelKey, { defaultValue: s.label })}
-              </span>
-              {on && <Check size={15} className="shrink-0" style={{ color: '#0070FC' }} />}
-            </button>
+              {t(s.labelKey, { defaultValue: s.label })}
+            </Chip>
           )
         })}
       </div>
@@ -513,19 +511,18 @@ function LeadStatusPicker({ lead }) {
   )
 }
 
-/**
- * THE CUSTOMER, AS A PAGE. Same content the Customers screen shows in a sheet — About
- * this customer, the history, the notes, and the two actions — routed instead of
- * stacked, so it matches the store page it was opened from and the bottom bar stays put.
- */
 function CustomerPage({ subject, lead, onBack, onOpenProfile }) {
   return (
     <div className="absolute top-[44px] left-0 right-0 bottom-0 pb-[88px] overflow-y-auto no-scrollbar">
-      <TopBar onBack={onBack} title="" transparent />
-      <div className="px-4 flex justify-end -mt-2 mb-1">
-        <NotificationBell />
-        <ProfileButton onClick={onOpenProfile} />
-      </div>
+      {/* ONE row of chrome, not two. Back on the left, bell and avatar in TopBar's own
+          right slot — stacking them cost ~90px before the customer's name even appeared,
+          on the screen whose whole job is to show that name. */}
+      <TopBar
+        onBack={onBack}
+        title=""
+        transparent
+        right={<div className="flex items-center"><NotificationBell /><ProfileButton onClick={onOpenProfile} /></div>}
+      />
       {/* canNote follows the record, not the screen: a projected lead has nowhere to
           write a note to. */}
       <CustomerDetail
