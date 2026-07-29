@@ -25,7 +25,7 @@ import BottomSheet from './components/BottomSheet.jsx'
 import {
   getStoreLocations, isReturningUser, locationNeedsVerification, markReturningUser,
   openMissedCount, reviewsWaitingCount, leadCounts,
-  setSessionAssignments, clearSessionAssignments,
+  setSessionAssignments, clearSessionAssignments, makeAllLocationsStore,
 } from '@connect/core'
 import { setAnalyticsContext } from '@connect/core/analytics.js'
 import NotificationCenter from './components/NotificationCenter.jsx'
@@ -147,8 +147,6 @@ function AppContent() {
   }
   const [role, setRole] = useState(CAP?.role || 'single')
   const [store, setStore] = useState(() => (CAP?.store && MAPPED_LOCATIONS.find(l => l.id === CAP.store)) || MAPPED_LOCATIONS[0])
-  // True only between a multi-store sign-in and the moment a store is chosen.
-  const [picking, setPicking] = useState(false)
   const [verifyStore, setVerifyStore] = useState(null)
   const [firstTime, setFirstTime] = useState(() => CAP ? !!CAP.welcome : !isReturningUser())
   const toast = useToast()
@@ -199,7 +197,6 @@ function AppContent() {
   // cancelling a switch must leave you exactly where you started.
   function openStore(picked) {
     if (!picked) return
-    setPicking(false)
     // Scope every event from here on to this store and the current viewing role. This is
     // the ONE path for both sign-in and the in-app switcher, so store_id can never go
     // stale — a switch re-points the analytics context exactly as it re-points the view.
@@ -211,13 +208,13 @@ function AppContent() {
     if (FEATURES.locationVerify && locationNeedsVerification(picked)) setVerifyStore(picked)
   }
 
-  // Sign-in resolves the store from the NUMBER. One outlet and there is nothing to
-  // choose, so we open it; several and Login hands us a null, which is not a failure —
-  // it is "this needs a decision", and the picker is where that decision belongs.
-  //
-  // `picking` has to be its own flag: `store` defaults to MAPPED_LOCATIONS[0] so the
-  // app always has something to render, which means a null store can never be the
-  // signal for "nothing chosen yet".
+  // Sign-in resolves the store from the NUMBER, and opens the app on it. One outlet and
+  // there is only one answer; several and Login hands us a null, which used to mean
+  // "stop and pick one" — a full screen between the OTP and the app, asking a question
+  // the manager can already answer from inside it. A multi-store number now lands on
+  // All locations, which is that number's whole business and the switcher's own first
+  // card; narrowing to one branch is still one tap on the Home pill, but it is a
+  // choice now rather than a toll.
   function handleAuthed(picked, myStores) {
     // BEFORE anything renders. Login has already resolved this number to the stores it
     // holds; handing that set to core makes it the ONE answer to "which stores are
@@ -225,9 +222,7 @@ function AppContent() {
     // it. Skip this and they each go back to guessing from the whole fixture.
     setSessionAssignments((myStores || []).map(s => s.id))
     setTab('home') // a fresh session always starts on Home
-    if (picked) { openStore(picked); return }
-    setPicking(true)
-    setStage('store')
+    openStore(picked || makeAllLocationsStore())
   }
 
   // Sign-out has to drop the scope as well as the screen, or the next number to sign in
@@ -248,7 +243,6 @@ function AppContent() {
   // The store picker is reached only as the in-app switcher, from Home/Profile.
   // Backing out of a switch returns to the app — it must never sign anyone out.
   function startSwitch() {
-    setPicking(false)
     setStage('store')
   }
 
@@ -294,14 +288,13 @@ function AppContent() {
         )}
         {stage === 'store' && (
           <motion.div key="store" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.3 }} className="absolute inset-0">
-            {/* No store yet means we arrived straight from sign-in, so this is the
-                gate, not the switcher: nothing is "current" to mark, and backing out
-                returns to login rather than to an app with no store scoped to it. */}
+            {/* Only ever the switcher now — sign-in opens the app directly, so there is
+                always a session with a store to mark as current, and backing out
+                returns to it rather than to login. */}
             <StoreSelector
-              mode={picking ? 'pick' : 'switch'}
-              current={picking ? null : store}
+              current={store}
               onPick={openStore}
-              onBack={() => { if (picking) { setPicking(false); handleLogout() } else setStage('app') }}
+              onBack={() => setStage('app')}
             />
           </motion.div>
         )}

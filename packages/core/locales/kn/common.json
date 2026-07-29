@@ -93,8 +93,6 @@
     "storesFound_other": "ಈ ನಂಬರ್‌ನಲ್ಲಿ {{count}} ಅಂಗಡಿಗಳು"
   },
   "store": {
-    "chooseTitle": "ನಿಮ್ಮ ಅಂಗಡಿ ಆರಿಸಿ",
-    "chooseSubtitle": "ಈ ನಂಬರ್ <1>{{count}} ಸ್ಥಳಗಳನ್ನು</1> ನೋಡಿಕೊಳ್ಳುತ್ತದೆ. ಒಂದನ್ನು ಆರಿಸಿ — ಬದಲಿಸುವವರೆಗೆ ಅದೇ ಅಂಗಡಿ ತೋರಿಸುತ್ತೇವೆ.",
     "primary": "ಮುಖ್ಯ",
     "missedCount": "{{count}} ಮಿಸ್",
     "recoveredPct": "{{pct}}% ಮರಳಿ ಪಡೆದಿದೆ",

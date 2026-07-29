@@ -93,8 +93,6 @@
     "storesFound_other": "এই নম্বরে {{count}} দোকান"
   },
   "store": {
-    "chooseTitle": "আপনার দোকান বাছুন",
-    "chooseSubtitle": "এই নম্বরটা <1>{{count}}টি লোকেশন</1> সামলায়। একটা বাছুন — না বদলানো পর্যন্ত সেই দোকানেই কাজ চলবে।",
     "primary": "প্রধান",
     "missedCount": "{{count}}টি মিসড",
     "recoveredPct": "{{pct}}% ফিরে পাওয়া",

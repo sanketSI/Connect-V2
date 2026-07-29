@@ -10,23 +10,21 @@ import { FEATURES } from '../lib/features.js'
 import { useTranslation, Trans } from 'react-i18next'
 
 // ===========================================================================
-// THE STORE PICKER — one screen, two jobs
+// THE STORE SWITCHER — reached from Home/Profile via App's onSwitchStore.
 //
-//   mode="pick"    right after sign-in. The dealer's number maps to several outlets
-//                  and nothing has named one yet, so this is the gate. No card is
-//                  "current" — there is no session to be current in — and backing
-//                  out returns to login.
-//   mode="switch"  reached from Home/Profile via App's onSwitchStore. `current`
-//                  marks the store the session is scoped to, and backing out
-//                  returns to the app: leaving a switch must never sign anyone out.
+// It had a second job once: a "Choose your store" gate between the OTP and the app,
+// for a number holding several outlets. That gate is gone — sign-in opens All
+// locations and this is where a manager narrows to one branch, by choice rather than
+// before they have seen anything. So there is always a session now, `current` always
+// marks a store, and backing out returns to the app: leaving a switch must never
+// sign anyone out.
 //
 // It owns no session state. App owns the `store` and decides what opening one means
 // (a flagged store goes to verification first).
 // ===========================================================================
 
-export default function StoreSelector({ mode = 'switch', current, onPick, onBack }) {
+export default function StoreSelector({ current, onPick, onBack }) {
   const { t } = useTranslation()
-  const switching = mode === 'switch'
   // The stores THIS manager holds, read per render rather than snapshotted at module
   // load: the set belongs to whoever signed in. It used to be getStoreLocations(), which
   // is every location in the fixture — that is why the header said "6 locations" one
@@ -60,11 +58,11 @@ export default function StoreSelector({ mode = 'switch', current, onPick, onBack
 
         <motion.div initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.4 }} className="mt-5">
           <div className="m-largeTitle text-white">
-            {t(switching ? 'store.switchTitle' : 'store.chooseTitle')}
+            {t('store.switchTitle')}
           </div>
           <p className="m-body text-white/65 mt-2">
             <Trans
-              i18nKey={switching ? 'store.switchSubtitle' : 'store.chooseSubtitle'}
+              i18nKey="store.switchSubtitle"
               count={myStores.length}
               components={{ 1: <b className="text-white/90" /> }}
               values={{ count: myStores.length }}

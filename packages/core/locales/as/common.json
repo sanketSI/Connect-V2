@@ -93,8 +93,6 @@
     "storesFound_other": "এই নম্বৰত {{count}} দোকান"
   },
   "store": {
-    "chooseTitle": "আপোনাৰ দোকান বাছক",
-    "chooseSubtitle": "এই নম্বৰে <1>{{count}} টা লোকেশ্যন</1> চলায়। এখন বাছক — সলনি নকৰালৈকে আপোনাৰ ছেশ্যন সেইখন দোকানতে থাকিব।",
     "primary": "মুখ্য",
     "missedCount": "{{count}} মিছ",
     "recoveredPct": "{{pct}}% ঘূৰাই পালে",

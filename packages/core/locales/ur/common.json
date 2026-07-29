@@ -93,8 +93,6 @@
     "storesFound_other": "اس نمبر پر {{count}} دکانیں"
   },
   "store": {
-    "chooseTitle": "اپنی دکان چنیں",
-    "chooseSubtitle": "یہ نمبر <1>{{count}} لوکیشن</1> سنبھالتا ہے۔ ایک چنیں — جب تک بدلیں نہیں، سیشن اسی دکان پر رہے گا۔",
     "primary": "بنیادی",
     "missedCount": "{{count}} مسڈ کال",
     "recoveredPct": "{{pct}}% ریکور",

@@ -93,8 +93,6 @@
     "storesFound_other": "ఈ నంబర్‌పై {{count}} షాప్‌లు"
   },
   "store": {
-    "chooseTitle": "మీ షాప్ ఎంచుకోండి",
-    "chooseSubtitle": "ఈ నంబర్ <1>{{count}} లొకేషన్లు</1> చూస్తోంది. ఒకటి ఎంచుకోండి — మీరు మార్చే వరకు అదే షాప్ కనిపిస్తుంది.",
     "primary": "ప్రధానం",
     "missedCount": "{{count}} మిస్",
     "recoveredPct": "{{pct}}% రికవర్",

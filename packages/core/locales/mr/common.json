@@ -93,8 +93,6 @@
     "storesFound_other": "या नंबरवर {{count}} दुकानं"
   },
   "store": {
-    "chooseTitle": "तुमचं दुकान निवडा",
-    "chooseSubtitle": "हा नंबर <1>{{count}} लोकेशन</1> सांभाळतो. एक निवडा — तुम्ही बदलेपर्यंत तेच दुकान दिसेल.",
     "primary": "मुख्य",
     "missedCount": "{{count}} मिस्ड",
     "recoveredPct": "{{pct}}% परत मिळाले",

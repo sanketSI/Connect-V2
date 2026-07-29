@@ -93,8 +93,6 @@
     "storesFound_other": "ਇਸ ਨੰਬਰ 'ਤੇ {{count}} ਦੁਕਾਨਾਂ"
   },
   "store": {
-    "chooseTitle": "ਆਪਣੀ ਦੁਕਾਨ ਚੁਣੋ",
-    "chooseSubtitle": "ਇਹ ਨੰਬਰ <1>{{count}} ਥਾਵਾਂ</1> ਸੰਭਾਲਦਾ ਹੈ। ਇੱਕ ਚੁਣੋ — ਬਦਲਣ ਤੱਕ ਸਭ ਕੁਝ ਉਸੇ ਦੁਕਾਨ ਦਾ ਦਿਖੇਗਾ।",
     "primary": "ਮੁੱਖ",
     "missedCount": "{{count}} ਖੁੰਝੀਆਂ",
     "recoveredPct": "{{pct}}% ਵਾਪਸ ਜੁੜੀਆਂ",

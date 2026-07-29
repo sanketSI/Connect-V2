@@ -93,8 +93,6 @@
     "storesFound_other": "{{count}} stores on this number"
   },
   "store": {
-    "chooseTitle": "Choose your store",
-    "chooseSubtitle": "This number manages <1>{{count}} locations</1>. Pick one — your session focuses on that store until you switch.",
     "primary": "Primary",
     "missedCount": "{{count}} missed",
     "recoveredPct": "{{pct}}% recovered",

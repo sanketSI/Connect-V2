@@ -93,8 +93,6 @@
     "storesFound_other": "ଏହି ନମ୍ବରରେ {{count}} ଦୋକାନ"
   },
   "store": {
-    "chooseTitle": "ନିଜ ଦୋକାନ ବାଛନ୍ତୁ",
-    "chooseSubtitle": "ଏହି ନମ୍ବର <1>{{count}} ଟି ଲୋକେସନ୍</1> ସମ୍ଭାଳେ। ଗୋଟିଏ ବାଛନ୍ତୁ — ବଦଳାଇବା ପର୍ଯ୍ୟନ୍ତ ସେହି ଦୋକାନ ହିଁ ଦେଖାଯିବ।",
     "primary": "ମୁଖ୍ୟ",
     "missedCount": "{{count}} ମିସ୍ଡ୍",
     "recoveredPct": "{{pct}}% ଫେରିଛି",

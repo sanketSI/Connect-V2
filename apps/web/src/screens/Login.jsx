@@ -111,9 +111,10 @@ export default function Login({ onAuthed, onRequestNumberChange }) {
     setTimeout(() => {
       setLoading(false)
       vibrate(20)
-      // One outlet is not a choice — open it. Several and there is a real decision to
-      // make, so hand App a null and let it show the picker rather than guessing at
-      // the first row. App owns which store the session is scoped to either way.
+      // One outlet is not a choice — open it. Several and there is no single right
+      // answer, so hand App a null rather than guessing at the first row: App opens
+      // the combined view and lets the manager narrow from inside the app. App owns
+      // which store the session is scoped to either way.
       onAuthed?.(myStores.length === 1 ? myStores[0] : null, myStores)
     }, 1100)
   }
@@ -225,10 +226,10 @@ export default function Login({ onAuthed, onRequestNumberChange }) {
               {/* No store-code field. The number IS the credential: the registry already
                   maps it to this dealer's outlets, so asking the manager to read a code
                   off the signage was asking for something we could look up. One outlet
-                  signs straight in; several go to the picker, which is what StoreSelector
-                  mode="pick" was written for. The code survives where it is still the
-                  only handle somebody has — the request-access sheet below, reached by a
-                  number that is NOT on file and so cannot be looked up at all. */}
+                  signs straight in; several open on the combined view. The code survives
+                  where it is still the only handle somebody has — the request-access
+                  sheet below, reached by a number that is NOT on file and so cannot be
+                  looked up at all. */}
               <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.28, duration: 0.5 }} className="mt-5">
                 <PrimaryButton onClick={handleSendOtp} disabled={!valid} loading={loading} icon={ArrowRight}>
                   {t('login.sendCode')}
