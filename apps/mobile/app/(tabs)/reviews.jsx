@@ -18,6 +18,7 @@ import { Screen, Card, Title, Body, Caption, Chip, PrimaryButton, GhostButton } 
 import { HeaderRight } from '../../components/Header.jsx'
 import { useSession } from '../../lib/session.js'
 import { useDataVersion } from '../../lib/useDataVersion.js'
+import { refreshDerived } from '../../lib/refresh.js'
 import { vibrate, notifySuccess } from '../../lib/haptics.js'
 
 // Same helper the web file keeps beside its ReviewLink — the phone takes over from here.
@@ -73,7 +74,7 @@ export default function ReviewsTab() {
   const canonicalWaiting = useMemo(() => reviewsWaitingCount(undefined, scopeId), [version, scopeId])
 
   return (
-    <Screen>
+    <Screen onRefresh={refreshDerived}>
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 min-w-0">
           <Title>{t('reviews.title', { defaultValue: 'Reviews' })}</Title>

@@ -16,6 +16,7 @@ import { networkRows, rankRows, assignedStoreIds, assignmentLevels } from '@conn
 import { Screen, Card, Title, Body, Caption, Chip } from '../../components/UI.jsx'
 import { HeaderRight } from '../../components/Header.jsx'
 import { useDataVersion } from '../../lib/useDataVersion.js'
+import { refreshDerived } from '../../lib/refresh.js'
 import { vibrate } from '../../lib/haptics.js'
 
 const BOARDS = [
@@ -61,7 +62,7 @@ export default function LocationsTab() {
   }), { missed: 0, total: 0, negative: 0, reviews: 0, stores: 0 }), [rows])
 
   return (
-    <Screen>
+    <Screen onRefresh={refreshDerived}>
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 min-w-0">
           <Title>{t('network.title', { defaultValue: 'Your locations' })}</Title>

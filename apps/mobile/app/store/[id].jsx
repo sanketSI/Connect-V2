@@ -14,11 +14,14 @@ import { PhoneMissed, PhoneIncoming } from 'lucide-react-native'
 import { getStoreLocations, getMissedCalls, getConnectedCalls } from '@connect/core'
 import { Screen, Card, Stat, SectionLabel, Title, Body, Caption } from '../../components/UI.jsx'
 import { BackButton, HeaderRight } from '../../components/Header.jsx'
+import { useDataVersion } from '../../lib/useDataVersion.js'
+import { refreshDerived } from '../../lib/refresh.js'
 
 export default function StorePage() {
   const { t } = useTranslation()
   const router = useRouter()
   const { id } = useLocalSearchParams()
+  useDataVersion()
   const store = getStoreLocations().find(s => s.id === id)
   const missed = getMissedCalls().filter(c => c.storeId === id)
   const attended = getConnectedCalls().filter(c => c.storeId === id)
@@ -26,7 +29,7 @@ export default function StorePage() {
   if (!store) return null
 
   return (
-    <Screen>
+    <Screen onRefresh={refreshDerived}>
       <View className="flex-row items-center justify-between">
         <BackButton />
         <HeaderRight />

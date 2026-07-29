@@ -24,6 +24,7 @@ import { HeaderRight } from '../../components/Header.jsx'
 import { FEATURES, IS_MVP } from '../../lib/features.js'
 import { useSession } from '../../lib/session.js'
 import { useDataVersion } from '../../lib/useDataVersion.js'
+import { refreshDerived } from '../../lib/refresh.js'
 import { vibrate } from '../../lib/haptics.js'
 
 const MISSED_WINDOW_KEY = `window.${CANONICAL_MISSED_WINDOW}`
@@ -159,7 +160,7 @@ function ReturningView() {
   const net = aggregate ? networkRollup() : null
 
   return (
-    <Screen>
+    <Screen onRefresh={refreshDerived}>
       {/* Greeting + store context — one row of chrome, exactly the web layout. */}
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 min-w-0">

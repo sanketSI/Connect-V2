@@ -17,15 +17,23 @@
 // tappable and is not is worse than no card, which is exactly what the Phase 1 tabs got
 // wrong.
 // ============================================================
-import { View, Text, Pressable, ScrollView, ActivityIndicator } from 'react-native'
+import { useCallback, useState } from 'react'
+import { View, Text, Pressable, ScrollView, ActivityIndicator, RefreshControl } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ChevronRight } from 'lucide-react-native'
 import { vibrate } from '../lib/haptics.js'
 
-/** Screen body: safe-area at the top, tab-bar clearance at the bottom. */
-export function Screen({ children, scroll = true, className = '' }) {
+/** Screen body: safe-area at the top, tab-bar clearance at the bottom. `onRefresh`
+    arms the native pull-to-refresh — the platform gesture the web's hand-written
+    ScreenScroll had to build itself. */
+export function Screen({ children, scroll = true, onRefresh, className = '' }) {
   const insets = useSafeAreaInsets()
   const pad = { paddingTop: insets.top + 8, paddingBottom: 28 }
+  const [refreshing, setRefreshing] = useState(false)
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true)
+    try { await onRefresh?.() } finally { setRefreshing(false) }
+  }, [onRefresh])
 
   if (!scroll) {
     return (
@@ -39,6 +47,9 @@ export function Screen({ children, scroll = true, className = '' }) {
       className={`flex-1 bg-screen dark:bg-d-screen ${className}`}
       contentContainerStyle={{ ...pad, paddingHorizontal: 16 }}
       showsVerticalScrollIndicator={false}
+      refreshControl={onRefresh
+        ? <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0070FC" colors={['#0070FC']} />
+        : undefined}
     >
       {children}
     </ScrollView>

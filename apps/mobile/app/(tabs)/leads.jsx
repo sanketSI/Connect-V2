@@ -16,6 +16,7 @@ import { Screen, Card, Title, Body, Caption, Chip } from '../../components/UI.js
 import { HeaderRight } from '../../components/Header.jsx'
 import { useSession } from '../../lib/session.js'
 import { useDataVersion } from '../../lib/useDataVersion.js'
+import { refreshDerived } from '../../lib/refresh.js'
 import { vibrate } from '../../lib/haptics.js'
 
 const SOURCE_ICON = { call: PhoneCall, form: FileText, walk_in: StoreIcon }
@@ -58,7 +59,7 @@ export default function LeadsTab() {
   const openLead = (lead) => { if (lead.customerId) router.push(`/customer/${lead.customerId}`) }
 
   return (
-    <Screen>
+    <Screen onRefresh={refreshDerived}>
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 min-w-0">
           <Title>{t('leads.title', { defaultValue: 'Leads' })}</Title>
