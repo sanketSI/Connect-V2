@@ -11,7 +11,7 @@ import { View, Text, Pressable, TextInput, ScrollView } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import {
-  ChevronDown, ChevronRight, PhoneCall, Star, MapPin, Building2, Store as StoreIcon,
+  ChevronRight, PhoneCall, Star, MapPin, Building2, Store as StoreIcon,
   Map as MapIcon, ArrowDownWideNarrow, ArrowUpNarrowWide, Search, X,
 } from 'lucide-react-native'
 import { networkRows, rankRows, assignedStoreIds } from '@connect/core'
@@ -76,63 +76,37 @@ export default function LocationsTab() {
 
   return (
     <Screen onRefresh={refreshDerived}>
-      {/* THE SAME SHELL AS THE LOCATION SELECTOR — level tabs on top, then the title,
-          then search, then the filters. One screen grammar for "which slice of the
-          business am I looking at", whether you are choosing it or ranking it. */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="grow-0 mb-3">
-        <View className="flex-row gap-2">
-          {LEVELS.map(lv => {
-            const on = level === lv.id
-            return (
-              <Pressable
-                key={lv.id}
-                onPress={() => { vibrate(6); setLevel(lv.id); setQuery('') }}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: !!on }}
-                accessibilityLabel={lv.label}
-                className={`h-10 px-3.5 rounded-pill flex-row items-center gap-1.5 border ${on ? 'bg-brand-blue border-brand-blue' : 'bg-card dark:bg-white/5 border-hairline dark:border-d-hairline'}`}
-              >
-                <lv.Icon size={15} color={on ? '#fff' : '#5F6878'} />
-                <Text className={`text-[13px] font-hk-semi ${on ? 'text-white' : 'text-ink-2 dark:text-d-ink2'}`}>{lv.label}</Text>
-              </Pressable>
-            )
-          })}
-        </View>
-      </ScrollView>
-
+      {/* TITLE FIRST, then the controls that act on it. There is no scope dropdown here
+          on purpose: scope is chosen in ONE place (the Location Selector, off Home's
+          pill), and this page is a VIEW of it. Two hierarchy controls on one screen — a
+          dropdown that restricts and tabs that group, side by side and looking alike —
+          is the confusion this removes. The subtitle still SAYS what is restricting the
+          page, which was the dropdown's only honest job. */}
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 min-w-0">
           <Title>{t('network.title', { defaultValue: 'Your locations' })}</Title>
-          <Caption className="mt-0.5">
-            {t('network.subtitle', {
-              count: storeIds.length,
-              defaultValue_one: '{{count}} store assigned to you',
-              defaultValue_other: '{{count}} stores assigned to you',
-            })}
+          <Caption className="mt-0.5" numberOfLines={1}>
+            {session.store?.aggregate
+              ? (session.store.label || t('stores.allLocations', { defaultValue: 'All locations' }))
+              : `${session.store?.name} · ${session.store?.branch}`}
+            {' · '}
+            {t('stores.nStoresShort', { count: storeIds.length, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })}
           </Caption>
         </View>
         <HeaderRight />
       </View>
 
-      {/* THE SCOPE — what this whole screen is summing. Opens the same Location
-          Selector the Home pill opens (one code path), so the two can never disagree. */}
-      <Pressable
-        onPress={() => { vibrate(6); router.push('/switch') }}
-        accessibilityRole="button"
-        accessibilityLabel={t('store.switchTitle', { defaultValue: 'Switch location' })}
-        className="flex-row items-center gap-1.5 self-start mt-3 h-9 px-3 rounded-pill bg-brand-blue/10 border border-brand-blue/40"
-      >
-        <MapPin size={13} color="#0355DB" />
-        <Text className="text-[13px] font-hk-medium text-primaryText dark:text-d-primaryText" numberOfLines={1}>
-          {session.store?.aggregate
-            ? (session.store.label || t('stores.allLocations', { defaultValue: 'All locations' }))
-            : `${session.store?.name} · ${session.store?.branch}`}
-        </Text>
-        <ChevronDown size={13} color="#0355DB" style={{ opacity: 0.7 }} />
-      </Pressable>
+      {/* WHAT THE BOARD RANKS — the hierarchy's rungs. The one hierarchy control here. */}
+      <View className="flex-row flex-wrap gap-2 mt-3">
+        {LEVELS.map(lv => (
+          <Chip key={lv.id} icon={lv.Icon} active={level === lv.id} onPress={() => { setLevel(lv.id); setQuery('') }}>
+            {lv.label}
+          </Chip>
+        ))}
+      </View>
 
-      {/* Search — the selector's field, over the ranked rows. */}
-      <View className="h-11 rounded-xl flex-row items-center gap-2 px-3 mt-3 bg-card dark:bg-white/5 border border-hairline dark:border-d-hairline">
+      {/* Search — reads every line a card prints. */}
+      <View className="h-11 rounded-xl flex-row items-center gap-2 px-3 mt-2.5 bg-card dark:bg-white/5 border border-hairline dark:border-d-hairline">
         <Search size={16} color="#93A0C8" />
         <TextInput
           value={query}
@@ -149,9 +123,8 @@ export default function LocationsTab() {
         ) : null}
       </View>
 
-      {/* WHICH BOARD, and which way it is sorted — in the chip idiom, so they read as
-          siblings of the level tabs. */}
-      <View className="flex-row flex-wrap gap-2 mt-3 mb-3">
+      {/* WHICH BOARD, and which way it is sorted. */}
+      <View className="flex-row flex-wrap gap-2 mt-2.5 mb-3">
         {BOARDS.map(b => (
           <Chip key={b.id} icon={b.Icon} active={board === b.id} onPress={() => setBoard(b.id)}>
             {t(b.labelKey, { defaultValue: b.label })}

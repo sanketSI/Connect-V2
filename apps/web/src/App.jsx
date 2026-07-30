@@ -102,7 +102,7 @@ function ScreenSwitch({
         {/* MVP: one Leads list in place of Calls + Customers. The full build keeps
             both, so neither path is deleted — see lib/features.js. */}
         {tab === 'leads' && <Leads store={store} onOpenProfile={onOpenProfile} preset={leadsPreset} />}
-        {tab === 'network' && <Network onOpenProfile={onOpenProfile} onSwitchStore={onSwitchStore} store={store} />}
+        {tab === 'network' && <Network onOpenProfile={onOpenProfile} store={store} />}
         {tab === 'customers' && <Customers store={store} onOpenProfile={onOpenProfile} />}
         {/* Reviews became a tab in scope round 2. The guard stays: the inbox must not be
             one stray onGoTab away from being reachable in a build meant to be without it,

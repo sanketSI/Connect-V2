@@ -51,7 +51,7 @@ const LEVELS = [
   { id: 'store', label: 'Location', Icon: StoreIcon },
 ]
 
-export default function Network({ onOpenProfile, onSwitchStore, store }) {
+export default function Network({ onOpenProfile, store }) {
   const { t } = useTranslation()
   const version = useDataVersion()
 
@@ -125,63 +125,40 @@ export default function Network({ onOpenProfile, onSwitchStore, store }) {
 
   return (
     <ScreenScroll onRefresh={refresh}>
-      {/* THE SAME SHELL AS THE LOCATION SELECTOR — level tabs on top, then the title,
-          then search, then the filters. One screen grammar for "which slice of the
-          business am I looking at", whether you are choosing it or ranking it. */}
-      <div className="px-4 pt-1 pb-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
-        {LEVELS.map(lv => {
-          const on = level === lv.id
-          return (
-            <button
-              key={lv.id}
-              role="tab"
-              aria-selected={on}
-              onClick={() => { vibrate(6); setLevel(lv.id); setQuery('') }}
-              className="inline-flex items-center gap-1.5 px-3.5 h-10 rounded-full press shrink-0"
-              style={on
-                ? { background: '#0070FC', color: '#fff', border: '1px solid #0070FC' }
-                : { background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
-            >
-              <lv.Icon size={15} className="shrink-0" />
-              <span className="m-subhead font-semibold">{lv.label}</span>
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="px-4">
+      <div className="px-4 pt-1">
+        {/* TITLE FIRST, then the controls that act on it. There is no scope dropdown
+            here on purpose: scope is chosen in ONE place (the Location Selector, off
+            Home's pill), and this page is a VIEW of it. Two hierarchy controls on one
+            screen — a dropdown that restricts and tabs that group, side by side and
+            looking alike — is the confusion this removes. The subtitle still SAYS what
+            is restricting the page, which was the dropdown's only honest job. */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="m-title2 text-white">{t('network.title', { defaultValue: 'Your locations' })}</div>
-            <div className="m-caption text-white/55 mt-0.5">
-              {t('network.subtitle', {
-                count: storeIds.length,
-                defaultValue_one: '{{count}} store assigned to you',
-                defaultValue_other: '{{count}} stores assigned to you',
-              })}
+            <div className="m-caption text-white/55 mt-0.5 truncate">
+              {store?.aggregate
+                ? (store.label || t('stores.allLocations', { defaultValue: 'All locations' }))
+                : `${store?.name} · ${store?.branch}`}
+              {' · '}
+              {t('stores.nStoresShort', { count: storeIds.length, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })}
             </div>
           </div>
           <div className="flex items-center shrink-0"><NotificationBell /><ProfileButton onClick={onOpenProfile} /></div>
         </div>
 
-        {/* The scope this screen sums — opens the selector, one code path with Home. */}
-        <button
-          onClick={() => { vibrate(6); onSwitchStore?.() }}
-          className="mt-2.5 inline-flex items-center gap-1.5 px-3 h-9 rounded-full press max-w-full"
-          style={{ background: 'rgba(0,112,252,.10)', border: '1px solid rgba(0,112,252,.40)', color: 'var(--si-primary-text)' }}
-        >
-          <MapPin size={13} className="shrink-0" />
-          <span className="m-subhead font-medium truncate">
-            {store?.aggregate
-              ? (store.label || t('stores.allLocations', { defaultValue: 'All locations' }))
-              : `${store?.name} · ${store?.branch}`}
-          </span>
-          <ChevronDown size={13} className="shrink-0 opacity-70" />
-        </button>
+        {/* WHAT THE BOARD RANKS — the hierarchy's rungs. The one hierarchy control on
+            this page. */}
+        <div className="flex items-center gap-2 mt-3 overflow-x-auto no-scrollbar">
+          {LEVELS.map(lv => (
+            <Chip key={lv.id} icon={lv.Icon} active={level === lv.id} onClick={() => { vibrate(6); setLevel(lv.id); setQuery('') }}>
+              {lv.label}
+            </Chip>
+          ))}
+        </div>
 
-        {/* Search — the selector's field, over the ranked rows. */}
+        {/* Search — reads every line a card prints. */}
         <div
-          className="mt-3 h-11 rounded-xl flex items-center gap-2 px-3"
+          className="mt-2.5 h-11 rounded-xl flex items-center gap-2 px-3"
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border-glass)' }}
         >
           <Search size={16} className="text-white/40 shrink-0" />
@@ -199,9 +176,8 @@ export default function Network({ onOpenProfile, onSwitchStore, store }) {
           )}
         </div>
 
-        {/* WHICH BOARD, and which way it is sorted — the screen's own filters, in the
-            selector's chip idiom so they read as siblings of the level tabs. */}
-        <div className="flex items-center gap-2 mt-3 mb-3 overflow-x-auto no-scrollbar">
+        {/* WHICH BOARD, and which way it is sorted. */}
+        <div className="flex items-center gap-2 mt-2.5 mb-3 overflow-x-auto no-scrollbar">
           {BOARDS.map(b => (
             <Chip key={b.id} icon={b.Icon} active={board === b.id} onClick={() => { vibrate(6); setBoard(b.id) }}>
               {t(b.labelKey, { defaultValue: b.label })}
