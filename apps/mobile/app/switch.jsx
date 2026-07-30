@@ -17,7 +17,7 @@ import { View, Text, Pressable, TextInput, ScrollView } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import {
-  MapPin, Folder, Map as MapIcon, Globe, Search, X, Check, CheckCheck,
+  MapPin, Building2, Store, Map as MapIcon, Search, X, Check, CheckCheck,
   ShieldCheck, AlertTriangle,
 } from 'lucide-react-native'
 import {
@@ -27,13 +27,14 @@ import { Screen, Title, Body, Caption, PrimaryButton } from '../components/UI.js
 import { useSession, setScope } from '../lib/session.js'
 import { vibrate } from '../lib/haptics.js'
 
-// English for now: the catalogs carry no structural names for these tabs, and a
-// near-miss key would read worse than a labelled gap. Translator TODO.
+// The tabs ARE the hierarchy's rungs, named as such — no invented product vocabulary
+// between the manager and the tree they already know. English for now: the catalogs
+// carry no structural names for these. Translator TODO.
 const TABS = [
-  { id: 'locations', label: 'Locations', Icon: MapPin },
-  { id: 'groups', label: 'Groups', Icon: Folder },
-  { id: 'zones', label: 'Zones', Icon: MapIcon },
-  { id: 'brand', label: 'Brand', Icon: Globe },
+  { id: 'subBrands', label: 'Sub-brand', Icon: Building2 },
+  { id: 'states', label: 'State', Icon: MapIcon },
+  { id: 'cities', label: 'City', Icon: MapPin },
+  { id: 'locations', label: 'Location', Icon: Store },
 ]
 
 export default function SwitchScreen() {
@@ -52,7 +53,7 @@ export default function SwitchScreen() {
     return current.sel || { subBrands: [], states: [], cities: [], locations: [] }
   }
   const [sel, setSel] = useState(seed)
-  const [tab, setTab] = useState('locations')
+  const [tab, setTab] = useState('subBrands')
   const [query, setQuery] = useState('')
 
   const rows = selectorRows(fullIds, tab, sel)
@@ -63,13 +64,11 @@ export default function SwitchScreen() {
 
   const matched = scopeMatches(fullIds, sel)
   const label = scopeLabel(fullIds, sel)
-  const isOn = (row) => row.level === 'brand'
-    ? !sel.subBrands.length && !sel.states.length && !sel.cities.length && !sel.locations.length
-    : (sel[row.level] || []).includes(row.value)
+  const isOn = (row) => (sel[row.level] || []).includes(row.value)
+  const anySel = !!(sel.subBrands.length || sel.states.length || sel.cities.length || sel.locations.length)
 
   function toggle(row) {
     vibrate(6)
-    if (row.level === 'brand') { setSel({ subBrands: [], states: [], cities: [], locations: [] }); return }
     setSel(s => toggleScope(fullIds, s, row.level, row.value))
   }
 
@@ -77,7 +76,7 @@ export default function SwitchScreen() {
   function selectAllShown() {
     vibrate(8)
     setSel(s => shown.reduce(
-      (acc, r) => (r.level === 'brand' || (acc[r.level] || []).includes(r.value) ? acc : toggleScope(fullIds, acc, r.level, r.value)),
+      (acc, r) => ((acc[r.level] || []).includes(r.value) ? acc : toggleScope(fullIds, acc, r.level, r.value)),
       s,
     ))
   }
@@ -117,9 +116,23 @@ export default function SwitchScreen() {
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 min-w-0">
           <Title className="text-[22px] leading-7">{t('store.switchTitle', { defaultValue: 'Switch location' })}</Title>
-          <Caption className="mt-0.5" numberOfLines={1}>
-            {label} · {t('stores.nStoresShort', { count: matched.length, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })}
-          </Caption>
+          <View className="flex-row items-center gap-2 mt-0.5">
+            <Caption className="flex-shrink" numberOfLines={1}>
+              {label} · {t('stores.nStoresShort', { count: matched.length, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })}
+            </Caption>
+            {/* The way back to the whole brand, now that there is no Brand tab:
+                an empty selection IS the brand, so this is one tap to everything. */}
+            {anySel ? (
+              <Pressable
+                onPress={() => { vibrate(6); setSel({ subBrands: [], states: [], cities: [], locations: [] }) }}
+                accessibilityRole="button"
+              >
+                <Text className="text-xs font-hk-semi text-primaryText dark:text-d-primaryText">
+                  {t('reviews.reset', { defaultValue: 'Reset' })}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
         <View className="flex-row items-center gap-2">
           <Pressable

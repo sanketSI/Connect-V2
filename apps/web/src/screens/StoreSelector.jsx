@@ -1,6 +1,6 @@
 import React from 'react'
 import { motion } from 'framer-motion'
-import { Building2, MapPin, AlertTriangle, ShieldCheck, Check, CheckCheck, Globe, Folder, Map as MapIcon, Search, X } from 'lucide-react'
+import { Building2, MapPin, AlertTriangle, ShieldCheck, Check, CheckCheck, Store, Map as MapIcon, Search, X } from 'lucide-react'
 import {
   DEALER_PHONE, maskPhone, BRAND_NAME, subBrandOf,
   scopeMatches, toggleScope, scopeLabel, selectorRows,
@@ -24,17 +24,16 @@ import { useTranslation, Trans } from 'react-i18next'
 // (a flagged store goes to verification first).
 // ===========================================================================
 
-// The selector's tabs. Each maps onto one rung of the TATA hierarchy, so a tab is not
-// a new concept — it is a way into levels the scope model already has:
-//   Locations → individual stores      Groups → sub-brands (Tetley, Tata Motors)
-//   Zones     → states and cities      Brand  → the whole holding
+// The selector's tabs ARE the hierarchy's rungs, named as such — no invented product
+// vocabulary between the manager and the tree they already know. Broadest first, so
+// the rail reads down the way the tree does.
 // Labels are English for now: the catalogs carry no structural names for these, and a
 // near-miss key would read worse than a labelled gap. Translator TODO.
 const TABS = [
-  { id: 'locations', label: 'Locations', Icon: MapPin },
-  { id: 'groups', label: 'Groups', Icon: Folder },
-  { id: 'zones', label: 'Zones', Icon: MapIcon },
-  { id: 'brand', label: 'Brand', Icon: Globe },
+  { id: 'subBrands', label: 'Sub-brand', Icon: Building2 },
+  { id: 'states', label: 'State', Icon: MapIcon },
+  { id: 'cities', label: 'City', Icon: MapPin },
+  { id: 'locations', label: 'Location', Icon: Store },
 ]
 
 export default function StoreSelector({ current, fullStores = [], onPick, onBack }) {
@@ -49,7 +48,7 @@ export default function StoreSelector({ current, fullStores = [], onPick, onBack
     return current.sel || { subBrands: [], states: [], cities: [], locations: [] }
   }
   const [sel, setSel] = React.useState(seed)
-  const [tab, setTab] = React.useState('locations')
+  const [tab, setTab] = React.useState('subBrands')
   const [query, setQuery] = React.useState('')
 
   const rows = selectorRows(fullIds, tab, sel)
@@ -61,20 +60,18 @@ export default function StoreSelector({ current, fullStores = [], onPick, onBack
 
   const matched = scopeMatches(fullIds, sel)
   const label = scopeLabel(fullIds, sel)
-  const isOn = (row) => row.level === 'brand'
-    ? !sel.subBrands.length && !sel.states.length && !sel.cities.length && !sel.locations.length
-    : (sel[row.level] || []).includes(row.value)
+  const isOn = (row) => (sel[row.level] || []).includes(row.value)
+  const anySel = !!(sel.subBrands.length || sel.states.length || sel.cities.length || sel.locations.length)
 
   function toggle(row) {
     vibrate(6)
-    if (row.level === 'brand') { setSel({ subBrands: [], states: [], cities: [], locations: [] }); return }
     setSel(s => toggleScope(fullIds, s, row.level, row.value))
   }
 
   /** Add every row currently listed — the bulk move a long filtered list needs. */
   function selectAllShown() {
     vibrate(8)
-    setSel(s => shown.reduce((acc, r) => (r.level === 'brand' || isOn(r) ? acc : toggleScope(fullIds, acc, r.level, r.value)), s))
+    setSel(s => shown.reduce((acc, r) => ((acc[r.level] || []).includes(r.value) ? acc : toggleScope(fullIds, acc, r.level, r.value)), s))
   }
 
   function apply() {
@@ -114,8 +111,21 @@ export default function StoreSelector({ current, fullStores = [], onPick, onBack
         <div className="flex items-start justify-between gap-3 pt-1">
           <div className="min-w-0">
             <div className="m-title2 text-white">{t('store.switchTitle')}</div>
-            <div className="m-caption text-white/55 mt-0.5 truncate">
-              {label} · {t('stores.nStoresShort', { count: matched.length, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })}
+            <div className="m-caption text-white/55 mt-0.5 flex items-center gap-2 min-w-0">
+              <span className="truncate">
+                {label} · {t('stores.nStoresShort', { count: matched.length, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })}
+              </span>
+              {/* The way back to the whole brand, now that there is no Brand tab:
+                  an empty selection IS the brand, so this is one tap to everything. */}
+              {anySel && (
+                <button
+                  onClick={() => { vibrate(6); setSel({ subBrands: [], states: [], cities: [], locations: [] }) }}
+                  className="shrink-0 press m-caption font-semibold"
+                  style={{ color: 'var(--si-primary-text)' }}
+                >
+                  {t('reviews.reset', { defaultValue: 'Reset' })}
+                </button>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">

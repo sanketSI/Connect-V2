@@ -333,35 +333,22 @@ export function impliedAt(storeIds, sel = {}, level) {
 }
 
 /**
- * THE SELECTOR'S ROWS — one shared shape behind the Locations / Groups / Zones / Brand
+ * THE SELECTOR'S ROWS — one shared shape behind the Sub-brand / State / City / Location
  * tabs, so web and native render the same list from the same facts rather than each
  * assembling its own. Presentation stays in the screens; what a row IS lives here.
  *
  *   { level, value, title, subtitle, meta, count, flags }
  *
- * `level` is the scope key the row toggles (subBrands/states/cities/locations), so a
- * row goes straight into toggleScope() with no mapping table in the UI. `flags` is
- * computeLocationFlags() for a store row — the verification state is a real fact about
- * the listing, not decoration.
+ * `tab` IS the scope key — the tabs are the hierarchy's own rungs, so there is no
+ * mapping table anywhere: a row goes straight into toggleScope(). `flags` is
+ * computeLocationFlags() for a store row, because the verification state is a real
+ * fact about the listing rather than decoration.
  */
 export function selectorRows(storeIds, tab, sel = {}) {
   const pool = getStoreLocations().filter(l => (storeIds || []).includes(l.id))
   const opts = scopeOptions(storeIds, sel)
 
-  if (tab === 'brand') {
-    const subs = [...new Set(pool.map(subBrandOf))]
-    return [{
-      level: 'brand',
-      value: BRAND_NAME,
-      title: BRAND_NAME,
-      subtitle: subs.join(' · '),
-      meta: [...new Set(pool.map(l => l.state))].join(', '),
-      count: pool.length,
-      flags: [],
-    }]
-  }
-
-  if (tab === 'groups') {
+  if (tab === 'subBrands') {
     return opts.subBrands.map(o => {
       const mine = pool.filter(l => subBrandOf(l) === o.value)
       return {
@@ -376,8 +363,8 @@ export function selectorRows(storeIds, tab, sel = {}) {
     })
   }
 
-  if (tab === 'zones') {
-    const states = opts.states.map(o => {
+  if (tab === 'states') {
+    return opts.states.map(o => {
       const mine = pool.filter(l => l.state === o.value)
       return {
         level: 'states',
@@ -389,7 +376,10 @@ export function selectorRows(storeIds, tab, sel = {}) {
         flags: [],
       }
     })
-    const cities = opts.cities.map(o => {
+  }
+
+  if (tab === 'cities') {
+    return opts.cities.map(o => {
       const mine = pool.filter(l => l.city === o.value)
       return {
         level: 'cities',
@@ -401,7 +391,6 @@ export function selectorRows(storeIds, tab, sel = {}) {
         flags: [],
       }
     })
-    return [...states, ...cities]
   }
 
   // locations — narrowed by the levels above, exactly as scopeOptions decided.
