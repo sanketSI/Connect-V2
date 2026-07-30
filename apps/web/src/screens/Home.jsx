@@ -190,12 +190,11 @@ function ReturningView({ store, onGoTab, onSwitchStore }) {
     [s.id, aggregate],
   )
 
-  // The reviews INBOX is out of the MVP, so the row that opens it is not rendered and
-  // "waiting for a reply" cannot be part of what counts as clear — otherwise a store
-  // with nothing missed but replies pending would show a "Needs you now" block whose
-  // only remaining row reads "0 missed calls".
+  // The reviews INBOX is out of the MVP, so the row that opens it is not rendered at all
+  // in this build. There is no combined "all clear" flag any more: the hero decides its
+  // own zero state from the missed count, and the reviews row renders itself only when
+  // it has a number worth showing. One card, one count, one decision each.
   const showReplyTriage = FEATURES.reviewsInbox
-  const allClear = triage.missed === 0 && (!showReplyTriage || triage.waiting === 0)
   const worstNegative = triage.negatives[0]
   // Same gate as the store picker: MVP has no verification flow, so a build that cannot
   // resolve the problem must not open by naming it.
@@ -269,6 +268,38 @@ function ReturningView({ store, onGoTab, onSwitchStore }) {
         </button>
       </div>
 
+      {/* ============================================================
+          MISSED CALLS — THE HERO, AND THE FIRST THING ON THE SCREEN.
+
+          A missed call is the only thing on Home that is money already walking out of
+          the shop, so it opens the screen and it is the largest type in the product
+          (.m-hero, the one step above Display). It used to be the first ROW of "Needs
+          you now" — the third block down, in the same 16px headline as the reviews row
+          beneath it, which said the two were equally urgent. They are not.
+
+          WHY THE COUNT IS NOT A BARE NUMERAL: the phrase comes from the catalog whole
+          ("{{count}} missed calls"), because Hindi, Marathi and Gujarati inflect the
+          noun with the number. Splitting a giant "16" from a small "missed calls" would
+          have looked bolder in English and been wrong in three of the thirteen
+          languages this ships in.
+
+          THE MONEY IS THE SECOND FACT, deliberately. The count is the alarm; rupees
+          still on the table is the reason to act on it, and it is the one number a
+          manager repeats to himself.
+          ============================================================ */}
+      <div className="px-4 mt-4">
+        <MissedHero
+          count={triage.missed}
+          recoverable={rupees(totalRecoverable(scopeId))}
+          topLead={triage.topLead}
+          answered={triage.answered}
+          windowLabel={missedWindow}
+          onCall={() => (IS_MVP
+            ? onGoTab('leads', { status: 'missed', source: 'call' })
+            : onGoTab('vmn'))}
+        />
+      </div>
+
       {/* ACROSS YOUR STORES — the cumulative strip, aggregate view only. The four facts a
           multi-store owner scans first, summed from every mapped location; the triage
           rows below already run on network-wide selectors, so the two agree by
@@ -311,68 +342,39 @@ function ReturningView({ store, onGoTab, onSwitchStore }) {
         )
       })()}
 
-      {/* What needs you now — both counts on their canonical window, both windows named. */}
-      <div className="px-4 mt-4">
-        <div className="m-subhead text-white/55 mb-2 flex items-center gap-1.5">
-          <Zap size={13} className="ai-text" />
-          {t('home.needsYouNow', { defaultValue: 'Needs you now' })}
-        </div>
-
-        {allClear ? (
-          <AllClearCard answered={triage.answered} window={missedWindow} />
-        ) : (
-          <div className="space-y-2.5">
-            <MissedRow
-              icon={PhoneMissed} tint="#DC2626"
-              title={t('home.missedCalls', {
-                count: triage.missed,
-                defaultValue_one: '{{count}} missed call',
-                defaultValue_other: '{{count}} missed calls',
-              })}
-              sub={triage.topLead
-                ? t('home.topCallback', {
-                  value: rupees(triage.topLead.estValue),
-                  category: t(triage.topLead.categoryKey, { defaultValue: triage.topLead.category }),
-                  score: triage.topLead.cli,
-                  defaultValue: 'Start with {{value}} {{category}} · {{score}} chance to buy',
-                })
-                : t('home.missedCallsSub')}
-              cta={t('common.callNow', { defaultValue: 'Call now' })}
-              // MVP has no Calls tab — the bar drops it and Leads is the one list. So
-              // this opens Leads already narrowed to exactly what the row counted:
-              // missed, call-sourced. Sending it to 'vmn' put the manager on a screen
-              // with no way back through the bar, and made them re-find the same rows.
-              // The full build still has Calls, and that is where the row belongs there.
-              onClick={() => (IS_MVP
-                ? onGoTab('leads', { status: 'missed', source: 'call' })
-                : onGoTab('vmn'))}
-            />
-            {/* Replying to a review is an inbox job, and the inbox is not in this build.
-                This was the ONE route left into it — the tab bar already drops Reviews
-                in MVP — so without this gate the launch build shipped the full inbox,
-                Premium auto-reply pitch and all. */}
-            {showReplyTriage && (
-              <MissedRow
-                icon={Star} tint="#CA8A04" iconColor="var(--si-warning-text)"
-                title={t('home.reviewsWaiting', {
-                  count: triage.waiting,
-                  defaultValue_one: '{{count}} review waiting for a reply',
-                  defaultValue_other: '{{count}} reviews waiting for a reply',
-                })}
-                sub={worstNegative
-                  ? t('home.worstNegative', {
-                    rating: worstNegative.rating,
-                    customer: worstNegative.customer,
-                    defaultValue: 'Worst is {{rating}}★ from {{customer}}',
-                  })
-                  : t('home.allReviewsHealthy')}
-                cta={t('common.reviewNow', { defaultValue: 'Review now' })} onClick={() => onGoTab('reviews')}
-              />
-            )}
+      {/* WHAT ELSE needs you — reviews only now that missed calls lead the screen above.
+          The section renders ONLY when there is something in it: a "Needs you now"
+          heading over a single row reading "0 reviews waiting" is the shape this
+          codebase keeps deleting. Missed calls are not counted here at all — the hero
+          owns them, and stating a count twice is how the numbers start disagreeing. */}
+      {showReplyTriage && triage.waiting > 0 && (
+        <div className="px-4 mt-5">
+          <div className="m-subhead text-white/55 mb-2 flex items-center gap-1.5">
+            <Zap size={13} className="ai-text" />
+            {t('home.needsYouNow', { defaultValue: 'Needs you now' })}
           </div>
-        )}
-
-      </div>
+          {/* Replying to a review is an inbox job, and the inbox is not in this build.
+              This was the ONE route left into it — the tab bar already drops Reviews
+              in MVP — so without this gate the launch build shipped the full inbox,
+              Premium auto-reply pitch and all. */}
+          <MissedRow
+            icon={Star} tint="#CA8A04" iconColor="var(--si-warning-text)"
+            title={t('home.reviewsWaiting', {
+              count: triage.waiting,
+              defaultValue_one: '{{count}} review waiting for a reply',
+              defaultValue_other: '{{count}} reviews waiting for a reply',
+            })}
+            sub={worstNegative
+              ? t('home.worstNegative', {
+                rating: worstNegative.rating,
+                customer: worstNegative.customer,
+                defaultValue: 'Worst is {{rating}}★ from {{customer}}',
+              })
+              : t('home.allReviewsHealthy')}
+            cta={t('common.reviewNow', { defaultValue: 'Review now' })} onClick={() => onGoTab('reviews')}
+          />
+        </div>
+      )}
 
       {/* Progress — the other half of triage: what the work already got back. */}
       <div className="px-4 mt-5">
@@ -388,15 +390,16 @@ function ReturningView({ store, onGoTab, onSwitchStore }) {
             <WeekStat value={rupees(week.wonValue)} label={t('home.valueWon', { defaultValue: 'Value won' })} tint="var(--si-success-text)" />
             <WeekStat value={week.newReviews} label={t('home.newReviews', { defaultValue: 'New reviews' })} tint="var(--si-primary-text)" />
           </div>
-          <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between gap-2">
+          {/* "Still on the table" USED to sit here as well, and with the hero above it
+              the same rupee figure printed twice on one screen — same selector, same
+              value, 400px apart. It belongs to the hero: this card is what the work got
+              BACK, and what is still outstanding is the opposite claim. */}
+          <div className="mt-3 pt-3 border-t border-white/5">
             <span className="m-caption text-white/55">
               {t('home.answeredOfCalls', {
                 count: week.answered, total: week.total,
                 defaultValue: 'You answered {{count}} of {{total}} calls',
               })}
-            </span>
-            <span className="m-caption text-white/40 m-tabular">
-              {rupees(totalRecoverable(scopeId))} {t('home.stillRecoverable', { defaultValue: 'still on the table' })}
             </span>
           </div>
         </Card>
@@ -567,28 +570,118 @@ function InsightStat({ value, label, deltaPct, syncLagDays, accurateThroughMs })
   )
 }
 
+/* ------------------------------------------------------------------ */
+/* THE MISSED-CALL HERO                                                */
+/*                                                                     */
+/* Two states, and the zero one is not a smaller version of the loud   */
+/* one — it is a different card. A hero that prints a red "0 missed    */
+/* calls" in 34px type alarms a manager who has done nothing wrong.    */
+/* ------------------------------------------------------------------ */
+function MissedHero({ count, recoverable, topLead, answered, windowLabel, onCall }) {
+  const { t } = useTranslation()
+  if (count === 0) return <AllClearHero answered={answered} windowLabel={windowLabel} />
+
+  return (
+    <Card
+      className="!p-0 overflow-hidden"
+      style={{ borderColor: 'rgba(220,38,38,.30)' }}
+    >
+      {/* The wash carries the alarm, not a solid red fill: this sits on the glass card
+          stack with every other surface on Home, and a block of red would read as an
+          error state — something the app got wrong — rather than as work waiting. */}
+      <div
+        className="px-4 pt-3.5 pb-4"
+        style={{ background: 'linear-gradient(157deg, rgba(220,38,38,.20) 0%, rgba(220,38,38,.05) 52%, rgba(220,38,38,0) 100%)' }}
+      >
+        {/* EYEBROW — names the window, because a number with no window is a number
+            nobody can check. That rule is why the "8 vs 11" gap got closed and it is
+            not suspended for being the hero. */}
+        <div className="flex items-center gap-2">
+          <span
+            className="w-6 h-6 rounded-lg grid place-items-center shrink-0"
+            style={{ background: 'rgba(220,38,38,.16)', border: '1px solid rgba(220,38,38,.38)' }}
+          >
+            <PhoneMissed size={13} style={{ color: 'var(--si-error-text)' }} aria-hidden="true" />
+          </span>
+          <span
+            className="m-micro uppercase"
+            style={{ color: 'var(--si-error-text)', letterSpacing: '.09em' }}
+          >
+            {t('home.missedLabel', { defaultValue: 'Missed' })} · {windowLabel}
+          </span>
+        </div>
+
+        {/* THE COUNT. The catalog owns the whole phrase — see the note at the call site. */}
+        <h2 className="m-hero m-tabular text-white mt-2">
+          {t('home.missedCalls', {
+            count,
+            defaultValue_one: '{{count}} missed call',
+            defaultValue_other: '{{count}} missed calls',
+          })}
+        </h2>
+
+        {/* THE MONEY. Second line, second size — the alarm first, the reason second. */}
+        <div className="m-title3 m-tabular mt-1" style={{ color: 'var(--si-error-text)' }}>
+          {recoverable} <span className="m-callout text-white/55">{t('home.stillRecoverable', { defaultValue: 'still on the table' })}</span>
+        </div>
+
+        {/* WHAT THIS COUNT IS, always — and it is not "every call that rang out".
+            openMissedCount() counts missed calls STILL OPEN; the aggregate strip
+            directly below prints all missed in the same window, so on the roll-up these
+            two sit ~150px apart reading 16 and 25. Both are true and neither is
+            droppable (Recovery% needs the total), so the hero says out loud that its
+            number is the outstanding WORK — the discipline core states as "any screen
+            showing both has to reconcile them out loud". This line is no longer the
+            fallback for the one below it; it was the thing that made the pair readable,
+            and a top lead existing is not a reason to stop explaining the headline. */}
+        <div className="m-caption text-white/70 mt-2.5">
+          {t('home.missedCallsSub', { defaultValue: 'Hot leads waiting for a call-back' })}
+        </div>
+
+        {/* WHERE TO START — the single best call-back, ranked by chance-to-buy. Rendered
+            only when the queue can actually name one; never invented. */}
+        {topLead && (
+          <div className="m-caption text-white/45 mt-1">
+            {t('home.topCallback', {
+              value: rupees(topLead.estValue),
+              category: t(topLead.categoryKey, { defaultValue: topLead.category }),
+              score: topLead.cli,
+              defaultValue: 'Start with {{value}} {{category}} · {{score}} chance to buy',
+            })}
+          </div>
+        )}
+
+        {/* The hero's job ends in one tap. Full-width, primary, and it lands on Leads
+            already narrowed to exactly what the count counted — missed, call-sourced —
+            so the number on this card is the number on that screen. */}
+        <div className="mt-3.5">
+          <PrimaryButton icon={ArrowRight} onClick={onCall}>
+            {t('common.callNow', { defaultValue: 'Call now' })}
+          </PrimaryButton>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
 /**
- * The state the screen never had: nothing missed, nothing unanswered.
+ * NOTHING MISSED — the hero's calm state.
  *
- * Only ever rendered when both counts are genuinely zero, and it says WHAT it checked —
- * a green tick that cannot be read as "we didn't look".
+ * It says WHAT it checked and over which window, so a green tick cannot be read as "we
+ * didn't look". It does NOT claim the reviews inbox is clear: that is a separate count
+ * with a separate window, and it gets its own row below when it has something to say.
  */
-function AllClearCard({ answered, window: windowLabel }) {
+function AllClearHero({ answered, windowLabel }) {
   const { t } = useTranslation()
   return (
-    <Card className="!p-4">
+    <Card className="!p-4" style={{ borderColor: 'rgba(34,211,139,.28)' }}>
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-xl grid place-items-center shrink-0" style={{ background: 'rgba(34,211,139,.10)', border: '1px solid rgba(34,211,139,.35)' }}>
-          <CheckCircle2 size={20} style={{ color: '#22D38B' }} />
+          <CheckCircle2 size={20} style={{ color: '#22D38B' }} aria-hidden="true" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="m-headline text-white">{t('home.allClearTitle', { defaultValue: 'All clear.' })}</div>
-          {/* Exactly the two checks the triage rows make, and nothing more — no number in
-              this line, so it is true whatever the window holds. */}
-          <div className="m-caption text-white/70 mt-0.5">
-            {t('home.allClearSub', { defaultValue: 'Nothing missed, nothing waiting for a reply.' })}
-          </div>
-          <div className="m-caption text-white/45 mt-1">
+          <h2 className="m-title3 text-white">{t('home.allClearTitle', { defaultValue: 'All clear.' })}</h2>
+          <div className="m-caption text-white/70 mt-1">
             {t('home.allClearAnsweredWindow', {
               count: answered,
               window: windowLabel,

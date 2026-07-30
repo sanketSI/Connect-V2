@@ -147,7 +147,15 @@ function AppContent() {
     setTab(next)
   }
   const [role, setRole] = useState(CAP?.role || 'single')
-  const [store, setStore] = useState(() => (CAP?.store && MAPPED_LOCATIONS.find(l => l.id === CAP.store)) || MAPPED_LOCATIONS[0])
+  // `?capture&store=all` reaches the AGGREGATE view. Capture mode exists so every state
+  // can be rendered directly, and the roll-up was the one state it could not express —
+  // its store is synthetic (makeAllLocationsStore) rather than a row in MAPPED_LOCATIONS,
+  // so the find() below could never produce it. Home's missed-call hero and the "Across
+  // your stores" strip only appear together here, which is exactly the pairing that
+  // needs looking at.
+  const [store, setStore] = useState(() => (CAP?.store === 'all'
+    ? makeAllLocationsStore()
+    : (CAP?.store && MAPPED_LOCATIONS.find(l => l.id === CAP.store)) || MAPPED_LOCATIONS[0]))
   // EVERYTHING this number holds, across every sub-brand — the switcher drills over
   // this even while the session is narrowed to one node of it. Without it, narrowing
   // to Lakshmi Electronics would make Lakshmi Digital unfindable.

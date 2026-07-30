@@ -65,17 +65,23 @@ export const CARD_SHADOW = {
   elevation: 2,
 }
 
-export function Card({ children, onPress, label, className = '' }) {
+/**
+ * `style` composes ON TOP of CARD_SHADOW rather than replacing it, so a caller can tint
+ * the border (the missed-call hero's red, its all-clear green) without losing the shadow
+ * every other card has. The web Card has taken a `style` prop all along; native silently
+ * dropping it meant a hero border that was written, reviewed and simply never drawn.
+ */
+export function Card({ children, onPress, label, className = '', style }) {
   const base = `rounded-card border border-hairline dark:border-d-hairline bg-card dark:bg-white/5 p-4 ${className}`
 
-  if (!onPress) return <View className={base} style={CARD_SHADOW}>{children}</View>
+  if (!onPress) return <View className={base} style={[CARD_SHADOW, style]}>{children}</View>
 
   return (
     <Pressable
       onPress={() => { vibrate(10); onPress() }}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => [CARD_SHADOW, pressed && { opacity: 0.85, transform: [{ scale: 0.985 }] }]}
+      style={({ pressed }) => [CARD_SHADOW, style, pressed && { opacity: 0.85, transform: [{ scale: 0.985 }] }]}
       className={base}
     >
       {children}
@@ -137,7 +143,12 @@ export function Stat({ value, label, tone = 'ink' }) {
   )
 }
 
-export function PrimaryButton({ children, onPress, disabled, loading, className = '' }) {
+/**
+ * `icon` mirrors the web PrimaryButton's own prop — it already renders a leading glyph and
+ * the flex-row/gap-2 here was clearly put in for one, but there was no way to pass it, so
+ * every native call site quietly lost the icon the web button shows.
+ */
+export function PrimaryButton({ children, onPress, disabled, loading, className = '', icon: Icon }) {
   const dead = disabled || loading
   return (
     <Pressable
@@ -149,7 +160,12 @@ export function PrimaryButton({ children, onPress, disabled, loading, className 
     >
       {loading
         ? <ActivityIndicator color="#fff" />
-        : <Text className="text-base font-hk-semi text-white">{children}</Text>}
+        : (
+          <>
+            {Icon ? <Icon size={18} color="#fff" /> : null}
+            <Text className="text-base font-hk-semi text-white">{children}</Text>
+          </>
+        )}
     </Pressable>
   )
 }

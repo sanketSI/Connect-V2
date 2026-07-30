@@ -285,6 +285,16 @@ body:has([data-theme="light"]) {
    A page SUBTITLE is m-callout (14/20), not m-body. It is a secondary label; on
    Paragraph metrics it wraps on every screen and pushes the content down.
    ============================================================ */
+/* THE HERO STEP — above Display, and there is exactly one thing on it: the missed-call
+   count at the top of Home. Home's whole argument is that a missed call is lost money, so
+   the count that opens the screen is the largest type in the product; everything else on
+   Home is a supporting fact and reads as one. Kept a token rather than an inline
+   font-size so the two platforms can be checked against one number.
+
+   34px, not 40+: "16 missed calls" is a phrase, not a numeral (the count cannot be split
+   from its noun — Hindi, Marathi and Gujarati all inflect the noun with the number), and
+   at 40px that phrase wraps to three lines in the longer catalogs. */
+.m-hero { font-size: 34px; font-weight: 700; line-height: 40px; letter-spacing: -0.6px; }
 .m-largeTitle { font-size: 32px; font-weight: 700; line-height: 40px; letter-spacing: -0.5px; }
 .m-title1 { font-size: 28px; font-weight: 700; line-height: 36px; letter-spacing: -0.4px; }
 .m-title2 { font-size: 22px; font-weight: 600; line-height: 28px; letter-spacing: -0.25px; }
