@@ -160,7 +160,12 @@ export default function SwitchScreen() {
             <View className="items-center pb-2"><View className="w-9 h-1 rounded-pill bg-hairline dark:bg-d-hairline" /></View>
             <ScrollView showsVerticalScrollIndicator={false}>
               {[{ value: '', label: t('common.all', { defaultValue: 'All' }) }, ...(OPTIONS[openLevel] || [])].map(o => {
-                const on = openLevel && (openLevel === 'store' ? draft.storeId : draft[openLevel]) === o.value
+                // COERCED to a real boolean. When a pick closes the sheet, these rows
+                // re-render once with openLevel === null before the Modal unmounts, and
+                // `null && …` is null — which iOS Fabric rejects for a boolean prop
+                // ("expected dynamic type 'boolean', but had type 'null'"). Android
+                // shrugged; the phone that crashed was the honest one.
+                const on = !!openLevel && (openLevel === 'store' ? draft.storeId : draft[openLevel]) === o.value
                 return (
                   <Pressable
                     key={o.value || '__all'}

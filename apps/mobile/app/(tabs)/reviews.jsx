@@ -467,7 +467,7 @@ function CheckRow({ checked, onPress, icon: Icon, label, hint }) {
     <Pressable
       onPress={() => { vibrate(8); onPress() }}
       accessibilityRole="checkbox"
-      accessibilityState={{ checked }}
+      accessibilityState={{ checked: !!checked }}
       accessibilityLabel={label}
       className="flex-row items-start gap-3 py-2.5"
     >
