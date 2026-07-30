@@ -99,6 +99,17 @@ export default function Network({ onOpenProfile, store }) {
     stores: a.stores + r.stores,
   }), { missed: 0, total: 0, negative: 0, reviews: 0, stores: 0 }), [rows])
 
+  // Search over the ranked rows — every line a card prints, so what you can see you can
+  // find. Declared HERE, with the other hooks, and above the openStore early return
+  // below: a useState after that return runs on some renders and not others, which is
+  // exactly the "Rendered fewer hooks than expected" crash it caused.
+  const [query, setQuery] = useState('')
+  const q = query.trim().toLowerCase()
+  const shown = q
+    ? rows.filter(r => [r.label, r.subBrands.join(' '), r.states.join(' '), r.cities.join(' '), r.address]
+      .filter(Boolean).join(' ').toLowerCase().includes(q))
+    : rows
+
   // THE LAST LEVEL IS A DESTINATION, NOT A PEEK. A store's enquiries are something a
   // manager reads down and works through, so the tab SWAPS to a full page rather than
   // sliding a sheet over the leaderboard — a sheet keeps the list it came from half
@@ -113,15 +124,6 @@ export default function Network({ onOpenProfile, store }) {
       />
     )
   }
-
-  // Search over the ranked rows — every line a card prints, so what you can see you
-  // can find. Earns its place the moment a sub-brand has more shops than one screenful.
-  const [query, setQuery] = useState('')
-  const q = query.trim().toLowerCase()
-  const shown = q
-    ? rows.filter(r => [r.label, r.subBrands.join(' '), r.states.join(' '), r.cities.join(' '), r.address]
-      .filter(Boolean).join(' ').toLowerCase().includes(q))
-    : rows
 
   return (
     <ScreenScroll onRefresh={refresh}>
