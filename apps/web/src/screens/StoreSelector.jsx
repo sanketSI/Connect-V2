@@ -1,9 +1,9 @@
 import React from 'react'
 import { motion } from 'framer-motion'
-import { Building2, MapPin, ChevronRight, AlertTriangle, PhoneMissed, ShieldCheck, ChevronLeft, Navigation, Check, Layers } from 'lucide-react'
+import { Building2, MapPin, AlertTriangle, ShieldCheck, Check, CheckCheck, Globe, Folder, Map as MapIcon, Search, X } from 'lucide-react'
 import {
   DEALER_PHONE, maskPhone, BRAND_NAME, subBrandOf,
-  scopeMatches, scopeOptions, toggleScope, scopeLabel, impliedAt,
+  scopeMatches, toggleScope, scopeLabel, selectorRows,
 } from '@connect/core'
 import { PrimaryButton } from '../components/UI.jsx'
 import { vibrate } from '../lib/utils.js'
@@ -24,173 +24,210 @@ import { useTranslation, Trans } from 'react-i18next'
 // (a flagged store goes to verification first).
 // ===========================================================================
 
-// The four levels, in tree order. Captions are English for now — the catalogs carry
-// no structural level names, and reusing a near-miss key would be worse than a
-// labelled gap. Translator TODO alongside common.refreshing.
-const LEVELS = [
-  { key: 'subBrands', label: 'Sub-brand', Icon: Building2 },
-  { key: 'states', label: 'State', Icon: MapPin },
-  { key: 'cities', label: 'City', Icon: MapPin },
-  { key: 'locations', label: 'Location', Icon: Building2 },
+// The selector's tabs. Each maps onto one rung of the TATA hierarchy, so a tab is not
+// a new concept — it is a way into levels the scope model already has:
+//   Locations → individual stores      Groups → sub-brands (Tetley, Tata Motors)
+//   Zones     → states and cities      Brand  → the whole holding
+// Labels are English for now: the catalogs carry no structural names for these, and a
+// near-miss key would read worse than a labelled gap. Translator TODO.
+const TABS = [
+  { id: 'locations', label: 'Locations', Icon: MapPin },
+  { id: 'groups', label: 'Groups', Icon: Folder },
+  { id: 'zones', label: 'Zones', Icon: MapIcon },
+  { id: 'brand', label: 'Brand', Icon: Globe },
 ]
 
 export default function StoreSelector({ current, fullStores = [], onPick, onBack }) {
   const { t } = useTranslation()
   const fullIds = fullStores.map(l => l.id)
 
-  // ============================================================
-  // LEVEL TABS + SMART CHIPS. The rail on the left is the hierarchy; the pane on the
-  // right is that level's values, MULTI-SELECT — so a manager can hold Bangalore and
-  // Mysore at once, which no single-node drill could express. Empty at a level means
-  // "all of it", which is why the brand default needs no special case.
-  //
-  // All the rules (cascade, ancestor back-fill, pruning) live in core so this screen
-  // and the native one cannot drift.
-  // ============================================================
   const seed = () => {
     if (!current) return { subBrands: [], states: [], cities: [], locations: [] }
     if (!current.aggregate) {
       return { subBrands: [subBrandOf(current)], states: [current.state], cities: [current.city], locations: [current.id] }
     }
-    if (Array.isArray(current.sel)) return current.sel
     return current.sel || { subBrands: [], states: [], cities: [], locations: [] }
   }
   const [sel, setSel] = React.useState(seed)
-  const [level, setLevel] = React.useState('subBrands')
+  const [tab, setTab] = React.useState('locations')
+  const [query, setQuery] = React.useState('')
 
-  const options = scopeOptions(fullIds, sel)
+  const rows = selectorRows(fullIds, tab, sel)
+  const q = query.trim().toLowerCase()
+  // Search reads every line the card shows, so what you can see you can find.
+  const shown = q
+    ? rows.filter(r => [r.title, r.subtitle, r.meta].filter(Boolean).join(' ').toLowerCase().includes(q))
+    : rows
+
   const matched = scopeMatches(fullIds, sel)
   const label = scopeLabel(fullIds, sel)
-  const chips = options[level] || []
-  const chosen = sel[level] || []
+  const isOn = (row) => row.level === 'brand'
+    ? !sel.subBrands.length && !sel.states.length && !sel.cities.length && !sel.locations.length
+    : (sel[row.level] || []).includes(row.value)
 
-  /** For an unfiltered level: what the current picks span there. */
-  const impliedLabel = (key) => {
-    const all = (options[key] || []).length
-    const vals = impliedAt(fullIds, sel, key)
-    if (!vals.length || vals.length >= all) return t('common.all', { defaultValue: 'All' })
-    return vals.length === 1 ? vals[0] : `${vals.length} implied`
+  function toggle(row) {
+    vibrate(6)
+    if (row.level === 'brand') { setSel({ subBrands: [], states: [], cities: [], locations: [] }); return }
+    setSel(s => toggleScope(fullIds, s, row.level, row.value))
+  }
+
+  /** Add every row currently listed — the bulk move a long filtered list needs. */
+  function selectAllShown() {
+    vibrate(8)
+    setSel(s => shown.reduce((acc, r) => (r.level === 'brand' || isOn(r) ? acc : toggleScope(fullIds, acc, r.level, r.value)), s))
   }
 
   function apply() {
     vibrate(10)
-    // One location and nothing broader → focus that store, the shape every screen
-    // already understands. Otherwise an aggregate carrying the resolved id set.
-    if (chosen.length === 0 && sel.locations.length === 1 && matched.length === 1) {
-      onPick?.({ store: matched[0], sel })
-      return
-    }
-    if (sel.locations.length === 1 && matched.length === 1) {
-      onPick?.({ store: matched[0], sel })
-      return
-    }
-    onPick?.({ name: label, ids: matched.map(l => l.id), sel })
+    if (sel.locations.length === 1 && matched.length === 1) onPick?.({ store: matched[0], sel })
+    else onPick?.({ name: label, ids: matched.map(l => l.id), sel })
   }
 
   return (
-    <div className="absolute inset-0 overflow-hidden" style={{ background: 'var(--bg-screen)' }}>
+    <div className="absolute inset-0 overflow-hidden flex flex-col" style={{ background: 'var(--bg-screen)' }}>
       <Wash />
-      <div className="relative h-full flex flex-col pt-[52px] px-4 pb-6">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => onBack?.()}
-            className="w-9 h-9 rounded-full grid place-items-center press"
-            style={{ background: 'var(--bg-iconbtn)', border: '1px solid var(--border-glass)' }}
-            aria-label={t('common.back')}
-          >
-            <ChevronLeft size={20} className="text-white" />
-          </button>
-          <div className="flex items-center gap-1.5 px-2.5 h-8 rounded-full m-subhead m-tabular" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-glass)', color: 'var(--text-secondary)' }}>
-            <ShieldCheck size={13} /> {maskPhone(DEALER_PHONE)}
-          </div>
-        </div>
 
-        <div className="mt-4">
-          <div className="m-title2 text-white">{t('store.switchTitle')}</div>
-          <div className="m-caption text-white/50 mt-0.5">
-            {BRAND_NAME} · {t('stores.nStoresShort', { count: fullStores.length, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })}
-          </div>
-        </div>
+      {/* Tab rail — horizontal pills, the selected one solid brand blue. */}
+      <div className="relative pt-[52px] px-4 pb-3 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
+        {TABS.map(tb => {
+          const on = tab === tb.id
+          return (
+            <button
+              key={tb.id}
+              role="tab"
+              aria-selected={on}
+              onClick={() => { vibrate(6); setTab(tb.id); setQuery('') }}
+              className="inline-flex items-center gap-1.5 px-3.5 h-10 rounded-full press shrink-0"
+              style={on
+                ? { background: '#0070FC', color: '#fff', border: '1px solid #0070FC' }
+                : { background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
+            >
+              <tb.Icon size={15} className="shrink-0" />
+              <span className="m-subhead font-semibold">{tb.label}</span>
+            </button>
+          )
+        })}
+      </div>
 
-        {/* THE SPLIT: level rail | value chips */}
-        <div className="mt-3 flex-1 min-h-0 flex gap-2.5">
-          <div className="w-[104px] shrink-0 space-y-1.5" role="tablist" aria-orientation="vertical">
-            {LEVELS.map(lv => {
-              const on = level === lv.key
-              const n = (sel[lv.key] || []).length
-              return (
-                <button
-                  key={lv.key}
-                  role="tab"
-                  aria-selected={on}
-                  onClick={() => { vibrate(6); setLevel(lv.key) }}
-                  className="w-full text-left rounded-xl px-2.5 py-2.5 press"
-                  style={{
-                    background: on ? 'rgba(0,112,252,.14)' : 'var(--bg-subtle)',
-                    border: on ? '1px solid rgba(0,112,252,.45)' : '1px solid var(--border-glass)',
-                  }}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <lv.Icon size={12} style={{ color: on ? '#0070FC' : 'var(--text-tertiary)' }} className="shrink-0" />
-                    <span className="m-caption font-semibold truncate" style={{ color: on ? 'var(--si-primary-text)' : 'var(--text-secondary)' }}>
-                      {lv.label}
-                    </span>
-                  </div>
-                  {/* Explicit picks in brand blue; otherwise what the OTHER levels
-                      imply for this one, muted — the vice-versa feedback, without
-                      pretending the manager filtered here. */}
-                  <div className="m-micro mt-0.5 truncate" style={{ color: n ? 'var(--si-primary-text)' : 'var(--text-tertiary)' }}>
-                    {n ? `${n} selected` : impliedLabel(lv.key)}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="flex-1 min-w-0 overflow-y-auto no-scrollbar" role="tabpanel">
-            <div className="flex flex-wrap gap-1.5">
-              {/* "All" clears this level — the honest way back to unfiltered. */}
-              <button
-                onClick={() => { vibrate(6); setSel(s => ({ ...s, [level]: [] })) }}
-                className="px-2.5 h-8 rounded-full m-caption font-semibold press"
-                style={chosen.length === 0
-                  ? { background: '#0070FC', color: '#fff', border: '1px solid #0070FC' }
-                  : { background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
-              >
-                {t('common.all', { defaultValue: 'All' })}
-              </button>
-              {chips.map(o => {
-                const on = chosen.includes(o.value)
-                return (
-                  <button
-                    key={o.value}
-                    aria-pressed={on}
-                    onClick={() => { vibrate(6); setSel(s => toggleScope(fullIds, s, level, o.value)) }}
-                    className="px-2.5 h-8 rounded-full m-caption font-semibold press inline-flex items-center gap-1 max-w-full"
-                    style={on
-                      ? { background: '#0070FC', color: '#fff', border: '1px solid #0070FC' }
-                      : { background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
-                  >
-                    {on && <Check size={11} className="shrink-0" />}
-                    <span className="truncate">{o.label}</span>
-                    {level !== 'locations' && <span className="opacity-60 m-tabular">{o.count}</span>}
-                  </button>
-                )
-              })}
+      <div className="relative flex-1 min-h-0 flex flex-col px-4">
+        {/* Title row + the two header actions. */}
+        <div className="flex items-start justify-between gap-3 pt-1">
+          <div className="min-w-0">
+            <div className="m-title2 text-white">{t('store.switchTitle')}</div>
+            <div className="m-caption text-white/55 mt-0.5 truncate">
+              {label} · {t('stores.nStoresShort', { count: matched.length, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })}
             </div>
           </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={selectAllShown}
+              aria-label={t('common.all', { defaultValue: 'All' })}
+              className="w-11 h-11 rounded-xl grid place-items-center press"
+              style={{ background: '#0070FC' }}
+            >
+              <CheckCheck size={18} color="#fff" />
+            </button>
+            <button
+              onClick={() => onBack?.()}
+              aria-label={t('common.close', { defaultValue: 'Close' })}
+              className="w-11 h-11 rounded-xl grid place-items-center press"
+              style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-glass)' }}
+            >
+              <X size={18} className="text-white/70" />
+            </button>
+          </div>
         </div>
 
-        {/* What the picks resolve to — named before it is applied. */}
-        <div className="mt-3 rounded-xl px-3.5 py-2.5 flex items-center gap-2" style={{ background: 'rgba(0,112,252,.10)', border: '1px solid rgba(0,112,252,.30)' }}>
-          <MapPin size={14} style={{ color: 'var(--si-primary-text)' }} className="shrink-0" />
-          <span className="m-callout text-white truncate flex-1">{label}</span>
-          <span className="m-caption text-white/60 shrink-0">
-            {t('stores.nStoresShort', { count: matched.length, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })}
-          </span>
+        {/* Search — reads every line the cards show. */}
+        <div
+          className="mt-3 h-11 rounded-xl flex items-center gap-2 px-3 shrink-0"
+          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-glass)' }}
+        >
+          <Search size={16} className="text-white/40 shrink-0" />
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder={t('common.search', { defaultValue: 'Search' })}
+            aria-label={t('common.search', { defaultValue: 'Search' })}
+            className="flex-1 bg-transparent text-white m-callout outline-none placeholder:text-white/30"
+          />
+          {query && (
+            <button onClick={() => setQuery('')} aria-label={t('common.close', { defaultValue: 'Close' })} className="press shrink-0">
+              <X size={14} className="text-white/40" />
+            </button>
+          )}
         </div>
 
-        <div className="mt-2.5">
+        {/* The rows. */}
+        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar mt-3 space-y-2">
+          {shown.map(row => {
+            const on = isOn(row)
+            const flagged = row.flags && row.flags.length > 0
+            return (
+              <button
+                key={`${row.level}:${row.value}`}
+                onClick={() => toggle(row)}
+                role="checkbox"
+                aria-checked={on}
+                className="w-full text-left rounded-2xl p-3.5 press flex items-start gap-3"
+                style={{
+                  background: on ? 'rgba(0,112,252,.10)' : 'var(--bg-card)',
+                  border: on ? '1px solid rgba(0,112,252,.45)' : '1px solid var(--border-glass)',
+                }}
+              >
+                <span
+                  className="w-5 h-5 rounded-md grid place-items-center shrink-0 mt-0.5"
+                  style={on
+                    ? { background: '#0070FC', border: '1px solid #0070FC' }
+                    : { background: 'transparent', border: '1px solid var(--border-glass-strong)' }}
+                >
+                  {on && <Check size={13} color="#fff" />}
+                </span>
+
+                <span className="flex-1 min-w-0">
+                  <span className="flex items-center gap-2 flex-wrap">
+                    <span className="m-headline text-white">{row.title}</span>
+                    {row.level === 'locations' && (
+                      flagged ? (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption font-semibold"
+                          style={{ background: 'rgba(202,138,4,.12)', color: 'var(--si-warning-text)', border: '1px solid rgba(202,138,4,.30)' }}
+                        >
+                          <AlertTriangle size={11} /> {t('store.needsVerification')}
+                        </span>
+                      ) : (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption font-semibold"
+                          style={{ background: 'rgba(22,163,74,.12)', color: '#15803D', border: '1px solid rgba(22,163,74,.30)' }}
+                        >
+                          <ShieldCheck size={11} /> {t('verify.verified', { defaultValue: 'Verified' })}
+                        </span>
+                      )
+                    )}
+                    {row.level !== 'locations' && (
+                      <span className="m-caption text-white/45">
+                        {t('stores.nStoresShort', { count: row.count, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })}
+                      </span>
+                    )}
+                  </span>
+                  {row.subtitle && <span className="block m-callout text-white/70 mt-0.5 truncate">{row.subtitle}</span>}
+                  {row.meta && <span className="block m-caption text-white/40 mt-0.5 truncate">{row.meta}</span>}
+                </span>
+              </button>
+            )
+          })}
+
+          {shown.length === 0 && (
+            <div className="text-center py-8">
+              <div className="m-headline text-white">{t('leads.emptyTitle', { defaultValue: 'Nothing here' })}</div>
+              <div className="m-caption text-white/55 mt-0.5">{t('customers.emptySub', { defaultValue: 'Try another filter.' })}</div>
+            </div>
+          )}
+          <div className="h-2" />
+        </div>
+
+        {/* Apply. */}
+        <div className="py-3 shrink-0">
           <PrimaryButton icon={Check} disabled={matched.length === 0} onClick={apply}>
             {t('common.done', { defaultValue: 'Done' })}
           </PrimaryButton>

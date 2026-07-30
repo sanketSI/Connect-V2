@@ -200,8 +200,10 @@ export function defaultSubBrand(storeIds) {
  * prints, `ids` what the selection covers. Selectors never read either — they read
  * the assignment, which the caller sets alongside this.
  */
-export function makeScopeStore({ label, ids }) {
-  return { id: AGGREGATE_STORE_ID, aggregate: true, label, ids }
+export function makeScopeStore({ label, ids, sel }) {
+  // `sel` rides along so reopening the selector can show what is ticked. Selectors
+  // never read it for scoping — the assignment does that — it is UI memory.
+  return { id: AGGREGATE_STORE_ID, aggregate: true, label, ids, sel }
 }
 
 // ============================================================
@@ -328,6 +330,91 @@ export function impliedAt(storeIds, sel = {}, level) {
       : level === 'cities' ? (l => l.city)
         : (l => `${l.name} — ${l.branch}`)
   return [...new Set(hits.map(fn))]
+}
+
+/**
+ * THE SELECTOR'S ROWS — one shared shape behind the Locations / Groups / Zones / Brand
+ * tabs, so web and native render the same list from the same facts rather than each
+ * assembling its own. Presentation stays in the screens; what a row IS lives here.
+ *
+ *   { level, value, title, subtitle, meta, count, flags }
+ *
+ * `level` is the scope key the row toggles (subBrands/states/cities/locations), so a
+ * row goes straight into toggleScope() with no mapping table in the UI. `flags` is
+ * computeLocationFlags() for a store row — the verification state is a real fact about
+ * the listing, not decoration.
+ */
+export function selectorRows(storeIds, tab, sel = {}) {
+  const pool = getStoreLocations().filter(l => (storeIds || []).includes(l.id))
+  const opts = scopeOptions(storeIds, sel)
+
+  if (tab === 'brand') {
+    const subs = [...new Set(pool.map(subBrandOf))]
+    return [{
+      level: 'brand',
+      value: BRAND_NAME,
+      title: BRAND_NAME,
+      subtitle: subs.join(' · '),
+      meta: [...new Set(pool.map(l => l.state))].join(', '),
+      count: pool.length,
+      flags: [],
+    }]
+  }
+
+  if (tab === 'groups') {
+    return opts.subBrands.map(o => {
+      const mine = pool.filter(l => subBrandOf(l) === o.value)
+      return {
+        level: 'subBrands',
+        value: o.value,
+        title: o.value,
+        subtitle: [...new Set(mine.map(l => l.state))].join(', '),
+        meta: [...new Set(mine.map(l => l.city))].join(', '),
+        count: o.count,
+        flags: [],
+      }
+    })
+  }
+
+  if (tab === 'zones') {
+    const states = opts.states.map(o => {
+      const mine = pool.filter(l => l.state === o.value)
+      return {
+        level: 'states',
+        value: o.value,
+        title: o.value,
+        subtitle: [...new Set(mine.map(subBrandOf))].join(' · '),
+        meta: [...new Set(mine.map(l => l.city))].join(', '),
+        count: o.count,
+        flags: [],
+      }
+    })
+    const cities = opts.cities.map(o => {
+      const mine = pool.filter(l => l.city === o.value)
+      return {
+        level: 'cities',
+        value: o.value,
+        title: o.value,
+        subtitle: [...new Set(mine.map(l => l.state))].join(', '),
+        meta: [...new Set(mine.map(subBrandOf))].join(' · '),
+        count: o.count,
+        flags: [],
+      }
+    })
+    return [...states, ...cities]
+  }
+
+  // locations — narrowed by the levels above, exactly as scopeOptions decided.
+  const allowed = new Set(opts.locations.map(o => o.value))
+  return pool.filter(l => allowed.has(l.id)).map(l => ({
+    level: 'locations',
+    value: l.id,
+    title: `${l.name} — ${l.branch}`,
+    subtitle: `${l.city}, ${l.state}`,
+    meta: l.address,
+    count: 1,
+    flags: computeLocationFlags(l),
+  }))
 }
 
 /**

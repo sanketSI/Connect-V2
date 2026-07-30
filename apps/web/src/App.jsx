@@ -232,7 +232,7 @@ function AppContent() {
     // The assignment IS the scope: every selector, badge and roll-up reads it, so
     // narrowing here narrows the whole app without any screen knowing the tree exists.
     setSessionAssignments(sb ? sb.ids : all.map(s => s.id))
-    openStore(sb ? makeScopeStore({ label: sb.name, ids: sb.ids }) : makeAllLocationsStore())
+    openStore(sb ? makeScopeStore({ label: sb.name, ids: sb.ids, sel: { subBrands: [sb.name], states: [], cities: [], locations: [] } }) : makeAllLocationsStore())
   }
 
   /** The switcher picked a NODE (brand/sub-brand/state/city) or a single store. */
@@ -245,7 +245,7 @@ function AppContent() {
       return
     }
     setSessionAssignments(node.ids)
-    openStore(makeScopeStore({ label: node.name, ids: node.ids }))
+    openStore(makeScopeStore({ label: node.name, ids: node.ids, sel: node.sel }))
   }
 
   // Sign-out has to drop the scope as well as the screen, or the next number to sign in

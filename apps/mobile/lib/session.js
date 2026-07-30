@@ -64,7 +64,7 @@ export function signIn(myStores, picked) {
   state = {
     authed: true,
     stores: all,
-    store: picked || (sb ? makeScopeStore({ label: sb.name, ids: sb.ids }) : makeAllLocationsStore()),
+    store: picked || (sb ? makeScopeStore({ label: sb.name, ids: sb.ids, sel: { subBrands: [sb.name], states: [], cities: [], locations: [] } }) : makeAllLocationsStore()),
     role: state.role || 'single',
   }
   emit()
@@ -79,7 +79,7 @@ export function setScope(node) {
     state = { ...state, store: node.store }
   } else {
     setSessionAssignments(node.ids)
-    state = { ...state, store: makeScopeStore({ label: node.name, ids: node.ids }) }
+    state = { ...state, store: makeScopeStore({ label: node.name, ids: node.ids, sel: node.sel }) }
   }
   emit()
 }
