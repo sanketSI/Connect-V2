@@ -205,6 +205,31 @@ export function makeScopeStore({ label, ids }) {
 }
 
 /**
+ * THE WHOLE TREE, FLATTENED FOR A DROPDOWN — Brand → sub-brand → state → city → store
+ * as one indented list, every row selectable. This replaced the level-by-level drill:
+ * with a holding this size, walking four levels to reach a shop was four taps of
+ * ceremony for a list that fits on one screen. Selecting any row scopes to that node,
+ * which AUTO-SELECTS its ancestors by construction — a city's ids are a subset of its
+ * state's, so "Bangalore" cannot be chosen without Karnataka being true of it.
+ */
+export function brandTree(storeIds) {
+  const rows = [{ level: 'brand', name: BRAND_NAME, ids: [...(storeIds || [])], depth: 0 }]
+  for (const sb of subBrands(storeIds)) {
+    rows.push({ level: 'subBrand', name: sb.name, ids: sb.ids, depth: 1 })
+    for (const st of scopeChildren(storeIds, { subBrand: sb.name })) {
+      rows.push({ level: 'state', name: st.name, ids: st.ids, depth: 2 })
+      for (const ci of scopeChildren(storeIds, { subBrand: sb.name, state: st.name })) {
+        rows.push({ level: 'city', name: ci.name, ids: ci.ids, depth: 3 })
+        for (const lf of scopeChildren(storeIds, { subBrand: sb.name, state: st.name, city: ci.name })) {
+          rows.push({ level: 'store', name: lf.name, ids: lf.ids, depth: 4, store: lf.store })
+        }
+      }
+    }
+  }
+  return rows
+}
+
+/**
  * The children of a node in the drill, with per-child store counts. `path` is
  * { subBrand?, state?, city? } — whichever keys are present narrow the set.
  */
