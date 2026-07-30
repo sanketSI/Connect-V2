@@ -3,8 +3,9 @@ import { motion } from 'framer-motion'
 import { Building2, MapPin, ChevronRight, AlertTriangle, PhoneMissed, ShieldCheck, ChevronLeft, Navigation, Check, Layers } from 'lucide-react'
 import {
   DEALER_PHONE, maskPhone,
-  BRAND_NAME, brandTree,
+  BRAND_NAME, subBrandOf,
 } from '@connect/core'
+import { PrimaryButton } from '../components/UI.jsx'
 import { vibrate } from '../lib/utils.js'
 import { FEATURES } from '../lib/features.js'
 import { useTranslation, Trans } from 'react-i18next'
@@ -25,32 +26,117 @@ import { useTranslation, Trans } from 'react-i18next'
 
 export default function StoreSelector({ current, fullStores = [], onPick, onBack }) {
   const { t } = useTranslation()
-  const fullIds = fullStores.map(l => l.id)
 
-  // ONE LIST, THE WHOLE TREE. The level-by-level drill made a manager walk four taps
-  // to reach a shop; this holding fits on one screen, so every node is one tap away.
-  // Selecting a row scopes to that node — its ancestors are auto-selected by
-  // construction, because a city's ids are a subset of its state's.
-  const rows = brandTree(fullIds)
-  const missedFor = (ids) => fullStores.filter(l => ids.includes(l.id)).reduce((n, l) => n + (l.missed || 0), 0)
-
-  const isCurrent = (row) => row.store
-    ? current?.id === row.store.id
-    : !!current?.aggregate
-      && (current.label === row.name || (!current.label && row.level === 'brand'))
-      && (current.ids ? current.ids.length === row.ids.length : row.ids.length === fullIds.length)
-
-  const ICONS = { brand: Layers, subBrand: Building2, state: MapPin, city: MapPin, store: Building2 }
-
-  function choose(row) {
-    vibrate(10)
-    onPick?.(row)
+  // ============================================================
+  // CASCADING SELECTS — one plain dropdown per level, stacked:
+  //   Brand → Sub-brand → State → City → Location.
+  // Each select narrows the ones below it, and picking a DEEPER level first
+  // back-fills its ancestors from the record (choose Mumbai with nothing else set and
+  // State becomes Maharashtra, Sub-brand becomes Tata Motors — the vice-versa rule).
+  // "All" at any level means "stop here": the scope is the deepest chosen node.
+  // Draft + Done, so several levels can be adjusted without being bounced to Home
+  // after every change. The default rule lives at sign-in and is untouched here.
+  // ============================================================
+  const seed = () => {
+    if (!current) return { subBrand: '', state: '', city: '', storeId: '' }
+    if (!current.aggregate) {
+      return { subBrand: subBrandOf(current), state: current.state || '', city: current.city || '', storeId: current.id }
+    }
+    // Re-open showing the node in force: match the label against each level's values.
+    const bySub = fullStores.some(l => subBrandOf(l) === current.label)
+    const bySt = fullStores.some(l => l.state === current.label)
+    const byCity = fullStores.some(l => l.city === current.label)
+    if (byCity) {
+      const loc = fullStores.find(l => l.city === current.label)
+      return { subBrand: subBrandOf(loc), state: loc.state, city: current.label, storeId: '' }
+    }
+    if (bySt) {
+      const loc = fullStores.find(l => l.state === current.label)
+      return { subBrand: subBrandOf(loc), state: current.label, city: '', storeId: '' }
+    }
+    if (bySub) return { subBrand: current.label, state: '', city: '', storeId: '' }
+    return { subBrand: '', state: '', city: '', storeId: '' }
   }
+  const [draft, setDraft] = React.useState(seed)
+
+  const matches = (d) => fullStores.filter(l =>
+    (!d.subBrand || subBrandOf(l) === d.subBrand)
+    && (!d.state || l.state === d.state)
+    && (!d.city || l.city === d.city))
+
+  const distinct = (list, fn) => [...new Set(list.map(fn))]
+  // Options per level: narrowed by the levels ABOVE it only, so a select never offers
+  // a value its ancestors exclude — and never hides values you could still jump to.
+  const subBrandOpts = distinct(fullStores, subBrandOf)
+  const stateOpts = distinct(matches({ subBrand: draft.subBrand }), l => l.state)
+  const cityOpts = distinct(matches({ subBrand: draft.subBrand, state: draft.state }), l => l.city)
+  const locOpts = matches(draft)
+
+  function pickLevel(level, value) {
+    vibrate(6)
+    setDraft(d => {
+      if (level === 'subBrand') return { subBrand: value, state: '', city: '', storeId: '' }
+      if (level === 'state') {
+        if (!value) return { ...d, state: '', city: '', storeId: '' }
+        const loc = fullStores.find(l => l.state === value && (!d.subBrand || subBrandOf(l) === d.subBrand))
+          || fullStores.find(l => l.state === value)
+        return { subBrand: subBrandOf(loc), state: value, city: '', storeId: '' }
+      }
+      if (level === 'city') {
+        if (!value) return { ...d, city: '', storeId: '' }
+        const loc = fullStores.find(l => l.city === value && (!d.state || l.state === d.state))
+          || fullStores.find(l => l.city === value)
+        return { subBrand: subBrandOf(loc), state: loc.state, city: value, storeId: '' }
+      }
+      // location — the record back-fills everything.
+      if (!value) return { ...d, storeId: '' }
+      const loc = fullStores.find(l => l.id === value)
+      return { subBrand: subBrandOf(loc), state: loc.state, city: loc.city, storeId: value }
+    })
+  }
+
+  // The scope the draft resolves to: the deepest chosen node.
+  const resolved = draft.storeId
+    ? { store: fullStores.find(l => l.id === draft.storeId) }
+    : draft.city
+      ? { name: draft.city, ids: matches(draft).map(l => l.id) }
+      : draft.state
+        ? { name: draft.state, ids: matches(draft).map(l => l.id) }
+        : draft.subBrand
+          ? { name: draft.subBrand, ids: matches(draft).map(l => l.id) }
+          : { name: BRAND_NAME, ids: fullStores.map(l => l.id) }
+
+  const summary = resolved.store
+    ? `${resolved.store.name} — ${resolved.store.branch}`
+    : `${resolved.name} · ${t('stores.nStoresShort', { count: resolved.ids.length, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })}`
+
+  const Select = ({ label, value, options, onChange, disabled }) => (
+    <div className="flex-1 min-w-0">
+      <div className="m-caption text-white/50 mb-1 ml-1">{label}</div>
+      <div
+        className="h-11 rounded-xl px-3 flex items-center"
+        style={{ background: 'var(--bg-subtle)', border: value ? '1px solid rgba(0,112,252,.45)' : '1px solid var(--border-glass)', opacity: disabled ? 0.5 : 1 }}
+      >
+        <select
+          value={value}
+          disabled={disabled}
+          onChange={e => onChange(e.target.value)}
+          aria-label={label}
+          className="w-full bg-transparent text-white m-callout outline-none appearance-none pr-5"
+          style={{ background: 'transparent' }}
+        >
+          <option value="" style={{ color: '#111' }}>{t('common.all', { defaultValue: 'All' })}</option>
+          {options.map(o => (
+            <option key={o.value} value={o.value} style={{ color: '#111' }}>{o.label}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  )
 
   return (
     <div className="absolute inset-0 overflow-hidden" style={{ background: 'var(--bg-screen)' }}>
       <Wash />
-
       <div className="relative h-full flex flex-col pt-[52px] px-4 pb-6">
         <div className="flex items-center gap-2">
           <button
@@ -78,53 +164,50 @@ export default function StoreSelector({ current, fullStores = [], onPick, onBack
           </p>
         </motion.div>
 
-        <div className="mt-5 flex-1 overflow-y-auto no-scrollbar space-y-1.5">
-          {rows.map((row, i) => {
-            const on = isCurrent(row)
-            const Icon = ICONS[row.level] || Building2
-            const leaf = !!row.store
-            return (
-              <motion.button
-                key={`${row.level}:${row.name}:${i}`}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(i, 10) * 0.02, duration: 0.22 }}
-                onClick={() => choose(row)}
-                aria-current={on ? 'true' : undefined}
-                className="w-full text-left rounded-xl px-3 py-2.5 glass press flex items-center gap-2.5"
-                style={{
-                  marginLeft: row.depth * 16,
-                  width: `calc(100% - ${row.depth * 16}px)`,
-                  ...(on ? { borderColor: 'rgba(0,112,252,.45)', boxShadow: '0 0 0 3px rgba(0,112,252,.10), var(--shadow-card)' } : {}),
-                }}
-              >
-                <span
-                  className="w-8 h-8 rounded-lg grid place-items-center shrink-0"
-                  style={{ background: on ? '#0070FC' : 'rgba(0,112,252,.12)', border: on ? 'none' : '1px solid rgba(0,112,252,.25)' }}
-                >
-                  <Icon size={14} style={{ color: on ? '#fff' : '#0070FC' }} />
-                </span>
-                <span className="flex-1 min-w-0">
-                  <span className="flex items-center gap-2">
-                    <span className={leaf ? 'm-callout text-white truncate' : 'm-headline text-white truncate'}>
-                      {leaf ? `${row.store.name} — ${row.store.branch}` : row.name}
-                    </span>
-                    {on && (
-                      <span className="px-1.5 h-5 rounded-full m-caption font-semibold shrink-0 inline-flex items-center gap-0.5" style={{ background: '#0070FC', color: '#fff' }}>
-                        <Check size={10} /> {t('store.current')}
-                      </span>
-                    )}
-                  </span>
-                  <span className="block m-caption text-white/50 truncate">
-                    {leaf
-                      ? t('store.missedCount', { count: row.store.missed })
-                      : `${t('stores.nStoresShort', { count: row.ids.length, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })} · ${t('store.missedCount', { count: missedFor(row.ids) })}`}
-                  </span>
-                </span>
-                {on ? <Check size={16} className="shrink-0" style={{ color: '#0070FC' }} /> : <ChevronRight size={14} className="text-white/30 shrink-0" />}
-              </motion.button>
-            )
-          })}
+        <div className="mt-5 flex-1 overflow-y-auto no-scrollbar">
+          {/* Brand is the fixed root — shown, not chooseable, because there is one. */}
+          <div className="m-caption text-white/50 mb-1 ml-1">{BRAND_NAME}</div>
+
+          <div className="flex gap-2 mb-3">
+            {/* Structural level names, English for now — translator TODO alongside
+                common.refreshing; wrong-meaning key reuse would be worse than untranslated. */}
+            <Select
+              label="Sub-brand"
+              value={draft.subBrand}
+              options={subBrandOpts.map(v => ({ value: v, label: v }))}
+              onChange={v => pickLevel('subBrand', v)}
+            />
+            <Select
+              label="State"
+              value={draft.state}
+              options={stateOpts.map(v => ({ value: v, label: v }))}
+              onChange={v => pickLevel('state', v)}
+            />
+          </div>
+          <div className="flex gap-2 mb-3">
+            <Select
+              label="City"
+              value={draft.city}
+              options={cityOpts.map(v => ({ value: v, label: v }))}
+              onChange={v => pickLevel('city', v)}
+            />
+            <Select
+              label="Location"
+              value={draft.storeId}
+              options={locOpts.map(l => ({ value: l.id, label: `${l.name} — ${l.branch}` }))}
+              onChange={v => pickLevel('store', v)}
+            />
+          </div>
+
+          {/* What the current picks resolve to — said before it is applied. */}
+          <div className="rounded-xl px-3.5 py-3 mb-4 flex items-center gap-2" style={{ background: 'rgba(0,112,252,.10)', border: '1px solid rgba(0,112,252,.30)' }}>
+            <MapPin size={14} style={{ color: 'var(--si-primary-text)' }} className="shrink-0" />
+            <span className="m-callout text-white truncate">{summary}</span>
+          </div>
+
+          <PrimaryButton icon={Check} onClick={() => { vibrate(10); onPick?.(resolved) }}>
+            {t('common.done', { defaultValue: 'Done' })}
+          </PrimaryButton>
         </div>
 
         <div className="mt-3 m-footnote text-white/40 text-center flex items-center justify-center gap-1.5">
