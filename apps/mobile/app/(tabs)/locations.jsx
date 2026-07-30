@@ -7,12 +7,12 @@
 // Rows respect the scope in session, so the board and the switcher always agree. A
 // group row drops to the level below; a store row opens the calls behind the number.
 import { useMemo, useState } from 'react'
-import { View, Text, Pressable } from 'react-native'
+import { View, Text, Pressable, TextInput, ScrollView } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import {
-  ChevronRight, ChevronDown, PhoneCall, Star, MapPin, Building2, Store as StoreIcon,
-  Map as MapIcon, ArrowDownWideNarrow, ArrowUpNarrowWide,
+  ChevronDown, ChevronRight, PhoneCall, Star, MapPin, Building2, Store as StoreIcon,
+  Map as MapIcon, ArrowDownWideNarrow, ArrowUpNarrowWide, Search, X,
 } from 'lucide-react-native'
 import { networkRows, rankRows, assignedStoreIds } from '@connect/core'
 import { Screen, Card, Title, Body, Caption, Chip } from '../../components/UI.jsx'
@@ -59,6 +59,15 @@ export default function LocationsTab() {
     [filter, meta.metric, dir, version],
   )
 
+  // Search over the ranked rows — every line a card prints, so what you can see you can
+  // find. The selector's field, doing the selector's job on a read screen.
+  const [query, setQuery] = useState('')
+  const q = query.trim().toLowerCase()
+  const shown = q
+    ? rows.filter(r => [r.label, r.subBrands.join(' '), r.states.join(' '), r.cities.join(' '), r.address]
+      .filter(Boolean).join(' ').toLowerCase().includes(q))
+    : rows
+
   const totals = useMemo(() => rows.reduce((a, r) => ({
     missed: a.missed + r.missed, total: a.total + r.total,
     negative: a.negative + r.negative, reviews: a.reviews + r.reviews,
@@ -67,6 +76,30 @@ export default function LocationsTab() {
 
   return (
     <Screen onRefresh={refreshDerived}>
+      {/* THE SAME SHELL AS THE LOCATION SELECTOR — level tabs on top, then the title,
+          then search, then the filters. One screen grammar for "which slice of the
+          business am I looking at", whether you are choosing it or ranking it. */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="grow-0 mb-3">
+        <View className="flex-row gap-2">
+          {LEVELS.map(lv => {
+            const on = level === lv.id
+            return (
+              <Pressable
+                key={lv.id}
+                onPress={() => { vibrate(6); setLevel(lv.id); setQuery('') }}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: !!on }}
+                accessibilityLabel={lv.label}
+                className={`h-10 px-3.5 rounded-pill flex-row items-center gap-1.5 border ${on ? 'bg-brand-blue border-brand-blue' : 'bg-card dark:bg-white/5 border-hairline dark:border-d-hairline'}`}
+              >
+                <lv.Icon size={15} color={on ? '#fff' : '#5F6878'} />
+                <Text className={`text-[13px] font-hk-semi ${on ? 'text-white' : 'text-ink-2 dark:text-d-ink2'}`}>{lv.label}</Text>
+              </Pressable>
+            )
+          })}
+        </View>
+      </ScrollView>
+
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 min-w-0">
           <Title>{t('network.title', { defaultValue: 'Your locations' })}</Title>
@@ -98,19 +131,29 @@ export default function LocationsTab() {
         <ChevronDown size={13} color="#0355DB" style={{ opacity: 0.7 }} />
       </Pressable>
 
-      {/* WHICH LEVEL the board ranks — the selector's four rungs, as tabs. */}
-      <View className="flex-row flex-wrap gap-2 mt-3">
-        {LEVELS.map(lv => (
-          <Chip key={lv.id} icon={lv.Icon} active={level === lv.id} onPress={() => setLevel(lv.id)}>
-            {lv.label}
-          </Chip>
-        ))}
+      {/* Search — the selector's field, over the ranked rows. */}
+      <View className="h-11 rounded-xl flex-row items-center gap-2 px-3 mt-3 bg-card dark:bg-white/5 border border-hairline dark:border-d-hairline">
+        <Search size={16} color="#93A0C8" />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder={t('common.search', { defaultValue: 'Search' })}
+          placeholderTextColor="#93A0C8"
+          accessibilityLabel={t('common.search', { defaultValue: 'Search' })}
+          className="flex-1 text-[15px] text-ink dark:text-d-ink"
+        />
+        {query ? (
+          <Pressable onPress={() => setQuery('')} accessibilityRole="button" accessibilityLabel={t('common.close', { defaultValue: 'Close' })}>
+            <X size={14} color="#93A0C8" />
+          </Pressable>
+        ) : null}
       </View>
 
-      {/* WHICH BOARD, and which way it is sorted. */}
+      {/* WHICH BOARD, and which way it is sorted — in the chip idiom, so they read as
+          siblings of the level tabs. */}
       <View className="flex-row flex-wrap gap-2 mt-3 mb-3">
         {BOARDS.map(b => (
-          <Chip key={b.id} active={board === b.id} onPress={() => setBoard(b.id)}>
+          <Chip key={b.id} icon={b.Icon} active={board === b.id} onPress={() => setBoard(b.id)}>
             {t(b.labelKey, { defaultValue: b.label })}
           </Chip>
         ))}
@@ -143,7 +186,7 @@ export default function LocationsTab() {
         </View>
       </Card>
 
-      {rows.map((r, i) => (
+      {shown.map((r, i) => (
         <RowCard
           key={r.key}
           row={r} rank={i + 1} metric={meta.metric} t={t}
@@ -155,6 +198,13 @@ export default function LocationsTab() {
             : () => { vibrate(8); setLevel(level === 'subBrand' ? 'state' : level === 'state' ? 'city' : 'store') }}
         />
       ))}
+
+      {shown.length === 0 && (
+        <Card className="!p-6 items-center">
+          <Body className="font-hk-semi text-ink dark:text-d-ink">{t('leads.emptyTitle', { defaultValue: 'Nothing here' })}</Body>
+          <Caption className="mt-0.5">{t('customers.emptySub', { defaultValue: 'Try another filter.' })}</Caption>
+        </Card>
+      )}
     </Screen>
   )
 }
@@ -172,24 +222,33 @@ function RowCard({ row, rank, metric, drillable, onDrill, onOpen, t }) {
   const pct = row[metric]
   // Both boards rank a PROBLEM — one colour rule for both, exactly the web thresholds.
   const tone = pct == null ? '#5F6878' : pct >= 50 ? '#DC2626' : pct >= 25 ? '#B45309' : '#15803D'
-  const sub = metric === 'missedPct'
+  const counts = metric === 'missedPct'
     ? t('network.ofCalls', { missed: row.missed, total: row.total, defaultValue: '{{missed}} missed of {{total}} calls' })
     : t('network.ofReviews', { negative: row.negative, total: row.reviews, defaultValue: '{{negative}} negative of {{total}} reviews' })
 
+  // The Location Selector's card rhythm: title, the context it sits in, then the facts.
+  const context = row.level === 'store'
+    ? `${row.city}, ${row.state}`
+    : row.level === 'city'
+      ? [row.subBrands.join(' · '), row.state].filter(Boolean).join(' · ')
+      : row.level === 'state'
+        ? row.subBrands.join(' · ')
+        : row.states.join(', ')
+  const meta = row.level === 'store'
+    ? [row.address, counts].filter(Boolean).join(' · ')
+    : `${t('stores.nStoresShort', { count: row.stores, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })} · ${counts}`
+
   return (
-    <Card onPress={drillable ? onDrill : onOpen} label={row.label} className="mb-2.5 !p-4">
-      <View className="flex-row items-center gap-3">
+    <Card onPress={drillable ? onDrill : onOpen} label={row.label} className="mb-2.5 !p-3.5">
+      <View className="flex-row items-start gap-3">
         <Text className="w-7 text-center text-[13px] font-hk-medium text-ink-3 dark:text-d-ink3">#{rank}</Text>
         <View className="flex-1 min-w-0">
           <View className="flex-row items-center gap-1.5">
             <MapPin size={11} color="#93A0C8" />
             <Body className="font-hk-semi text-ink dark:text-d-ink flex-1" numberOfLines={1}>{row.label}</Body>
           </View>
-          <Caption numberOfLines={1} className="mt-0.5">
-            {row.level !== 'store'
-              ? `${t('stores.nStoresShort', { count: row.stores, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })} · ${sub}`
-              : sub}
-          </Caption>
+          {context ? <Body className="mt-0.5" numberOfLines={1}>{context}</Body> : null}
+          <Caption className="mt-0.5" numberOfLines={1}>{meta}</Caption>
         </View>
         <Text className="text-[17px] font-hk-bold" style={{ color: tone }}>
           {pct == null ? '—' : `${pct}%`}

@@ -261,6 +261,9 @@ export function networkRows({ level = 'store', subBrand = null, state = null, ci
       negative += rs.filter(rv => rv.rating <= 2).length
     }
     const total = missed + answered
+    // The distinct context a group spans, so a card can print the same title/subtitle/
+    // meta rhythm the Location Selector uses without each screen re-deriving it.
+    const uniq = (fn) => [...new Set(members.map(fn))]
     return {
       key,
       level,
@@ -269,6 +272,10 @@ export function networkRows({ level = 'store', subBrand = null, state = null, ci
       stores: members.length,
       state: members[0].state,
       city: members[0].city,
+      subBrands: uniq(subBrandOf),
+      states: uniq(l => l.state),
+      cities: uniq(l => l.city),
+      address: level === 'store' ? members[0].address : null,
       missed, answered, total, recovered, reviews, negative,
       missedPct: total ? Math.round((missed / total) * 100) : null,
       negativePct: reviews ? Math.round((negative / reviews) * 100) : null,

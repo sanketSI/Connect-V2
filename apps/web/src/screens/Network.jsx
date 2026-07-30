@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronRight, ChevronLeft, ChevronDown, PhoneCall, PhoneIncoming, Star, ArrowDownWideNarrow, ArrowUpNarrowWide, MapPin, Lock, Repeat2, FileText, Store as StoreIcon, Building2, Map as MapIcon, Check } from 'lucide-react'
+import { ChevronRight, ChevronLeft, ChevronDown, PhoneCall, PhoneIncoming, Star, ArrowDownWideNarrow, ArrowUpNarrowWide, MapPin, Lock, Repeat2, FileText, Store as StoreIcon, Building2, Map as MapIcon, Check, Search, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   networkRows, rankRows, assignedStoreIds, assignedStores,
@@ -114,25 +114,60 @@ export default function Network({ onOpenProfile, onSwitchStore, store }) {
     )
   }
 
+  // Search over the ranked rows — every line a card prints, so what you can see you
+  // can find. Earns its place the moment a sub-brand has more shops than one screenful.
+  const [query, setQuery] = useState('')
+  const q = query.trim().toLowerCase()
+  const shown = q
+    ? rows.filter(r => [r.label, r.subBrands.join(' '), r.states.join(' '), r.cities.join(' '), r.address]
+      .filter(Boolean).join(' ').toLowerCase().includes(q))
+    : rows
+
   return (
     <ScreenScroll onRefresh={refresh}>
-      <LargeTitle
-        title={t('network.title', { defaultValue: 'Your locations' })}
-        sub={t('network.subtitle', {
-          count: storeIds.length,
-          defaultValue_one: '{{count}} store assigned to you',
-          defaultValue_other: '{{count}} stores assigned to you',
+      {/* THE SAME SHELL AS THE LOCATION SELECTOR — level tabs on top, then the title,
+          then search, then the filters. One screen grammar for "which slice of the
+          business am I looking at", whether you are choosing it or ranking it. */}
+      <div className="px-4 pt-1 pb-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
+        {LEVELS.map(lv => {
+          const on = level === lv.id
+          return (
+            <button
+              key={lv.id}
+              role="tab"
+              aria-selected={on}
+              onClick={() => { vibrate(6); setLevel(lv.id); setQuery('') }}
+              className="inline-flex items-center gap-1.5 px-3.5 h-10 rounded-full press shrink-0"
+              style={on
+                ? { background: '#0070FC', color: '#fff', border: '1px solid #0070FC' }
+                : { background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
+            >
+              <lv.Icon size={15} className="shrink-0" />
+              <span className="m-subhead font-semibold">{lv.label}</span>
+            </button>
+          )
         })}
-        right={<div className="flex items-center"><NotificationBell /><ProfileButton onClick={onOpenProfile} /></div>}
-      />
+      </div>
 
       <div className="px-4">
-        {/* THE SCOPE DROPDOWN — which node of Brand → sub-brand → state → city this
-            whole screen is summing. One control, one code path: it opens the same
-            drill the Home pill opens, so the two can never disagree about the tree. */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="m-title2 text-white">{t('network.title', { defaultValue: 'Your locations' })}</div>
+            <div className="m-caption text-white/55 mt-0.5">
+              {t('network.subtitle', {
+                count: storeIds.length,
+                defaultValue_one: '{{count}} store assigned to you',
+                defaultValue_other: '{{count}} stores assigned to you',
+              })}
+            </div>
+          </div>
+          <div className="flex items-center shrink-0"><NotificationBell /><ProfileButton onClick={onOpenProfile} /></div>
+        </div>
+
+        {/* The scope this screen sums — opens the selector, one code path with Home. */}
         <button
           onClick={() => { vibrate(6); onSwitchStore?.() }}
-          className="mb-3 inline-flex items-center gap-1.5 px-3 h-9 rounded-full press max-w-full"
+          className="mt-2.5 inline-flex items-center gap-1.5 px-3 h-9 rounded-full press max-w-full"
           style={{ background: 'rgba(0,112,252,.10)', border: '1px solid rgba(0,112,252,.40)', color: 'var(--si-primary-text)' }}
         >
           <MapPin size={13} className="shrink-0" />
@@ -144,17 +179,29 @@ export default function Network({ onOpenProfile, onSwitchStore, store }) {
           <ChevronDown size={13} className="shrink-0 opacity-70" />
         </button>
 
-        {/* WHICH LEVEL the board ranks — the selector's four rungs, as tabs. */}
-        <div className="flex items-center gap-2 mb-3 overflow-x-auto no-scrollbar">
-          {LEVELS.map(lv => (
-            <Chip key={lv.id} icon={lv.Icon} active={level === lv.id} onClick={() => { vibrate(6); setLevel(lv.id) }}>
-              {lv.label}
-            </Chip>
-          ))}
+        {/* Search — the selector's field, over the ranked rows. */}
+        <div
+          className="mt-3 h-11 rounded-xl flex items-center gap-2 px-3"
+          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-glass)' }}
+        >
+          <Search size={16} className="text-white/40 shrink-0" />
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder={t('common.search', { defaultValue: 'Search' })}
+            aria-label={t('common.search', { defaultValue: 'Search' })}
+            className="flex-1 bg-transparent text-white m-callout outline-none placeholder:text-white/30"
+          />
+          {query && (
+            <button onClick={() => setQuery('')} aria-label={t('common.close', { defaultValue: 'Close' })} className="press shrink-0">
+              <X size={14} className="text-white/40" />
+            </button>
+          )}
         </div>
 
-        {/* WHICH BOARD, and which way it is sorted. */}
-        <div className="flex items-center gap-2 mb-3 overflow-x-auto no-scrollbar">
+        {/* WHICH BOARD, and which way it is sorted — the screen's own filters, in the
+            selector's chip idiom so they read as siblings of the level tabs. */}
+        <div className="flex items-center gap-2 mt-3 mb-3 overflow-x-auto no-scrollbar">
           {BOARDS.map(b => (
             <Chip key={b.id} icon={b.Icon} active={board === b.id} onClick={() => { vibrate(6); setBoard(b.id) }}>
               {t(b.labelKey, { defaultValue: b.label })}
@@ -170,7 +217,7 @@ export default function Network({ onOpenProfile, onSwitchStore, store }) {
           </Chip>
         </div>
 
-        {/* The level's own totals, so a drill never loses the context it came from. */}
+        {/* The level's own totals — what the ranked rows below are a breakdown of. */}
         <Card className="!p-3.5 mb-3">
           <div className="grid grid-cols-3">
             <Stat value={totals.stores} label={t('stores.storesLabel', { defaultValue: 'Stores' })} />
@@ -186,7 +233,7 @@ export default function Network({ onOpenProfile, onSwitchStore, store }) {
         </Card>
 
         <div className="space-y-2.5">
-          {rows.map((r, i) => (
+          {shown.map((r, i) => (
             <motion.div
               key={r.key}
               initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
@@ -195,9 +242,6 @@ export default function Network({ onOpenProfile, onSwitchStore, store }) {
               <RowCard
                 row={r} rank={i + 1} metric={meta.metric}
                 drillable={false}
-                // A GROUP ROW IS NOT A DEAD END EITHER: tapping one drops the board to
-                // the level below, scoped to that group — the drill's usefulness without
-                // its ceremony, since the tabs can still jump anywhere directly.
                 onDrill={undefined}
                 onOpen={atStore
                   ? () => { vibrate(8); setOpenStore(r.key) }
@@ -205,6 +249,13 @@ export default function Network({ onOpenProfile, onSwitchStore, store }) {
               />
             </motion.div>
           ))}
+
+          {shown.length === 0 && (
+            <Card className="!p-6 text-center">
+              <div className="m-headline text-white">{t('leads.emptyTitle', { defaultValue: 'Nothing here' })}</div>
+              <div className="m-caption text-white/55 mt-0.5">{t('customers.emptySub', { defaultValue: 'Try another filter.' })}</div>
+            </Card>
+          )}
           <div className="h-4" />
         </div>
       </div>
@@ -566,29 +617,38 @@ function RowCard({ row, rank, metric, drillable, onDrill, onOpen }) {
   // Both boards rank a PROBLEM, so a high number is bad on either. One colour rule for
   // both keeps the reading identical when you switch between them.
   const tone = pct == null ? 'var(--text-tertiary)' : pct >= 50 ? '#DC2626' : pct >= 25 ? '#B45309' : '#15803D'
-  const sub = metric === 'missedPct'
+  const counts = metric === 'missedPct'
     ? t('network.ofCalls', { missed: row.missed, total: row.total, defaultValue: '{{missed}} missed of {{total}} calls' })
     : t('network.ofReviews', { negative: row.negative, total: row.reviews, defaultValue: '{{negative}} negative of {{total}} reviews' })
 
+  // The Location Selector's card rhythm: title, the context it sits in, then the facts.
+  const context = row.level === 'store'
+    ? `${row.city}, ${row.state}`
+    : row.level === 'city'
+      ? [row.subBrands.join(' · '), row.state].filter(Boolean).join(' · ')
+      : row.level === 'state'
+        ? row.subBrands.join(' · ')
+        : row.states.join(', ')
+  const meta = row.level === 'store'
+    ? [row.address, counts].filter(Boolean).join(' · ')
+    : `${t('stores.nStoresShort', { count: row.stores, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })} · ${counts}`
+
   return (
-    <Card onClick={drillable ? onDrill : onOpen} label={row.label} className="!p-4">
-      <div className="flex items-center gap-3">
-        <div className="w-7 shrink-0 m-subhead m-tabular text-center" style={{ color: 'var(--text-tertiary)' }}>#{rank}</div>
+    <Card onClick={drillable ? onDrill : onOpen} label={row.label} className="!p-3.5">
+      <div className="flex items-start gap-3">
+        <div className="w-7 shrink-0 m-subhead m-tabular text-center pt-0.5" style={{ color: 'var(--text-tertiary)' }}>#{rank}</div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <MapPin size={11} className="shrink-0" style={{ color: 'var(--text-tertiary)' }} />
             <span className="m-headline text-white truncate">{row.label}</span>
           </div>
-          <div className="m-caption text-white/55 mt-0.5 truncate">
-            {row.level !== 'store'
-              ? `${t('stores.nStoresShort', { count: row.stores, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })} · ${sub}`
-              : sub}
-          </div>
+          {context && <div className="m-callout text-white/70 mt-0.5 truncate">{context}</div>}
+          <div className="m-caption text-white/40 mt-0.5 truncate">{meta}</div>
         </div>
-        <div className="shrink-0 text-right">
+        <div className="shrink-0 text-right pt-0.5">
           <div className="m-title3 m-tabular" style={{ color: tone }}>{pct == null ? '—' : `${pct}%`}</div>
         </div>
-        {drillable && <ChevronRight size={16} className="text-white/45 shrink-0" />}
+        {drillable && <ChevronRight size={16} className="text-white/45 shrink-0 self-center" />}
       </div>
     </Card>
   )
