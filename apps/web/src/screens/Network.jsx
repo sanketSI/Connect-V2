@@ -1,9 +1,9 @@
 import React, { useCallback, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronRight, ChevronLeft, ChevronDown, PhoneCall, PhoneIncoming, Star, ArrowDownWideNarrow, ArrowUpNarrowWide, MapPin, Lock, Repeat2, FileText, Store as StoreIcon, Check } from 'lucide-react'
+import { ChevronRight, ChevronLeft, ChevronDown, PhoneCall, PhoneIncoming, Star, ArrowDownWideNarrow, ArrowUpNarrowWide, MapPin, Lock, Repeat2, FileText, Store as StoreIcon, Building2, Map as MapIcon, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
-  networkRows, rankRows, assignedStoreIds, assignedStores, assignmentLevels,
+  networkRows, rankRows, assignedStoreIds, assignedStores,
   getCalls, getLeads, LEAD_SOURCES, LEAD_STATUSES, updateLeadStatus, storeLabelOf, dayClock, relativeTime,
   getCustomers, getCustomerById,
 } from '@connect/core'
@@ -40,6 +40,17 @@ const BOARDS = [
   { id: 'reviews', metric: 'negativePct', Icon: Star, labelKey: 'network.boardReviews', label: 'Reviews' },
 ]
 
+// WHAT THE LEADERBOARD RANKS — the hierarchy's own rungs, the same four the Location
+// Selector names. This replaced a drill: you used to walk state → city → store and
+// walk back to compare, when the real question ("which CITY is losing calls") is a
+// choice of grouping, not a journey. Labels are English for now, as in the selector.
+const LEVELS = [
+  { id: 'subBrand', label: 'Sub-brand', Icon: Building2 },
+  { id: 'state', label: 'State', Icon: MapIcon },
+  { id: 'city', label: 'City', Icon: MapPin },
+  { id: 'store', label: 'Location', Icon: StoreIcon },
+]
+
 export default function Network({ onOpenProfile, onSwitchStore, store }) {
   const { t } = useTranslation()
   const version = useDataVersion()
@@ -63,28 +74,19 @@ export default function Network({ onOpenProfile, onSwitchStore, store }) {
   // setSessionAssignments), and a value cached against no dependency at all is the first
   // thing to go stale when someone signs out and back in as somebody else.
   const storeIds = useMemo(() => assignedStoreIds(), [version])
-  const levels = useMemo(() => assignmentLevels(storeIds), [storeIds])
 
-  // Where we are in the drill. `path` holds the choices made so far, so the depth of
-  // `path` picks the level out of `levels` — the two can never disagree.
-  const [path, setPath] = useState([])
+  const [level, setLevel] = useState('city')
   const [board, setBoard] = useState('calls')
   const [dir, setDir] = useState('desc')
-  // Which store's calls are open, at the last level of the drill. Store id, or null.
+  // Which store's calls are open. Store id, or null.
   const [openStore, setOpenStore] = useState(null)
 
-  const level = levels[Math.min(path.length, levels.length - 1)]
   const atStore = level === 'store'
   const meta = BOARDS.find(b => b.id === board)
 
-  const filter = useMemo(() => {
-    const f = { level, storeIds, win: 'all' }
-    levels.slice(0, path.length).forEach((lv, i) => {
-      if (lv === 'state') f.state = path[i]
-      if (lv === 'city') f.city = path[i]
-    })
-    return f
-  }, [level, levels, path, storeIds])
+  // The scope in session already narrows `storeIds`, so the leaderboard needs no path
+  // of its own — pick a level and it ranks every group at that level, inside scope.
+  const filter = useMemo(() => ({ level, storeIds, win: 'all' }), [level, storeIds])
 
   const rows = useMemo(
     () => rankRows(networkRows(filter), meta.metric, dir),
@@ -142,18 +144,14 @@ export default function Network({ onOpenProfile, onSwitchStore, store }) {
           <ChevronDown size={13} className="shrink-0 opacity-70" />
         </button>
 
-        {/* WHERE YOU ARE. Only shown once you have drilled — at the top level the
-            title already says it. */}
-        {path.length > 0 && (
-          <button
-            onClick={() => { vibrate(6); setPath(p => p.slice(0, -1)) }}
-            className="mb-3 inline-flex items-center gap-1.5 px-3 h-9 rounded-full press"
-            style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-glass)', color: 'var(--text-secondary)' }}
-          >
-            <ChevronLeft size={14} className="shrink-0" />
-            <span className="m-subhead font-medium truncate">{path[path.length - 1]}</span>
-          </button>
-        )}
+        {/* WHICH LEVEL the board ranks — the selector's four rungs, as tabs. */}
+        <div className="flex items-center gap-2 mb-3 overflow-x-auto no-scrollbar">
+          {LEVELS.map(lv => (
+            <Chip key={lv.id} icon={lv.Icon} active={level === lv.id} onClick={() => { vibrate(6); setLevel(lv.id) }}>
+              {lv.label}
+            </Chip>
+          ))}
+        </div>
 
         {/* WHICH BOARD, and which way it is sorted. */}
         <div className="flex items-center gap-2 mb-3 overflow-x-auto no-scrollbar">
@@ -196,12 +194,14 @@ export default function Network({ onOpenProfile, onSwitchStore, store }) {
             >
               <RowCard
                 row={r} rank={i + 1} metric={meta.metric}
-                drillable={!atStore}
-                onDrill={() => { vibrate(8); setPath(p => [...p, r.key]) }}
-                // THE LAST LEVEL IS NOT A DEAD END. Drilling state → city → store used
-                // to stop on a row that ranked a shop and then refused to say anything
-                // about it. At store level the row opens the calls behind the number.
-                onOpen={atStore ? () => { vibrate(8); setOpenStore(r.key) } : undefined}
+                drillable={false}
+                // A GROUP ROW IS NOT A DEAD END EITHER: tapping one drops the board to
+                // the level below, scoped to that group — the drill's usefulness without
+                // its ceremony, since the tabs can still jump anywhere directly.
+                onDrill={undefined}
+                onOpen={atStore
+                  ? () => { vibrate(8); setOpenStore(r.key) }
+                  : () => { vibrate(8); setLevel(level === 'subBrand' ? 'state' : level === 'state' ? 'city' : 'store') }}
               />
             </motion.div>
           ))}

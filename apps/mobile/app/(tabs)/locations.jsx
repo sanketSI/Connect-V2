@@ -1,18 +1,20 @@
-// YOUR LOCATIONS — ported from apps/web/src/screens/Network.jsx (the spec). The roll-up,
-// the drill-down and the two leaderboards. THE DEPTH IS NOT A SETTING: assignmentLevels()
-// derives it from what this manager holds — several states drill state → city → store.
-// Ranked worst first by default on both boards: the product exists to find the branch
-// losing business. The last level is a destination, not a peek — a store row opens the
-// calls behind the number (/store/[id]).
+// YOUR LOCATIONS — the roll-up and the two leaderboards, ranked WORST FIRST by default
+// because the product exists to find the branch losing business.
+//
+// WHAT IT RANKS is a choice of grouping, not a journey: the same four rungs the
+// Location Selector names (Sub-brand · State · City · Location) sit as tabs, so "which
+// city is losing calls" is one tap rather than a drill you have to walk back out of.
+// Rows respect the scope in session, so the board and the switcher always agree. A
+// group row drops to the level below; a store row opens the calls behind the number.
 import { useMemo, useState } from 'react'
 import { View, Text, Pressable } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import {
-  ChevronRight, ChevronLeft, ChevronDown, PhoneCall, Star, MapPin,
-  ArrowDownWideNarrow, ArrowUpNarrowWide,
+  ChevronRight, ChevronDown, PhoneCall, Star, MapPin, Building2, Store as StoreIcon,
+  Map as MapIcon, ArrowDownWideNarrow, ArrowUpNarrowWide,
 } from 'lucide-react-native'
-import { networkRows, rankRows, assignedStoreIds, assignmentLevels } from '@connect/core'
+import { networkRows, rankRows, assignedStoreIds } from '@connect/core'
 import { Screen, Card, Title, Body, Caption, Chip } from '../../components/UI.jsx'
 import { HeaderRight } from '../../components/Header.jsx'
 import { useSession } from '../../lib/session.js'
@@ -25,6 +27,14 @@ const BOARDS = [
   { id: 'reviews', metric: 'negativePct', Icon: Star, labelKey: 'network.boardReviews', label: 'Reviews' },
 ]
 
+// The hierarchy's rungs, same four the selector names. English for now, as there.
+const LEVELS = [
+  { id: 'subBrand', label: 'Sub-brand', Icon: Building2 },
+  { id: 'state', label: 'State', Icon: MapIcon },
+  { id: 'city', label: 'City', Icon: MapPin },
+  { id: 'store', label: 'Location', Icon: StoreIcon },
+]
+
 export default function LocationsTab() {
   const { t } = useTranslation()
   const router = useRouter()
@@ -32,25 +42,17 @@ export default function LocationsTab() {
   const version = useDataVersion()
 
   const storeIds = useMemo(() => assignedStoreIds(), [version])
-  const levels = useMemo(() => assignmentLevels(storeIds), [storeIds])
 
-  // Where we are in the drill: path depth picks the level, so they cannot disagree.
-  const [path, setPath] = useState([])
+  const [level, setLevel] = useState('city')
   const [board, setBoard] = useState('calls')
   const [dir, setDir] = useState('desc')
 
-  const level = levels[Math.min(path.length, levels.length - 1)]
   const atStore = level === 'store'
   const meta = BOARDS.find(b => b.id === board)
 
-  const filter = useMemo(() => {
-    const f = { level, storeIds, win: 'all' }
-    levels.slice(0, path.length).forEach((lv, i) => {
-      if (lv === 'state') f.state = path[i]
-      if (lv === 'city') f.city = path[i]
-    })
-    return f
-  }, [level, levels, path, storeIds])
+  // The scope in session already narrows storeIds, so the board needs no path of its
+  // own — pick a level and it ranks every group at that level, inside scope.
+  const filter = useMemo(() => ({ level, storeIds, win: 'all' }), [level, storeIds])
 
   const rows = useMemo(
     () => rankRows(networkRows(filter), meta.metric, dir),
@@ -79,9 +81,8 @@ export default function LocationsTab() {
         <HeaderRight />
       </View>
 
-      {/* THE SCOPE DROPDOWN — which node of Brand → sub-brand → state → city this
-          screen is summing. Opens the same drill the Home pill opens (one code path),
-          so the two can never disagree about the tree. */}
+      {/* THE SCOPE — what this whole screen is summing. Opens the same Location
+          Selector the Home pill opens (one code path), so the two can never disagree. */}
       <Pressable
         onPress={() => { vibrate(6); router.push('/switch') }}
         accessibilityRole="button"
@@ -97,19 +98,14 @@ export default function LocationsTab() {
         <ChevronDown size={13} color="#0355DB" style={{ opacity: 0.7 }} />
       </Pressable>
 
-      {/* WHERE YOU ARE — only once you have drilled; at the top the title says it. */}
-      {path.length > 0 && (
-        <Pressable
-          onPress={() => { vibrate(6); setPath(p => p.slice(0, -1)) }}
-          accessibilityRole="button"
-          className="flex-row items-center gap-1.5 self-start mt-3 h-9 px-3 rounded-pill bg-card dark:bg-white/5 border border-hairline dark:border-d-hairline"
-        >
-          <ChevronLeft size={14} color="#374151" />
-          <Text className="text-[13px] font-hk-medium text-ink-2 dark:text-d-ink2" numberOfLines={1}>
-            {path[path.length - 1]}
-          </Text>
-        </Pressable>
-      )}
+      {/* WHICH LEVEL the board ranks — the selector's four rungs, as tabs. */}
+      <View className="flex-row flex-wrap gap-2 mt-3">
+        {LEVELS.map(lv => (
+          <Chip key={lv.id} icon={lv.Icon} active={level === lv.id} onPress={() => setLevel(lv.id)}>
+            {lv.label}
+          </Chip>
+        ))}
+      </View>
 
       {/* WHICH BOARD, and which way it is sorted. */}
       <View className="flex-row flex-wrap gap-2 mt-3 mb-3">
@@ -132,7 +128,7 @@ export default function LocationsTab() {
         </Pressable>
       </View>
 
-      {/* The level's own totals, so a drill never loses the context it came from. */}
+      {/* The level's own totals — the context the ranked rows are a breakdown of. */}
       <Card className="!p-3.5 mb-3">
         <View className="flex-row">
           <LevelStat value={totals.stores} label={t('stores.storesLabel', { defaultValue: 'Stores' })} />
@@ -151,11 +147,12 @@ export default function LocationsTab() {
         <RowCard
           key={r.key}
           row={r} rank={i + 1} metric={meta.metric} t={t}
-          drillable={!atStore}
-          onDrill={() => setPath(p => [...p, r.key])}
-          // The last level is not a dead end: at store level the row opens the calls
-          // behind the number.
-          onOpen={atStore ? () => router.push(`/store/${r.key}`) : undefined}
+          drillable={false}
+          // A group row drops the board one level; a store row opens the calls behind
+          // the number. Neither is a dead end, and the tabs still jump anywhere.
+          onOpen={atStore
+            ? () => router.push(`/store/${r.key}`)
+            : () => { vibrate(8); setLevel(level === 'subBrand' ? 'state' : level === 'state' ? 'city' : 'store') }}
         />
       ))}
     </Screen>

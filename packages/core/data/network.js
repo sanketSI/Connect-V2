@@ -15,7 +15,7 @@
 // in locations.js (where it started) would close an import cycle, since calls/reviews
 // resolve their own storeId from the leaf seed constant instead.
 // ============================================================
-import { getStoreLocations, storeLabelOf } from './locations.js'
+import { getStoreLocations, storeLabelOf, subBrandOf } from './locations.js'
 import { assignedStores } from './assignments.js'
 import { CITY_STORES, REGIONAL_CITIES, STORE_TEAM } from '../lib/seedData.js'
 import { getCalls, callCounts, CANONICAL_MISSED_WINDOW } from './calls.js'
@@ -217,7 +217,7 @@ export function groupByStore(records = []) {
 /**
  * One row per group at a level of the hierarchy, for the multi-location roll-up.
  *
- * `level` is 'state' | 'city' | 'store'. Rows are built by summing the SAME per-store
+ * `level` is 'subBrand' | 'state' | 'city' | 'store'. Rows are built by summing the SAME per-store
  * numbers the store cards read, never the decorative fields on the location records —
  * a new level is exactly where that drift would creep back in.
  *
@@ -227,15 +227,20 @@ export function groupByStore(records = []) {
  * calls (or no reviews) gets null, not 0 — "none yet" and "none missed" are different
  * answers and a leaderboard that conflates them ranks an empty store top.
  */
-export function networkRows({ level = 'store', state = null, city = null, storeIds = null, win = CANONICAL_MISSED_WINDOW } = {}) {
+export function networkRows({ level = 'store', subBrand = null, state = null, city = null, storeIds = null, win = CANONICAL_MISSED_WINDOW } = {}) {
   const locs = assignedStores().filter(l => (
     (!storeIds || storeIds.includes(l.id)) &&
+    (!subBrand || subBrandOf(l) === subBrand) &&
     (!state || l.state === state) &&
     (!city || l.city === city)
   ))
   const rollups = new Map(storeRollups(win).map(r => [r.storeId, r]))
 
-  const keyOf = (l) => (level === 'state' ? l.state : level === 'city' ? l.city : l.id)
+  const keyOf = (l) => (
+    level === 'subBrand' ? subBrandOf(l)
+      : level === 'state' ? l.state
+        : level === 'city' ? l.city
+          : l.id)
   const groups = new Map()
   for (const l of locs) {
     const key = keyOf(l) || '—'
