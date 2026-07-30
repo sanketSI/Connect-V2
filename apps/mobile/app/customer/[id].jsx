@@ -13,7 +13,7 @@ import { useLocalSearchParams } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import { Check, PhoneCall, MessageCircle, PhoneIncoming, NotebookPen } from 'lucide-react-native'
 import {
-  getCustomerById, getLeads, LEAD_STATUSES, updateLeadStatus,
+  getCustomerById, resolveSubject, getLeads, LEAD_STATUSES, updateLeadStatus,
   getCustomerNotes, addCustomerNote, getCurrentUser,
 } from '@connect/core'
 import { Screen, Card, SectionLabel, Title, Body, Caption, Chip, PrimaryButton, GhostButton } from '../../components/UI.jsx'
@@ -33,12 +33,26 @@ export default function CustomerPage() {
   useDataVersion() // status + notes mutate in place; this page must follow
   const [noteText, setNoteText] = useState('')
 
-  const customer = getCustomerById(id)
+  // The id may be a real customer's OR a lead's — resolveSubject handles both, and
+  // projects the lead when the platform holds no contact record for it. That is why
+  // every Leads card can be tappable: 42 of the 62 leads here have no record, and
+  // gating the tap on one left those cards dead on tap.
+  const customer = resolveSubject(id, { getCustomerById })
   if (!customer) return null
 
-  // The lead this person is — status lives on the lead, not the customer record.
-  const lead = getLeads().find(l => l.customerId === customer.id) || null
-  const notes = getCustomerNotes(customer.id) || []
+  // The lead this person is — status lives on the lead, not the customer record. A
+  // projection names its own lead; a real record is found by back-reference.
+  const leads = getLeads()
+  const lead = (customer.leadId && leads.find(l => l.id === customer.leadId))
+    || leads.find(l => l.customerId === customer.id)
+    || null
+
+  // NOTHING MAY BE WRITTEN TO A PROJECTION. There is no record behind it, so a note
+  // saved here would be attached to an id the platform does not keep — the composer
+  // switches itself off rather than accepting text it cannot honour. The lead's STATUS
+  // is different: that lives on the lead, which is real, so it stays editable below.
+  const canNote = !customer.synthetic
+  const notes = canNote ? (getCustomerNotes(customer.id) || []) : []
   const digits = (customer.phone || '').replace(/\D/g, '')
   const bandCls = BAND_CLASS[customer.band] || BAND_CLASS.cold
 
@@ -68,16 +82,22 @@ export default function CustomerPage() {
         <View className="flex-1 min-w-0">
           <Title className="text-[24px] leading-7">{customer.name || customer.masked}</Title>
           {customer.name ? <Caption className="mt-0.5">{customer.masked}</Caption> : null}
-          <View className="flex-row items-center gap-2 mt-1.5">
-            <View className={`h-6 px-2 rounded-pill items-center justify-center ${bandCls.split(' ')[0]}`}>
-              <Text className={`text-[11px] font-hk-semi ${bandCls.split(' ')[1]}`}>
-                {t(BAND_KEY[customer.band] || 'common.cold', { defaultValue: customer.band })}
-              </Text>
+          {/* Both of these ARE the score, so both wait on it. Rendering the band
+              chip's `cold` fallback for a caller we never scored states a fact we do
+              not hold, and the caption printed "· null/100". Web's guard exactly. */}
+          {customer.cli != null && (
+            <View className="flex-row items-center gap-2 mt-1.5">
+              <View className={`h-6 px-2 rounded-pill items-center justify-center ${bandCls.split(' ')[0]}`}>
+                <Text className={`text-[11px] font-hk-semi ${bandCls.split(' ')[1]}`}>
+                  {t(BAND_KEY[customer.band] || 'common.cold', { defaultValue: customer.band })}
+                </Text>
+              </View>
+              {/* The key IS the whole sentence — "{{score}}/100 chance to buy" — so it
+                  takes the score and prints the number itself. Passing no score and
+                  appending "· 58/100" by hand read "/100 chance to buy · 58/100". */}
+              <Caption>{t('common.chanceToBuyTitle', { score: customer.cli })}</Caption>
             </View>
-            <Caption>
-              {t('common.chanceToBuyTitle', { defaultValue: 'Chance to buy' })} · {customer.cli}/100
-            </Caption>
-          </View>
+          )}
           <Caption className="mt-1">
             {customer.category ? t(customer.categoryKey, { defaultValue: customer.category }) : ''}
             {customer.value ? ` · ₹${(customer.value / 1000).toFixed(0)}K` : ''}
@@ -132,7 +152,10 @@ export default function CustomerPage() {
         <Caption>{t('customers.historyEmpty', { defaultValue: 'Nothing recorded against this customer yet.' })}</Caption>
       )}
 
-      {/* Notes — read them, add one. Persisted through the core storage seam. */}
+      {/* Notes — read them, add one. Persisted through the core storage seam. Absent
+          entirely for a projection: see canNote above. */}
+      {canNote && (
+      <>
       <SectionLabel>{t('customers.notes', { defaultValue: 'Notes' })}</SectionLabel>
       <Card>
         {notes.length === 0 && (
@@ -170,6 +193,8 @@ export default function CustomerPage() {
           <Text className="text-[13px] font-hk-semi text-white">{t('customers.addNote', { defaultValue: 'Add note' })}</Text>
         </Pressable>
       </Card>
+      </>
+      )}
 
       {/* Actions — stacked, primary first, full width. No wrap in any language. */}
       <View className="mt-5 gap-2">

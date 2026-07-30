@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import {
   networkRows, rankRows, assignedStoreIds, assignedStores,
   getCalls, getLeads, LEAD_SOURCES, LEAD_STATUSES, updateLeadStatus, storeLabelOf, dayClock, relativeTime,
-  getCustomers, getCustomerById,
+  getCustomers, getCustomerById, leadAsCustomer,
 } from '@connect/core'
 import { Card, Chip, CLIPill } from '../components/UI.jsx'
 import ScreenScroll from '../components/ScreenScroll.jsx'
@@ -419,51 +419,10 @@ function MissedRow({ lead }) {
 
 const SOURCE_ICON = { call: PhoneIncoming, form: FileText, walk_in: StoreIcon }
 
-/**
- * A LEAD, IN THE SHAPE OF A CUSTOMER.
- *
- * Most attended calls in this fixture were never matched to a contact — 17 of
- * Indiranagar's 27 — so half the list had a richer card and a way in, and half did not.
- * That split was the wrong thing to show a manager: the row is the same job either way.
- *
- * So a lead without a record is PROJECTED into the shape the customer card and detail
- * already read. Every field here is a fact the lead itself carries; nothing is invented.
- * What we do not have stays empty, and the parts of the UI that need it (the AI read,
- * the notes composer) switch themselves off rather than pretending.
- *
- * `synthetic` is the flag for that: there is no record behind this id, so nothing may be
- * written to it.
- */
-function leadAsCustomer(lead, call, reason) {
-  return {
-    id: `lead:${lead.id}`,
-    synthetic: true,
-    storeId: lead.storeId,
-    name: lead.name ?? null,
-    masked: lead.masked,
-    phone: null,
-    sourceType: lead.source,
-    leadStatus: lead.status,
-    cli: lead.cli ?? null,
-    value: lead.value ?? 0,
-    category: lead.category ?? null,
-    categoryKey: lead.categoryKey ?? null,
-    callCount: lead.repeats ?? 1,
-    firstSeenAtMs: lead.atMs,
-    lastSeenAtMs: lead.atMs,
-    reviewSent: false,
-    reviewed: false,
-    notes: [],
-    // The one thing we DO know happened, in the timeline's own shape.
-    timeline: [{
-      type: lead.outcome === 'attended' ? 'inbound' : 'missed',
-      at: dayClock(lead.atMs),
-      atMs: lead.atMs,
-      detail: reason || null,
-    }].filter(e => e.detail),
-    aiGuess: null,
-  }
-}
+// The projection that lets a lead with no contact record open the same card and detail
+// as a real one lives in core (leadAsCustomer), because native needs the identical
+// derivation and two copies of "what do we know about this caller" is how they start
+// disagreeing about it.
 
 /**
  * ATTENDED — the person, not just the call.
@@ -491,7 +450,7 @@ function AttendedRow({ lead, call, customer, sharedMask, onOpen }) {
   // ONE CARD FOR EVERY ROW. The real record when the platform holds it, the lead
   // projected into the same shape when it does not — so the list reads as one kind of
   // thing and every row leads somewhere, instead of two designs and half a feature.
-  const subject = customer || leadAsCustomer(lead, call, reason)
+  const subject = customer || leadAsCustomer(lead, reason)
 
   return (
     <CustomerCard

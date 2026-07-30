@@ -11,7 +11,9 @@ import { View, Text } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import { PhoneMissed, PhoneIncoming } from 'lucide-react-native'
-import { getStoreLocations, getMissedCalls, getConnectedCalls } from '@connect/core'
+import {
+  getStoreLocations, getMissedCalls, getConnectedCalls, resolveSubject, getCustomerById,
+} from '@connect/core'
 import { Screen, Card, Stat, SectionLabel, Title, Body, Caption } from '../../components/UI.jsx'
 import { BackButton, HeaderRight } from '../../components/Header.jsx'
 import { useDataVersion } from '../../lib/useDataVersion.js'
@@ -23,6 +25,20 @@ export default function StorePage() {
   const { id } = useLocalSearchParams()
   useDataVersion()
   const store = getStoreLocations().find(s => s.id === id)
+  // A call row opens the PERSON behind it — the contact record when the platform holds
+  // one, the lead projected into the same shape when it does not. `call:<id>` is the id
+  // a call-sourced lead carries, and resolveSubject also walks a customerId back to its
+  // lead, so nearly every row leads somewhere. The two calls in this fixture with no
+  // lead at all resolve to nothing and stay untappable — a card that opens a blank
+  // screen is worse than one that does not move.
+  const subjectPress = (c) => {
+    const key = `call:${c.id}`
+    const target = resolveSubject(key, { getCustomerById })
+      ? key
+      : (resolveSubject(c.customerId, { getCustomerById }) ? c.customerId : null)
+    return target ? () => router.push(`/customer/${encodeURIComponent(target)}`) : undefined
+  }
+
   const missed = getMissedCalls().filter(c => c.storeId === id)
   const attended = getConnectedCalls().filter(c => c.storeId === id)
 
@@ -77,7 +93,7 @@ export default function StorePage() {
       {attended.map(c => (
         <Card
           key={c.id}
-          onPress={c.customerId ? () => router.push(`/customer/${c.customerId}`) : undefined}
+          onPress={subjectPress(c)}
           label={c.masked}
           className="mb-2.5"
         >

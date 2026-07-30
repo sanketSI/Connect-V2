@@ -21,6 +21,7 @@
 import { getCalls, getCallById, setLeadStatus as setCallLeadStatus } from './calls.js'
 import { getCustomers, customerSourceType } from './customers.js'
 import { LEAD_STATUSES, LEAD_STATUS_IDS, LEAD_SOURCES } from './leadStatus.js'
+import { dayClock } from './format.js'
 
 const KNOWN = new Set(LEAD_STATUS_IDS)
 
@@ -142,4 +143,89 @@ export function updateLeadStatus(lead, status) {
   const cu = getCustomers().find(c => c.id === lead.recordId)
   if (cu) cu.leadStatus = status
   return cu ?? null
+}
+
+/**
+ * A LEAD, SHAPED LIKE A CUSTOMER — for the 37 of 62 leads this fixture holds no contact
+ * record for.
+ *
+ * The detail screens are built to read a customer. A lead the platform never matched to
+ * a person is still somebody worth ringing back, so rather than let its card be a dead
+ * tap it is projected into the customer shape and the screen reads what the LEAD knows.
+ * `synthetic: true` is the discriminator: a projection has no phone we can dial, no
+ * notes and no AI read, and screens must not invent any — everything absent here is
+ * absent because we genuinely do not hold it.
+ *
+ * Ported from leadAsCustomer() in apps/web/src/screens/Network.jsx and moved into core,
+ * because two platforms deriving "what do we know about this caller" separately is how
+ * they start disagreeing about it.
+ */
+export function leadAsCustomer(lead, detail = null) {
+  if (!lead) return null
+  return {
+    id: `lead:${lead.id}`,
+    synthetic: true,
+    leadId: lead.id,
+    storeId: lead.storeId,
+    name: lead.name ?? null,
+    masked: lead.masked,
+    phone: null,
+    sourceType: lead.source,
+    leadStatus: lead.status,
+    cli: lead.cli ?? null,
+    band: null,
+    value: lead.value ?? 0,
+    category: lead.category ?? null,
+    categoryKey: lead.categoryKey ?? null,
+    callCount: lead.repeats ?? 1,
+    firstSeenAtMs: lead.atMs,
+    lastSeenAtMs: lead.atMs,
+    reviewSent: false,
+    reviewed: false,
+    notes: [],
+    // The one thing we DO know happened, in the timeline's own shape. `detail` is the
+    // call's spoken reason when a caller supplied one; without it the lead's own
+    // category is the most we honestly know, carried as a KEY so the screen translates
+    // it rather than core guessing a language. No category means no entry at all — an
+    // undated blank line is worse than History saying plainly that nothing is recorded.
+    timeline: [{
+      type: lead.outcome === 'attended' ? 'inbound' : 'missed',
+      at: dayClock(lead.atMs),
+      atMs: lead.atMs,
+      detail: detail || lead.category || null,
+      detailKey: detail ? null : (lead.categoryKey || null),
+    }].filter(e => e.detail),
+    aiGuess: null,
+    aiGuessKey: null,
+  }
+}
+
+/**
+ * The subject a detail screen should show for `id`, whichever kind of id it is: a real
+ * customer, or a lead with no contact record projected into the same shape. One resolver
+ * so a card never has to know which case it is in before deciding whether to be tappable.
+ */
+export function resolveSubject(id, { getCustomerById }) {
+  if (!id) return null
+  const key = String(id)
+
+  // A real customer id, straight through — what the Customers book and the store page's
+  // attended rows pass.
+  const direct = getCustomerById?.(key)
+  if (direct) return direct
+
+  // Otherwise treat it as a LEAD id (with or without the projection's `lead:` prefix).
+  // Failing that, as a CUSTOMER id the lookup above could not honour — a caller that
+  // only holds a customerId (the store page's call rows) still deserves to arrive
+  // somewhere, and the lead pointing AT that customer is the way back.
+  const leadId = key.startsWith('lead:') ? key.slice(5) : key
+  const leads = getLeads()
+  const lead = leads.find(l => l.id === leadId) || leads.find(l => l.customerId === key)
+  if (!lead) return null
+
+  // The lead may name a customer — and five in this fixture name one that no longer
+  // exists. A DANGLING reference must not become a blank screen, so a failed lookup
+  // falls through to the projection rather than returning null.
+  const linked = lead.customerId ? getCustomerById?.(lead.customerId) : null
+  return linked || leadAsCustomer(lead)
 }

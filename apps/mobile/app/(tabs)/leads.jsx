@@ -64,7 +64,12 @@ export default function LeadsTab() {
     [allGroups, branch],
   )
 
-  const openLead = (lead) => { if (lead.customerId) router.push(`/customer/${lead.customerId}`) }
+  // EVERY card opens. It passes the LEAD id, not the customer id: core's
+  // resolveSubject() finds the real contact when one exists and projects the lead when
+  // it does not — 42 of the 62 leads in this fixture have no contact record, and five
+  // more name one that is gone. Gating the tap on lead.customerId left those cards dead
+  // on tap, which is exactly what iOS showed.
+  const openLead = (lead) => router.push(`/customer/${encodeURIComponent(lead.id)}`)
 
   return (
     <Screen onRefresh={refreshDerived}>
@@ -167,7 +172,7 @@ function LeadCard({ lead, t, onOpen }) {
   const src = LEAD_SOURCES.find(s => s.id === lead.source)
 
   return (
-    <Card onPress={lead.customerId ? onOpen : undefined} label={who} className="mb-2.5">
+    <Card onPress={onOpen} label={who} className="mb-2.5">
       <View className="flex-row items-start gap-3">
         <View className="w-11 h-11 rounded-2xl items-center justify-center bg-brand-blue/10">
           <Icon size={18} color="#0070FC" />
@@ -208,6 +213,10 @@ function MissedCallCard({ lead, t, onOpen }) {
     cool: 'bg-brand-blue/10 text-primaryText', cold: 'bg-ink-3/10 text-ink-3',
   }[band]
 
+  // Marks the lead CONTACTED first, then dials if we hold a number. The status change
+  // is the part that always matters — a masked-only caller still moved on in the
+  // lifecycle because the manager acted — so the button is never withheld for the want
+  // of digits. Same rule as the web card.
   function callBack() {
     vibrate(15)
     updateLeadStatus(lead, 'contacted')
@@ -215,7 +224,7 @@ function MissedCallCard({ lead, t, onOpen }) {
   }
 
   return (
-    <Card onPress={lead.customerId ? onOpen : undefined} label={who} className="mb-2.5 !p-0 overflow-hidden">
+    <Card onPress={onOpen} label={who} className="mb-2.5 !p-0 overflow-hidden">
       <View className="p-4 flex-row items-start gap-3">
         <View className="relative">
           <View className="w-11 h-11 rounded-2xl items-center justify-center bg-brand-blue/15 border border-brand-blue/30">
