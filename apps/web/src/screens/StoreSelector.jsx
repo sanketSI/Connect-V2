@@ -2,8 +2,8 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import { Building2, MapPin, ChevronRight, AlertTriangle, PhoneMissed, ShieldCheck, ChevronLeft, Navigation, Check, Layers } from 'lucide-react'
 import {
-  DEALER_PHONE, maskPhone,
-  BRAND_NAME, subBrandOf,
+  DEALER_PHONE, maskPhone, BRAND_NAME, subBrandOf,
+  scopeMatches, scopeOptions, toggleScope, scopeLabel, impliedAt,
 } from '@connect/core'
 import { PrimaryButton } from '../components/UI.jsx'
 import { vibrate } from '../lib/utils.js'
@@ -24,115 +24,68 @@ import { useTranslation, Trans } from 'react-i18next'
 // (a flagged store goes to verification first).
 // ===========================================================================
 
+// The four levels, in tree order. Captions are English for now — the catalogs carry
+// no structural level names, and reusing a near-miss key would be worse than a
+// labelled gap. Translator TODO alongside common.refreshing.
+const LEVELS = [
+  { key: 'subBrands', label: 'Sub-brand', Icon: Building2 },
+  { key: 'states', label: 'State', Icon: MapPin },
+  { key: 'cities', label: 'City', Icon: MapPin },
+  { key: 'locations', label: 'Location', Icon: Building2 },
+]
+
 export default function StoreSelector({ current, fullStores = [], onPick, onBack }) {
   const { t } = useTranslation()
+  const fullIds = fullStores.map(l => l.id)
 
   // ============================================================
-  // CASCADING SELECTS — one plain dropdown per level, stacked:
-  //   Brand → Sub-brand → State → City → Location.
-  // Each select narrows the ones below it, and picking a DEEPER level first
-  // back-fills its ancestors from the record (choose Mumbai with nothing else set and
-  // State becomes Maharashtra, Sub-brand becomes Tata Motors — the vice-versa rule).
-  // "All" at any level means "stop here": the scope is the deepest chosen node.
-  // Draft + Done, so several levels can be adjusted without being bounced to Home
-  // after every change. The default rule lives at sign-in and is untouched here.
+  // LEVEL TABS + SMART CHIPS. The rail on the left is the hierarchy; the pane on the
+  // right is that level's values, MULTI-SELECT — so a manager can hold Bangalore and
+  // Mysore at once, which no single-node drill could express. Empty at a level means
+  // "all of it", which is why the brand default needs no special case.
+  //
+  // All the rules (cascade, ancestor back-fill, pruning) live in core so this screen
+  // and the native one cannot drift.
   // ============================================================
   const seed = () => {
-    if (!current) return { subBrand: '', state: '', city: '', storeId: '' }
+    if (!current) return { subBrands: [], states: [], cities: [], locations: [] }
     if (!current.aggregate) {
-      return { subBrand: subBrandOf(current), state: current.state || '', city: current.city || '', storeId: current.id }
+      return { subBrands: [subBrandOf(current)], states: [current.state], cities: [current.city], locations: [current.id] }
     }
-    // Re-open showing the node in force: match the label against each level's values.
-    const bySub = fullStores.some(l => subBrandOf(l) === current.label)
-    const bySt = fullStores.some(l => l.state === current.label)
-    const byCity = fullStores.some(l => l.city === current.label)
-    if (byCity) {
-      const loc = fullStores.find(l => l.city === current.label)
-      return { subBrand: subBrandOf(loc), state: loc.state, city: current.label, storeId: '' }
-    }
-    if (bySt) {
-      const loc = fullStores.find(l => l.state === current.label)
-      return { subBrand: subBrandOf(loc), state: current.label, city: '', storeId: '' }
-    }
-    if (bySub) return { subBrand: current.label, state: '', city: '', storeId: '' }
-    return { subBrand: '', state: '', city: '', storeId: '' }
+    if (Array.isArray(current.sel)) return current.sel
+    return current.sel || { subBrands: [], states: [], cities: [], locations: [] }
   }
-  const [draft, setDraft] = React.useState(seed)
+  const [sel, setSel] = React.useState(seed)
+  const [level, setLevel] = React.useState('subBrands')
 
-  const matches = (d) => fullStores.filter(l =>
-    (!d.subBrand || subBrandOf(l) === d.subBrand)
-    && (!d.state || l.state === d.state)
-    && (!d.city || l.city === d.city))
+  const options = scopeOptions(fullIds, sel)
+  const matched = scopeMatches(fullIds, sel)
+  const label = scopeLabel(fullIds, sel)
+  const chips = options[level] || []
+  const chosen = sel[level] || []
 
-  const distinct = (list, fn) => [...new Set(list.map(fn))]
-  // Options per level: narrowed by the levels ABOVE it only, so a select never offers
-  // a value its ancestors exclude — and never hides values you could still jump to.
-  const subBrandOpts = distinct(fullStores, subBrandOf)
-  const stateOpts = distinct(matches({ subBrand: draft.subBrand }), l => l.state)
-  const cityOpts = distinct(matches({ subBrand: draft.subBrand, state: draft.state }), l => l.city)
-  const locOpts = matches(draft)
-
-  function pickLevel(level, value) {
-    vibrate(6)
-    setDraft(d => {
-      if (level === 'subBrand') return { subBrand: value, state: '', city: '', storeId: '' }
-      if (level === 'state') {
-        if (!value) return { ...d, state: '', city: '', storeId: '' }
-        const loc = fullStores.find(l => l.state === value && (!d.subBrand || subBrandOf(l) === d.subBrand))
-          || fullStores.find(l => l.state === value)
-        return { subBrand: subBrandOf(loc), state: value, city: '', storeId: '' }
-      }
-      if (level === 'city') {
-        if (!value) return { ...d, city: '', storeId: '' }
-        const loc = fullStores.find(l => l.city === value && (!d.state || l.state === d.state))
-          || fullStores.find(l => l.city === value)
-        return { subBrand: subBrandOf(loc), state: loc.state, city: value, storeId: '' }
-      }
-      // location — the record back-fills everything.
-      if (!value) return { ...d, storeId: '' }
-      const loc = fullStores.find(l => l.id === value)
-      return { subBrand: subBrandOf(loc), state: loc.state, city: loc.city, storeId: value }
-    })
+  /** For an unfiltered level: what the current picks span there. */
+  const impliedLabel = (key) => {
+    const all = (options[key] || []).length
+    const vals = impliedAt(fullIds, sel, key)
+    if (!vals.length || vals.length >= all) return t('common.all', { defaultValue: 'All' })
+    return vals.length === 1 ? vals[0] : `${vals.length} implied`
   }
 
-  // The scope the draft resolves to: the deepest chosen node.
-  const resolved = draft.storeId
-    ? { store: fullStores.find(l => l.id === draft.storeId) }
-    : draft.city
-      ? { name: draft.city, ids: matches(draft).map(l => l.id) }
-      : draft.state
-        ? { name: draft.state, ids: matches(draft).map(l => l.id) }
-        : draft.subBrand
-          ? { name: draft.subBrand, ids: matches(draft).map(l => l.id) }
-          : { name: BRAND_NAME, ids: fullStores.map(l => l.id) }
-
-  const summary = resolved.store
-    ? `${resolved.store.name} — ${resolved.store.branch}`
-    : `${resolved.name} · ${t('stores.nStoresShort', { count: resolved.ids.length, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })}`
-
-  const Select = ({ label, value, options, onChange, disabled }) => (
-    <div className="flex-1 min-w-0">
-      <div className="m-caption text-white/50 mb-1 ml-1">{label}</div>
-      <div
-        className="h-11 rounded-xl px-3 flex items-center"
-        style={{ background: 'var(--bg-subtle)', border: value ? '1px solid rgba(0,112,252,.45)' : '1px solid var(--border-glass)', opacity: disabled ? 0.5 : 1 }}
-      >
-        <select
-          value={value}
-          disabled={disabled}
-          onChange={e => onChange(e.target.value)}
-          aria-label={label}
-          className="w-full bg-transparent text-white m-callout outline-none appearance-none pr-5"
-          style={{ background: 'transparent' }}
-        >
-          <option value="" style={{ color: '#111' }}>{t('common.all', { defaultValue: 'All' })}</option>
-          {options.map(o => (
-            <option key={o.value} value={o.value} style={{ color: '#111' }}>{o.label}</option>
-          ))}
-        </select>
-      </div>
-    </div>
-  )
+  function apply() {
+    vibrate(10)
+    // One location and nothing broader → focus that store, the shape every screen
+    // already understands. Otherwise an aggregate carrying the resolved id set.
+    if (chosen.length === 0 && sel.locations.length === 1 && matched.length === 1) {
+      onPick?.({ store: matched[0], sel })
+      return
+    }
+    if (sel.locations.length === 1 && matched.length === 1) {
+      onPick?.({ store: matched[0], sel })
+      return
+    }
+    onPick?.({ name: label, ids: matched.map(l => l.id), sel })
+  }
 
   return (
     <div className="absolute inset-0 overflow-hidden" style={{ background: 'var(--bg-screen)' }}>
@@ -152,66 +105,95 @@ export default function StoreSelector({ current, fullStores = [], onPick, onBack
           </div>
         </div>
 
-        <motion.div initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.4 }} className="mt-5">
-          <div className="m-largeTitle text-white">{t('store.switchTitle')}</div>
-          <p className="m-body text-white/65 mt-2">
-            <Trans
-              i18nKey="store.switchSubtitle"
-              count={fullStores.length}
-              components={{ 1: <b className="text-white/90" /> }}
-              values={{ count: fullStores.length }}
-            />
-          </p>
-        </motion.div>
-
-        <div className="mt-5 flex-1 overflow-y-auto no-scrollbar">
-          {/* Brand is the fixed root — shown, not chooseable, because there is one. */}
-          <div className="m-caption text-white/50 mb-1 ml-1">{BRAND_NAME}</div>
-
-          <div className="flex gap-2 mb-3">
-            {/* Structural level names, English for now — translator TODO alongside
-                common.refreshing; wrong-meaning key reuse would be worse than untranslated. */}
-            <Select
-              label="Sub-brand"
-              value={draft.subBrand}
-              options={subBrandOpts.map(v => ({ value: v, label: v }))}
-              onChange={v => pickLevel('subBrand', v)}
-            />
-            <Select
-              label="State"
-              value={draft.state}
-              options={stateOpts.map(v => ({ value: v, label: v }))}
-              onChange={v => pickLevel('state', v)}
-            />
+        <div className="mt-4">
+          <div className="m-title2 text-white">{t('store.switchTitle')}</div>
+          <div className="m-caption text-white/50 mt-0.5">
+            {BRAND_NAME} · {t('stores.nStoresShort', { count: fullStores.length, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })}
           </div>
-          <div className="flex gap-2 mb-3">
-            <Select
-              label="City"
-              value={draft.city}
-              options={cityOpts.map(v => ({ value: v, label: v }))}
-              onChange={v => pickLevel('city', v)}
-            />
-            <Select
-              label="Location"
-              value={draft.storeId}
-              options={locOpts.map(l => ({ value: l.id, label: `${l.name} — ${l.branch}` }))}
-              onChange={v => pickLevel('store', v)}
-            />
-          </div>
-
-          {/* What the current picks resolve to — said before it is applied. */}
-          <div className="rounded-xl px-3.5 py-3 mb-4 flex items-center gap-2" style={{ background: 'rgba(0,112,252,.10)', border: '1px solid rgba(0,112,252,.30)' }}>
-            <MapPin size={14} style={{ color: 'var(--si-primary-text)' }} className="shrink-0" />
-            <span className="m-callout text-white truncate">{summary}</span>
-          </div>
-
-          <PrimaryButton icon={Check} onClick={() => { vibrate(10); onPick?.(resolved) }}>
-            {t('common.done', { defaultValue: 'Done' })}
-          </PrimaryButton>
         </div>
 
-        <div className="mt-3 m-footnote text-white/40 text-center flex items-center justify-center gap-1.5">
-          <ShieldCheck size={11} /> {t('store.maskedFooter')}
+        {/* THE SPLIT: level rail | value chips */}
+        <div className="mt-3 flex-1 min-h-0 flex gap-2.5">
+          <div className="w-[104px] shrink-0 space-y-1.5" role="tablist" aria-orientation="vertical">
+            {LEVELS.map(lv => {
+              const on = level === lv.key
+              const n = (sel[lv.key] || []).length
+              return (
+                <button
+                  key={lv.key}
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => { vibrate(6); setLevel(lv.key) }}
+                  className="w-full text-left rounded-xl px-2.5 py-2.5 press"
+                  style={{
+                    background: on ? 'rgba(0,112,252,.14)' : 'var(--bg-subtle)',
+                    border: on ? '1px solid rgba(0,112,252,.45)' : '1px solid var(--border-glass)',
+                  }}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <lv.Icon size={12} style={{ color: on ? '#0070FC' : 'var(--text-tertiary)' }} className="shrink-0" />
+                    <span className="m-caption font-semibold truncate" style={{ color: on ? 'var(--si-primary-text)' : 'var(--text-secondary)' }}>
+                      {lv.label}
+                    </span>
+                  </div>
+                  {/* Explicit picks in brand blue; otherwise what the OTHER levels
+                      imply for this one, muted — the vice-versa feedback, without
+                      pretending the manager filtered here. */}
+                  <div className="m-micro mt-0.5 truncate" style={{ color: n ? 'var(--si-primary-text)' : 'var(--text-tertiary)' }}>
+                    {n ? `${n} selected` : impliedLabel(lv.key)}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="flex-1 min-w-0 overflow-y-auto no-scrollbar" role="tabpanel">
+            <div className="flex flex-wrap gap-1.5">
+              {/* "All" clears this level — the honest way back to unfiltered. */}
+              <button
+                onClick={() => { vibrate(6); setSel(s => ({ ...s, [level]: [] })) }}
+                className="px-2.5 h-8 rounded-full m-caption font-semibold press"
+                style={chosen.length === 0
+                  ? { background: '#0070FC', color: '#fff', border: '1px solid #0070FC' }
+                  : { background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
+              >
+                {t('common.all', { defaultValue: 'All' })}
+              </button>
+              {chips.map(o => {
+                const on = chosen.includes(o.value)
+                return (
+                  <button
+                    key={o.value}
+                    aria-pressed={on}
+                    onClick={() => { vibrate(6); setSel(s => toggleScope(fullIds, s, level, o.value)) }}
+                    className="px-2.5 h-8 rounded-full m-caption font-semibold press inline-flex items-center gap-1 max-w-full"
+                    style={on
+                      ? { background: '#0070FC', color: '#fff', border: '1px solid #0070FC' }
+                      : { background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
+                  >
+                    {on && <Check size={11} className="shrink-0" />}
+                    <span className="truncate">{o.label}</span>
+                    {level !== 'locations' && <span className="opacity-60 m-tabular">{o.count}</span>}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* What the picks resolve to — named before it is applied. */}
+        <div className="mt-3 rounded-xl px-3.5 py-2.5 flex items-center gap-2" style={{ background: 'rgba(0,112,252,.10)', border: '1px solid rgba(0,112,252,.30)' }}>
+          <MapPin size={14} style={{ color: 'var(--si-primary-text)' }} className="shrink-0" />
+          <span className="m-callout text-white truncate flex-1">{label}</span>
+          <span className="m-caption text-white/60 shrink-0">
+            {t('stores.nStoresShort', { count: matched.length, defaultValue_one: '{{count}} store', defaultValue_other: '{{count}} stores' })}
+          </span>
+        </div>
+
+        <div className="mt-2.5">
+          <PrimaryButton icon={Check} disabled={matched.length === 0} onClick={apply}>
+            {t('common.done', { defaultValue: 'Done' })}
+          </PrimaryButton>
         </div>
       </div>
     </div>

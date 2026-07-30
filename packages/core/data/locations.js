@@ -204,6 +204,154 @@ export function makeScopeStore({ label, ids }) {
   return { id: AGGREGATE_STORE_ID, aggregate: true, label, ids }
 }
 
+// ============================================================
+// MULTI-SELECT SCOPE — the shape behind the level tabs + chips.
+//
+// A selection is four arrays: { subBrands, states, cities, locations }. An EMPTY array
+// at a level means "all of it" — so {} is the whole brand, and every filter is an
+// intersection of the non-empty ones. That single rule gives the cascade, the "All"
+// chip and the brand default for free, and it lets a manager compare Bangalore AND
+// Mysore, which the one-node drill never could.
+//
+// These are pure and live in core because web and native must agree exactly: if the
+// two platforms computed "which stores are in this scope" separately they would drift
+// the first time someone touched one of them.
+// ============================================================
+
+const inSel = (arr, v) => !arr || arr.length === 0 || arr.includes(v)
+
+/** The locations a selection resolves to, within `storeIds`. */
+export function scopeMatches(storeIds, sel = {}) {
+  const ids = storeIds || []
+  return getStoreLocations().filter(l =>
+    ids.includes(l.id)
+    && inSel(sel.subBrands, subBrandOf(l))
+    && inSel(sel.states, l.state)
+    && inSel(sel.cities, l.city)
+    && inSel(sel.locations, l.id))
+}
+
+/**
+ * What each level can offer, narrowed by the levels ABOVE it only — a level never
+ * hides values its own selection excludes, or you could not deselect them. Each option
+ * carries the store count it stands for.
+ */
+export function scopeOptions(storeIds, sel = {}) {
+  const pool = getStoreLocations().filter(l => (storeIds || []).includes(l.id))
+  const bySub = pool.filter(l => inSel(sel.subBrands, subBrandOf(l)))
+  const bySt = bySub.filter(l => inSel(sel.states, l.state))
+  const byCity = bySt.filter(l => inSel(sel.cities, l.city))
+  const group = (list, fn) => {
+    const by = new Map()
+    for (const l of list) {
+      const v = fn(l)
+      by.set(v, (by.get(v) || 0) + 1)
+    }
+    return [...by.entries()].map(([value, count]) => ({ value, label: value, count }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+  }
+  return {
+    subBrands: group(pool, subBrandOf),
+    states: group(bySub, l => l.state),
+    cities: group(bySt, l => l.city),
+    locations: byCity.map(l => ({ value: l.id, label: `${l.name} — ${l.branch}`, count: 1 })),
+  }
+}
+
+/** Drop selections that their own ancestors have made impossible. */
+export function pruneScope(storeIds, sel = {}) {
+  const pool = getStoreLocations().filter(l => (storeIds || []).includes(l.id))
+  const subBrands = (sel.subBrands || []).filter(v => pool.some(l => subBrandOf(l) === v))
+  const afterSub = pool.filter(l => inSel(subBrands, subBrandOf(l)))
+  const states = (sel.states || []).filter(v => afterSub.some(l => l.state === v))
+  const afterSt = afterSub.filter(l => inSel(states, l.state))
+  const cities = (sel.cities || []).filter(v => afterSt.some(l => l.city === v))
+  const afterCity = afterSt.filter(l => inSel(cities, l.city))
+  const locations = (sel.locations || []).filter(v => afterCity.some(l => l.id === v))
+
+  // SECOND PASS: drop selections that contribute NOTHING to what the scope resolves
+  // to. Back-filling ancestors and then deselecting the child left chips like
+  // "Maharashtra" lit while the scope was three Bangalore shops — the control would be
+  // lying about itself. A selection survives only if some matched store carries it.
+  // Skipped when the combination matches nothing, so an impossible state stays visible
+  // and fixable rather than silently resetting to the whole brand.
+  const resolved = { subBrands, states, cities, locations }
+  const hits = scopeMatches(storeIds, resolved)
+  if (!hits.length) return resolved
+  return {
+    subBrands: subBrands.filter(v => hits.some(l => subBrandOf(l) === v)),
+    states: states.filter(v => hits.some(l => l.state === v)),
+    cities: cities.filter(v => hits.some(l => l.city === v)),
+    locations: locations.filter(v => hits.some(l => l.id === v)),
+  }
+}
+
+/**
+ * Toggle one value, then prune.
+ *
+ * NO ANCESTOR BACK-FILL, and that is the whole design note. The single-select cascade
+ * back-filled ancestors so picking Mumbai showed Maharashtra — informative there.
+ * Under multi-select it is a trap: back-filling Karnataka when Bangalore is picked
+ * NARROWS the city options that back-fill just wrote the filter for, and Mumbai
+ * vanishes before it can be picked. Caught by driving the real screen.
+ *
+ * Each level is an independent filter and the scope is their intersection, so an
+ * unselected level genuinely means "all of it" and cross-branch selections work:
+ * cities = [Bangalore, Mumbai] resolves to four stores across two states. The ancestry
+ * a selection IMPLIES is still shown — see the rail's implied line — it is simply not
+ * written into the filter, because it was never the user's filter.
+ */
+export function toggleScope(storeIds, sel = {}, level, value) {
+  const next = {
+    subBrands: [...(sel.subBrands || [])],
+    states: [...(sel.states || [])],
+    cities: [...(sel.cities || [])],
+    locations: [...(sel.locations || [])],
+  }
+  const arr = next[level]
+  const at = arr.indexOf(value)
+  if (at >= 0) arr.splice(at, 1)
+  else arr.push(value)
+  return pruneScope(storeIds, next)
+}
+
+/**
+ * The values a resolved scope actually spans at one level — what the picks IMPLY,
+ * for a level the manager has not filtered themselves. Selecting Bangalore and Mumbai
+ * implies Karnataka and Maharashtra; the rail says so without pretending the manager
+ * chose them.
+ */
+export function impliedAt(storeIds, sel = {}, level) {
+  const hits = scopeMatches(storeIds, sel)
+  const fn = level === 'subBrands' ? subBrandOf
+    : level === 'states' ? (l => l.state)
+      : level === 'cities' ? (l => l.city)
+        : (l => `${l.name} — ${l.branch}`)
+  return [...new Set(hits.map(fn))]
+}
+
+/**
+ * What to call a selection: the deepest level that has picks, named. Several picks read
+ * as "Bangalore +1" — proper nouns and a numeral, so no catalog string is invented for
+ * a shape the catalogs have never had.
+ */
+export function scopeLabel(storeIds, sel = {}) {
+  const pool = getStoreLocations().filter(l => (storeIds || []).includes(l.id))
+  const pick = (arr, nameOf) => {
+    if (!arr || !arr.length) return null
+    const names = arr.map(nameOf)
+    return names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`
+  }
+  return pick(sel.locations, id => {
+    const l = pool.find(x => x.id === id)
+    return l ? `${l.name} — ${l.branch}` : id
+  })
+    || pick(sel.cities, v => v)
+    || pick(sel.states, v => v)
+    || pick(sel.subBrands, v => v)
+    || BRAND_NAME
+}
+
 /**
  * THE WHOLE TREE, FLATTENED FOR A DROPDOWN — Brand → sub-brand → state → city → store
  * as one indented list, every row selectable. This replaced the level-by-level drill:
