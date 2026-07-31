@@ -11,15 +11,157 @@ import { useState } from 'react'
 import { View, Text, TextInput, Pressable, Linking } from 'react-native'
 import { useLocalSearchParams } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { Check, PhoneCall, MessageCircle, PhoneIncoming, NotebookPen } from 'lucide-react-native'
+import {
+  Check, PhoneCall, MessageCircle, PhoneIncoming, NotebookPen,
+  UserPen, Pencil, X as XIcon, FileText,
+} from 'lucide-react-native'
 import {
   getCustomerById, resolveSubject, getLeads, LEAD_STATUSES, updateLeadStatus,
-  getCustomerNotes, addCustomerNote, getCurrentUser,
+  getCustomerNotes, addCustomerNote, updateCustomerNote, getCurrentUser,
+  recordedName, setRecordedName,
 } from '@connect/core'
 import { Screen, Card, SectionLabel, Title, Body, Caption, Chip, PrimaryButton, GhostButton } from '../../components/UI.jsx'
 import { BackButton, HeaderRight } from '../../components/Header.jsx'
 import { useDataVersion } from '../../lib/useDataVersion.js'
 import { vibrate, notifySuccess } from '../../lib/haptics.js'
+
+
+/**
+ * THE NAME THE MANAGER RECORDED (PM feedback 11).
+ *
+ * Read-only until tapped, because on most visits the manager is here to call somebody,
+ * not to edit a field — an always-open text input on the identity block turns the page
+ * into a form. `known` is the name the platform already holds; when it has one, this
+ * offers to correct it rather than pretending the field is empty.
+ */
+function NameField({ subjectId, current, known, t }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(current || known || '')
+
+  function commit() {
+    setRecordedName(subjectId, draft)
+    setEditing(false)
+    notifySuccess()
+  }
+
+  if (!editing) {
+    return (
+      <Pressable
+        onPress={() => { vibrate(6); setDraft(current || known || ''); setEditing(true) }}
+        accessibilityRole="button"
+        accessibilityLabel={t('customers.addName', { defaultValue: 'Full name' })}
+        className="flex-row items-center gap-1.5 self-start mt-2 h-8 px-2.5 rounded-pill bg-brand-blue/5 border border-hairline dark:border-d-hairline"
+      >
+        <UserPen size={12} color="#0355DB" />
+        <Text className="text-[12px] font-hk-semi text-primaryText dark:text-d-primaryText">
+          {/* Translator TODO — no catalog key for the empty prompt. */}
+          {current || known ? t('reviews.edit', { defaultValue: 'Edit' }) : 'Add name'}
+        </Text>
+      </Pressable>
+    )
+  }
+
+  return (
+    <View className="mt-2">
+      <TextInput
+        value={draft}
+        onChangeText={setDraft}
+        autoFocus
+        placeholder={t('customers.addNamePlaceholder', { defaultValue: 'Anand Rao' })}
+        placeholderTextColor="#93A0C8"
+        accessibilityLabel={t('customers.addName', { defaultValue: 'Full name' })}
+        onSubmitEditing={commit}
+        returnKeyType="done"
+        className="h-10 rounded-xl border border-hairline dark:border-d-hairline bg-screen dark:bg-white/5 px-3 text-[15px] text-ink dark:text-d-ink"
+      />
+      <View className="flex-row gap-2 mt-2">
+        <Pressable onPress={commit} accessibilityRole="button" className="h-8 px-3 rounded-pill bg-brand-blue items-center justify-center">
+          <Text className="text-[12px] font-hk-semi text-white">{t('common.save', { defaultValue: 'Save' })}</Text>
+        </Pressable>
+        <Pressable onPress={() => setEditing(false)} accessibilityRole="button" className="h-8 px-3 rounded-pill border border-hairline dark:border-d-hairline items-center justify-center">
+          <Text className="text-[12px] font-hk-semi text-ink-2 dark:text-d-ink2">{t('common.cancel', { defaultValue: 'Cancel' })}</Text>
+        </Pressable>
+      </View>
+    </View>
+  )
+}
+
+/**
+ * ONE NOTE — view-only by default, editable on demand (PM feedback 12).
+ *
+ * "the cursor automatically goes to the last endpoint. He starts editing the notes from
+ * where he left last edit" — so opening an edit puts the caret AFTER the existing text
+ * rather than selecting it all. On React Native that is `selection`, set once on mount:
+ * left to the platform default, Android drops the caret at index 0 and the dealer's next
+ * keystroke lands in front of everything he wrote last time.
+ *
+ * VIEW-ONLY IS THE DEFAULT STATE, not a separate mode to switch into: a note is read far
+ * more often than it is changed, and a page of open textareas is unreadable.
+ */
+function NoteRow({ note, customerId, t, className = '' }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(note.text)
+  // Set once when the edit opens, then cleared on the first selection change so the
+  // field goes back to being uncontrolled about its caret.
+  const [caret, setCaret] = useState(undefined)
+
+  function commit() {
+    if (!draft.trim()) return
+    updateCustomerNote(customerId, note.id, draft)
+    setEditing(false)
+    notifySuccess()
+  }
+
+  if (!editing) {
+    return (
+      <View className={className}>
+        <View className="flex-row items-start gap-2">
+          <Body className="flex-1">{note.text}</Body>
+          <Pressable
+            onPress={() => { vibrate(6); setDraft(note.text); setCaret({ start: note.text.length, end: note.text.length }); setEditing(true) }}
+            accessibilityRole="button"
+            accessibilityLabel={t('reviews.edit', { defaultValue: 'Edit' })}
+            hitSlop={10}
+          >
+            <Pencil size={13} color="#93A0C8" />
+          </Pressable>
+        </View>
+        <Caption className="mt-0.5">{note.author}</Caption>
+      </View>
+    )
+  }
+
+  return (
+    <View className={className}>
+      <TextInput
+        value={draft}
+        onChangeText={setDraft}
+        autoFocus
+        multiline
+        // THE CARET GOES TO THE END, not to index 0 and not selecting the whole note.
+        // `selection` is applied once, while the field is still unfocused; letting it
+        // track every keystroke would fight the dealer's own cursor moves.
+        selection={caret}
+        onSelectionChange={() => setCaret(undefined)}
+        selectTextOnFocus={false}
+        accessibilityLabel={t('reviews.edit', { defaultValue: 'Edit' })}
+        className="min-h-[64px] rounded-xl border border-brand-blue/40 bg-screen dark:bg-white/5 p-3 text-[15px] text-ink dark:text-d-ink"
+      />
+      <View className="flex-row gap-2 mt-2">
+        <Pressable onPress={commit} disabled={!draft.trim()} accessibilityRole="button"
+          className={`h-8 px-3 rounded-pill items-center justify-center ${draft.trim() ? 'bg-brand-blue' : 'bg-brand-blue/30'}`}>
+          <Text className="text-[12px] font-hk-semi text-white">{t('common.save', { defaultValue: 'Save' })}</Text>
+        </Pressable>
+        <Pressable onPress={() => { setDraft(note.text); setEditing(false) }} accessibilityRole="button"
+          className="h-8 px-3 rounded-pill border border-hairline dark:border-d-hairline items-center justify-center flex-row gap-1">
+          <XIcon size={11} color="#5F6878" />
+          <Text className="text-[12px] font-hk-semi text-ink-2 dark:text-d-ink2">{t('common.cancel', { defaultValue: 'Cancel' })}</Text>
+        </Pressable>
+      </View>
+      <Caption className="mt-1">{note.author}</Caption>
+    </View>
+  )
+}
 
 const BAND_KEY = { hot: 'common.hot', warm: 'common.warm', cool: 'common.cool', cold: 'common.cold' }
 const BAND_CLASS = {
@@ -53,6 +195,10 @@ export default function CustomerPage() {
   // is different: that lives on the lead, which is real, so it stays editable below.
   const canNote = !customer.synthetic
   const notes = canNote ? (getCustomerNotes(customer.id) || []) : []
+  // The name the manager recorded is an OVERLAY, so unlike notes it works on a projection
+  // too — and a projection is exactly where it matters most, because a caller with no
+  // contact record has no name from anywhere else. See setRecordedName in core.
+  const ownName = recordedName(customer.id)
   const digits = (customer.phone || '').replace(/\D/g, '')
   const bandCls = BAND_CLASS[customer.band] || BAND_CLASS.cold
 
@@ -102,6 +248,11 @@ export default function CustomerPage() {
             {customer.category ? t(customer.categoryKey, { defaultValue: customer.category }) : ''}
             {customer.value ? ` · ₹${(customer.value / 1000).toFixed(0)}K` : ''}
           </Caption>
+          {/* WHO IS THIS? — the manager's own answer. Most callers arrive as a masked
+              number and nothing else, so this is frequently the first and only name
+              anyone will ever have for them. Inline under the identity because it IS
+              the identity, not a field buried in a form further down. */}
+          <NameField subjectId={customer.id} current={ownName} known={customer.name} t={t} />
         </View>
       </View>
 
@@ -152,8 +303,32 @@ export default function CustomerPage() {
         <Caption>{t('customers.historyEmpty', { defaultValue: 'Nothing recorded against this customer yet.' })}</Caption>
       )}
 
-      {/* Notes — read them, add one. Persisted through the core storage seam. Absent
-          entirely for a projection: see canNote above. */}
+      {/* CUSTOMER NOTES — the customer's OWN words, typed into the enquiry form on the
+          microsite. Conditional by nature: only a form lead has one (nobody types a
+          description into a phone call), so on every other source this renders nothing
+          rather than an empty heading. Read-only and visually distinct from the
+          manager's notes below — this is evidence, not a working pad. */}
+      {customer.micrositeNote ? (
+        <>
+          {/* Translator TODO: the catalogs carry no key for the customer's own form
+              text. English literal for now, same precedent as the selector captions. */}
+          <SectionLabel>Customer notes</SectionLabel>
+          <Card className="bg-brand-blue/5">
+            <View className="flex-row items-start gap-3">
+              <View className="w-8 h-8 rounded-lg bg-brand-blue/10 items-center justify-center">
+                <FileText size={14} color="#0355DB" />
+              </View>
+              <View className="flex-1 min-w-0">
+                <Body className="text-ink dark:text-d-ink">{customer.micrositeNote}</Body>
+                <Caption className="mt-1">From the enquiry form on your microsite</Caption>
+              </View>
+            </View>
+          </Card>
+        </>
+      ) : null}
+
+      {/* Notes — read them, add one, edit one. Persisted through the core storage seam.
+          Absent entirely for a projection: see canNote above. */}
       {canNote && (
       <>
       <SectionLabel>{t('customers.notes', { defaultValue: 'Notes' })}</SectionLabel>
@@ -170,10 +345,11 @@ export default function CustomerPage() {
           </View>
         )}
         {notes.map((n, i) => (
-          <View key={n.id || i} className={i > 0 || notes.length === 0 ? 'mt-3 pt-3 border-t border-hairline dark:border-d-hairline' : ''}>
-            <Body>{n.text}</Body>
-            <Caption className="mt-0.5">{n.author}</Caption>
-          </View>
+          <NoteRow
+            key={n.id || i}
+            note={n} customerId={customer.id} t={t}
+            className={i > 0 || notes.length === 0 ? 'mt-3 pt-3 border-t border-hairline dark:border-d-hairline' : ''}
+          />
         ))}
         <TextInput
           value={noteText}

@@ -3,7 +3,8 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   Search, Users, ChevronRight, Sparkles, PhoneMissed, PhoneIncoming, PhoneOutgoing,
   Link as LinkIcon, Star as StarIcon, PhoneCall, MessageCircle, Lock as LockIcon, Flame,
-  NotebookPen, Copy, Send, Plus, Check, Info, AlertTriangle, UserPlus, Mail, MapPin, User as UserIcon
+  NotebookPen, Copy, Send, Plus, Check, Info, AlertTriangle, UserPlus, Mail, MapPin, User as UserIcon,
+  Pencil, UserPen, FileText
 } from 'lucide-react'
 import { LargeTitle } from '../components/TopBar.jsx'
 import { TimelineRow } from '../components/Timeline.jsx'
@@ -16,6 +17,7 @@ import { useDataVersion } from '../lib/useDataVersion.js'
 import { useTranslation } from 'react-i18next'
 import {
   getCustomers, groupByStore, getCustomerById, getCustomerNotes, addCustomerNote, addCustomer,
+  updateCustomerNote, recordedName, setRecordedName,
   customerDialDigits, isIndianMobile, isEmailAddress, isManuallyAdded,
   customerSourceType, customerSourceKey, CUSTOMER_INTENTS, assignedStores,
   getCurrentUser, rupees, askAI, relativeTime, calendarDate,
@@ -991,6 +993,11 @@ Return ONE sentence only.`,
               {t('common.chanceToBuyTitle', { score: customer.cli })}
             </div>
           )}
+          {/* WHO IS THIS? — the manager's own answer (PM feedback 11). Most callers
+              arrive as a masked number and nothing else, so this is often the first and
+              only name anyone will ever hold for them. It sits in the identity block
+              because it IS the identity, not a field buried in a form below. */}
+          <NameField subjectId={customer.id} known={customer.name} />
         </div>
         {/* self-start: the pill labels the NAME, so it lines up with it rather than
             drifting to the middle of a three-line block. */}
@@ -1049,6 +1056,33 @@ Return ONE sentence only.`,
           to is the present tense, and it belongs above the past. Empty on the Customers
           screen, which has a customer but no lead to move. */}
       {beforeHistory}
+
+      {/* CUSTOMER NOTES — the customer's OWN words, typed into the enquiry form on the
+          microsite (PM feedback 13). Conditional by nature: only a form lead carries one,
+          because nobody types a description into a phone call and a walk-in is recorded
+          by the manager. Absent entirely otherwise, rather than an empty heading.
+          Read-only and tinted differently from the manager's notes below — this is
+          evidence of what the customer asked for, not a working pad.
+          Translator TODO: the catalogs carry no key for the customer's own form text. */}
+      {customer.micrositeNote && (
+        <div className="mt-5">
+          <div className="m-headline text-white mb-2">Customer notes</div>
+          <Card className="!p-3.5">
+            <div className="flex items-start gap-3">
+              <div
+                className="w-9 h-9 rounded-xl grid place-items-center shrink-0"
+                style={{ background: 'rgba(0,112,252,.10)', border: '1px solid rgba(0,112,252,.30)' }}
+              >
+                <FileText size={15} style={{ color: '#0070FC' }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="m-body text-white/90 whitespace-pre-wrap">{customer.micrositeNote}</p>
+                <div className="m-caption text-white/55 mt-2">From the enquiry form on your microsite</div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* History timeline */}
       <div className="mt-5">
@@ -1234,6 +1268,67 @@ function DetailRow({ icon: Icon, label, children, last }) {
  * the header row it expands from already says Notes, and the whole sheet is already
  * about X.
  */
+/**
+ * THE NAME THE MANAGER RECORDED (PM feedback 11).
+ *
+ * Read-only until tapped: on most visits the manager is here to ring somebody, not to
+ * edit a field, and an always-open input in the identity block turns the page into a
+ * form. Stored as an OVERLAY keyed by subject id (see setRecordedName in core), which is
+ * what lets it work on a PROJECTED lead — the callers with no contact record are exactly
+ * the ones nobody has a name for.
+ */
+export function NameField({ subjectId, known }) {
+  const { t } = useTranslation()
+  const [editing, setEditing] = useState(false)
+  const own = recordedName(subjectId)
+  const [draft, setDraft] = useState(own || known || '')
+
+  function save() {
+    setRecordedName(subjectId, draft)
+    vibrate(12)
+    setEditing(false)
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => { vibrate(6); setDraft(own || known || ''); setEditing(true) }}
+        className="mt-1.5 inline-flex items-center gap-1.5 h-8 px-2.5 rounded-full m-micro press md-state"
+        style={{ background: 'rgba(0,112,252,.10)', border: '1px solid rgba(0,112,252,.28)', color: 'var(--si-primary-text)' }}
+      >
+        <UserPen size={12} />
+        {/* Translator TODO — no catalog key for the empty prompt. */}
+        {own || known ? t('reviews.edit', { defaultValue: 'Edit' }) : 'Add name'}
+      </button>
+    )
+  }
+
+  return (
+    <div className="mt-2">
+      <input
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        autoFocus
+        maxLength={80}
+        placeholder={t('customers.addNamePlaceholder', { defaultValue: 'Anand Rao' })}
+        aria-label={t('customers.addName', { defaultValue: 'Full name' })}
+        onKeyDown={e => { if (e.key === 'Enter') save() }}
+        className="w-full h-10 rounded-xl px-3 bg-transparent text-white m-body outline-none placeholder:text-white/35"
+        style={{ border: '1px solid var(--border-glass-strong)' }}
+      />
+      <div className="flex items-center gap-2 mt-2">
+        <button type="button" onClick={save} className="on-dark h-8 px-3 rounded-full m-subhead font-semibold text-white press" style={{ background: '#0070FC' }}>
+          {t('common.save', { defaultValue: 'Save' })}
+        </button>
+        <button type="button" onClick={() => setEditing(false)} className="h-8 px-3 rounded-full m-subhead text-white/60 press">
+          {t('common.cancel', { defaultValue: 'Cancel' })}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function NotesPanel({ customer, notes, canNote = true, onAdded }) {
   const { t } = useTranslation()
   const [draft, setDraft] = useState('')
@@ -1286,16 +1381,105 @@ function NotesPanel({ customer, notes, canNote = true, onAdded }) {
       {notes.length > 0 && (
         <div className="mt-3 space-y-2.5">
           {notes.map(n => (
-            <div key={n.id} className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-glass)' }}>
-              <p className="m-body text-white/90 whitespace-pre-wrap">{n.text}</p>
-              {/* relativeTime, not dayClock: a note has no frozen string to fall back on,
-                  and a note history reads as a feed. It also refuses to claim a wall-clock
-                  time the seed's offsets can't honestly back (see TimelineRow). */}
-              <div className="m-caption text-white/55 mt-2">{n.author} · {relativeTime(n.atMs)}</div>
-            </div>
+            <NoteRow key={n.id} note={n} customerId={customer.id} canEdit={canNote} onSaved={onAdded} />
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * ONE NOTE — view-only by default, editable on demand (PM feedback 12).
+ *
+ * "if the dealer is frequently updating the notes, the cursor automatically goes to the
+ * last endpoint. He starts editing the notes from where he left last edit, with also a
+ * view-only option of notes as well."
+ *
+ * So: VIEW-ONLY IS THE DEFAULT — a note is read far more often than it is changed, and a
+ * list of open textareas is unreadable — and opening an edit drops the caret AFTER the
+ * existing text rather than selecting it. Without setSelectionRange the browser restores
+ * whatever offset it last had, which after a re-render is 0: the dealer's next keystroke
+ * lands in front of everything they wrote yesterday.
+ *
+ * Editing keeps the note's id, author and ORIGINAL TIME (see updateCustomerNote). An edit
+ * is a correction, not a new note, and must not jump to the top of a newest-first list.
+ */
+export function NoteRow({ note, customerId, canEdit, onSaved }) {
+  const { t } = useTranslation()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(note.text)
+  const ref = useRef(null)
+
+  // Caret to the end, once, after the textarea actually exists.
+  useEffect(() => {
+    if (!editing) return
+    const el = ref.current
+    if (!el) return
+    el.focus()
+    const end = el.value.length
+    el.setSelectionRange(end, end)
+  }, [editing])
+
+  function save() {
+    if (!draft.trim()) return
+    updateCustomerNote(customerId, note.id, draft)
+    vibrate(12)
+    setEditing(false)
+    onSaved?.()
+  }
+
+  if (!editing) {
+    return (
+      <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-glass)' }}>
+        <div className="flex items-start gap-2">
+          <p className="m-body text-white/90 whitespace-pre-wrap flex-1 min-w-0">{note.text}</p>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => { vibrate(6); setDraft(note.text); setEditing(true) }}
+              aria-label={t('reviews.edit', { defaultValue: 'Edit' })}
+              className="shrink-0 -m-2 p-2 press text-white/40 hover:text-white/70"
+            >
+              <Pencil size={13} />
+            </button>
+          )}
+        </div>
+        {/* relativeTime, not dayClock: a note has no frozen string to fall back on,
+            and a note history reads as a feed. It also refuses to claim a wall-clock
+            time the seed's offsets can't honestly back (see TimelineRow). */}
+        <div className="m-caption text-white/55 mt-2">{note.author} · {relativeTime(note.atMs)}</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid rgba(0,112,252,.45)' }}>
+      <textarea
+        ref={ref}
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        className="w-full bg-transparent text-white m-body outline-none resize-none min-h-[64px]"
+      />
+      <div className="flex items-center justify-end gap-2 mt-1">
+        <button
+          type="button"
+          onClick={() => { setDraft(note.text); setEditing(false) }}
+          className="h-9 px-3 rounded-full m-subhead text-white/60 press"
+        >
+          {t('common.cancel', { defaultValue: 'Cancel' })}
+        </button>
+        <button
+          type="button"
+          onClick={save}
+          disabled={!draft.trim()}
+          className={cn('on-dark h-9 px-4 rounded-full m-subhead font-semibold text-white press md-state', !draft.trim() && 'opacity-40')}
+          style={{ background: '#0070FC' }}
+        >
+          {t('common.save', { defaultValue: 'Save' })}
+        </button>
+      </div>
+      <div className="m-caption text-white/45 mt-1">{note.author} · {relativeTime(note.atMs)}</div>
     </div>
   )
 }

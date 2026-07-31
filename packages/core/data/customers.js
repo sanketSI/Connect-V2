@@ -61,6 +61,83 @@ function persistNote(customerId, note) {
   writeStoredNotes(all)
 }
 
+/** Rewrite the body of one already-stored note, leaving its id, author and time alone. */
+function persistNoteEdit(customerId, noteId, text) {
+  const all = readStoredNotes()
+  const list = Array.isArray(all[customerId]) ? all[customerId] : []
+  const i = list.findIndex(n => n && n.id === noteId)
+  // A SEEDED note has no stored row yet — editing one has to create the row rather than
+  // silently no-op, or the edit survives until reload and then vanishes.
+  all[customerId] = i === -1
+    ? [...list, { id: noteId, text, atMs: Date.now(), author: getCurrentUser().name }]
+    : list.map((n, k) => (k === i ? { ...n, text } : n))
+  writeStoredNotes(all)
+}
+
+// ============================================================
+// THE NAME A MANAGER RECORDED — an OVERLAY, not a record edit.
+//
+// PM feedback 11: "In the lead detail page, add a field where the store manager can
+// record the name of the lead or customer as well." Most callers here are a masked
+// number and nothing else — 42 of 62 leads have no contact record at all — so the name
+// is very often the FIRST thing anyone learns about them, and it arrives from the
+// manager, not from the platform.
+//
+// It is kept in its own store, keyed by SUBJECT id, for one reason: a projected lead
+// (`lead:call:mc-04`, see leadAsCustomer) has no record to write a name onto, and those
+// are precisely the callers most likely to need one. An overlay works for both kinds of
+// subject; a field on the customer row would have worked for 20 of 62.
+//
+// Where a real record DOES exist the in-memory copy is updated too, so the name a
+// manager just typed shows on the card they came from rather than only on the detail.
+// ============================================================
+
+const NAMES_KEY = 'connect-subject-names'
+// Distinct from the NAME_MAX the add-customer form validates against: this is the
+// manager's shorthand for an unidentified caller, not a validated contact record.
+const RECORDED_NAME_MAX = 80
+
+/** `{ [subjectId]: name }`. Never throws: storage may be blocked. */
+function readStoredNames() {
+  try {
+    const raw = storage.getItem(NAMES_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+/** The manager-recorded name for any subject id, or null. Safe to call for any id. */
+export function recordedName(subjectId) {
+  const v = readStoredNames()[String(subjectId)]
+  return typeof v === 'string' && v.trim() ? v.trim() : null
+}
+
+/**
+ * Record (or clear) the name for a subject — a real customer id OR a projected lead id.
+ *
+ * Passing an empty string CLEARS it, which is the only way back to "we don't know who
+ * this is" after a mistyped name. Returns the stored name, or null when cleared.
+ */
+export function setRecordedName(subjectId, name) {
+  const id = String(subjectId ?? '')
+  if (!id) return null
+  const clean = String(name ?? '').trim().slice(0, RECORDED_NAME_MAX)
+  const all = readStoredNames()
+  if (clean) all[id] = clean
+  else delete all[id]
+  storage.setItem(NAMES_KEY, JSON.stringify(all))
+
+  // Mirror onto the live record when there is one, so lists re-read it without a reload.
+  const c = getCustomerById(id)
+  if (c) c.name = clean || null
+
+  emitChange()
+  return clean || null
+}
+
 /** Stored notes for one customer, rebuilt into live records against THIS session's clock. */
 function restoredNotesFor(customerId) {
   const list = readStoredNotes()[customerId]
@@ -378,6 +455,43 @@ export function addCustomerNote(customerId, text, author) {
     }).throwOnError().then(null, (e) => console.warn('[data] supabase addCustomerNote failed:', e))
   }
   // Pushed onto a shared array in place — invisible to React until we say so.
+  emitChange()
+  return note
+}
+
+/**
+ * Rewrite a note the manager already wrote.
+ *
+ * PM feedback 12: a dealer who keeps a running note on a lead was having to append a
+ * second, third, fourth note because there was no way to change the first — so the
+ * record of one conversation arrived as a stack of fragments in reverse order.
+ *
+ * The note keeps its ID, ITS AUTHOR AND ITS ORIGINAL TIME. An edit is not a new note and
+ * must not jump to the top of a list sorted newest-first; the manager is correcting what
+ * they wrote at 3pm, not writing something new now.
+ *
+ * An empty body is a no-op, not a delete — deleting a note is a different, destructive
+ * action and is not something a stray backspace should be able to do.
+ *
+ * @returns the updated note, or null if it could not be found.
+ */
+export function updateCustomerNote(customerId, noteId, text) {
+  const customer = getCustomerById(customerId)
+  const body = String(text ?? '').trim()
+  if (!customer || !body || !noteId) return null
+
+  const note = (customer.notes || []).find(n => n.id === noteId)
+  if (!note) return null
+  if (note.text === body) return note
+
+  note.text = body
+  persistNoteEdit(customerId, noteId, body)
+
+  const sb = liveClient()
+  if (sb) {
+    sb.from('customer_notes').update({ body }).eq('id', noteId)
+      .throwOnError().then(null, (e) => console.warn('[data] supabase updateCustomerNote failed:', e))
+  }
   emitChange()
   return note
 }

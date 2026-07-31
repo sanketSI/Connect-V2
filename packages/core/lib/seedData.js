@@ -1207,6 +1207,10 @@ export const CUSTOMERS = [
   // standing at the counter has by definition been contacted.
   {
     id: 'lead-frm-01',
+    // What the customer typed into the enquiry form on the store's microsite — their
+    // own words, not ours. Form leads are the only source that carries one: nobody
+    // types a description into a phone call. See micrositeNote in leads.js.
+    micrositeNote: 'Looking for a double-door fridge, around 250-300 litres. Budget is about 55k. Do you have the Samsung one in stock at Indiranagar? I can come by this weekend.',
     storeId: 'lks-ind',
     name: 'Nikhil Barve',
     phone: '9845066120',
@@ -1222,6 +1226,10 @@ export const CUSTOMERS = [
   },
   {
     id: 'lead-frm-02',
+    // What the customer typed into the enquiry form on the store's microsite — their
+    // own words, not ours. Form leads are the only source that carries one: nobody
+    // types a description into a phone call. See micrositeNote in leads.js.
+    micrositeNote: 'Need a front-load washing machine 7kg or above. Please tell me the best offer and whether installation is free.',
     storeId: 'lks-kor',
     name: 'Shreya Pai',
     phone: '9845077431',
@@ -1269,6 +1277,10 @@ export const CUSTOMERS = [
   },
   {
     id: 'lead-frm-03',
+    // What the customer typed into the enquiry form on the store's microsite — their
+    // own words, not ours. Form leads are the only source that carries one: nobody
+    // types a description into a phone call. See micrositeNote in leads.js.
+    micrositeNote: 'Enquiring about exchange value for my old refrigerator against a new one. It is a 5 year old Whirlpool 190L.',
     storeId: 'lks-kor',
     name: 'Aditya Ghosh',
     phone: '9845018844',

@@ -1,11 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { PhoneCall, FileText, Store as StoreIcon, Users as UsersIcon, Check, Lock, Repeat2, ChevronRight } from 'lucide-react'
+import { NameField, NoteRow } from './Customers.jsx'
+
+/**
+ * The id the recorded-name overlay is keyed by for a lead: its customer record when one
+ * exists, the projected-subject id when it does not. One helper because three call sites
+ * read it and a disagreement here shows up as a name that appears on one screen only.
+ */
+const customerOf = lead => (lead.customerId ? lead.customerId : `lead:${lead.id}`)
 import { useTranslation } from 'react-i18next'
 import {
   getLeads, leadCounts, updateLeadStatus, groupByStore,
   LEAD_STATUSES, LEAD_SOURCES, rupees, relativeTime, dayClock,
-  getCustomerById, getCustomerNotes, addCustomerNote, customerDialDigits,
+  getCustomerById, getCustomerNotes, addCustomerNote, customerDialDigits, recordedName,
 } from '@connect/core'
 import { Card, Chip, CLIPill, StoreGroupHeader, PrimaryButton } from '../components/UI.jsx'
 import ScreenScroll from '../components/ScreenScroll.jsx'
@@ -188,7 +196,10 @@ function StatusPill({ status }) {
 function LeadCard({ lead, onOpen }) {
   const { t } = useTranslation()
   const Icon = SOURCE_ICON[lead.source] || PhoneCall
-  const who = lead.name || lead.masked
+  // The name the MANAGER recorded outranks the platform's: they typed it because
+  // what we hold is a masked number. Read here rather than only on the detail, or a
+  // name saved on the sheet never reaches the card it was opened from.
+  const who = recordedName(customerOf(lead)) || lead.name || lead.masked
   const src = LEAD_SOURCES.find(s => s.id === lead.source)
 
   // A MISSED CALL IS THE ONE ROW WITH AN ACTION ON IT. Everything else in this list is a
@@ -244,7 +255,10 @@ function MissedCallCard({ lead, onOpen }) {
   const digits = lead.customerId ? customerDialDigits(lead.customerId) : null
   // Eleven buttons all named "Call back" is eleven identical announcements and no way to
   // tell whose. The visible label stays short; the ACCESSIBLE name carries the person.
-  const who = lead.name || lead.masked
+  // The name the MANAGER recorded outranks the platform's: they typed it because
+  // what we hold is a masked number. Read here rather than only on the detail, or a
+  // name saved on the sheet never reaches the card it was opened from.
+  const who = recordedName(customerOf(lead)) || lead.name || lead.masked
 
   function callBack(e) {
     e.stopPropagation()
@@ -277,7 +291,7 @@ function MissedCallCard({ lead, onOpen }) {
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 min-w-0">
               <Lock size={10} className="shrink-0 text-white/45" aria-hidden="true" />
-              <span className="m-headline text-white m-tabular truncate">{lead.name || lead.masked}</span>
+              <span className="m-headline text-white m-tabular truncate">{who}</span>
             </div>
             {/* Band only, no score: on a row whose job is "ring this person back", the
                 number is noise — hot/warm/cold is the whole decision. */}
@@ -333,7 +347,10 @@ function MissedCallCard({ lead, onOpen }) {
 function LeadDetail({ lead, onClose }) {
   const { t } = useTranslation()
   const [, force] = useState(0)
-  const who = lead.name || lead.masked
+  // The name the MANAGER recorded outranks the platform's: they typed it because
+  // what we hold is a masked number. Read here rather than only on the detail, or a
+  // name saved on the sheet never reaches the card it was opened from.
+  const who = recordedName(customerOf(lead)) || lead.name || lead.masked
   const src = LEAD_SOURCES.find(s => s.id === lead.source)
 
   // The person behind the lead, when the platform holds one. A form or walk-in IS a
@@ -413,6 +430,15 @@ function LeadDetail({ lead, onClose }) {
         </div>
       )}
 
+      {/* WHO IS THIS? — the manager's own answer (PM feedback 11). A call is anonymous
+          until somebody names it, and 42 of the 62 leads here never get a name from the
+          platform at all, so this is frequently the only one there will ever be. Keyed
+          by the SUBJECT id so it works whether or not a contact record backs the lead.
+          Below the meta lines, not between them and the name: dropped in the middle it
+          cut the identity ("Nikhil Barve · +91 …120") off from what it is identifying
+          ("Form · ₹54K · 2 hours ago"). */}
+      <NameField subjectId={customerOf(lead)} known={lead.name} />
+
       <div className="mt-4 m-subhead text-white/60 mb-2">
         {t('leads.statusTitle', { defaultValue: 'Where is this lead?' })}
       </div>
@@ -452,6 +478,29 @@ function LeadDetail({ lead, onClose }) {
         )}
       </div>
 
+      {/* CUSTOMER NOTES — what the customer themselves typed into the enquiry form on
+          the microsite (PM feedback 13). Only a FORM lead carries one: nobody types a
+          description into a phone call, and a walk-in is recorded by the manager. So
+          this is absent on every other source rather than an empty heading.
+          Translator TODO: no catalog key for the customer's own form text. */}
+      {lead.micrositeNote && (
+        <div className="mt-5">
+          <div className="m-headline text-white mb-2">Customer notes</div>
+          <Card className="!p-3.5">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl grid place-items-center shrink-0"
+                style={{ background: 'rgba(0,112,252,.10)', border: '1px solid rgba(0,112,252,.30)' }}>
+                <FileText size={15} style={{ color: '#0070FC' }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="m-body text-white/90 whitespace-pre-wrap">{lead.micrositeNote}</p>
+                <div className="m-caption text-white/55 mt-2">From the enquiry form on your microsite</div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* HISTORY — every interaction, oldest first, same row the Customers screen draws
           (see components/Timeline.jsx). */}
       <div className="mt-5">
@@ -485,14 +534,12 @@ function LeadDetail({ lead, onClose }) {
                 <div className="m-caption text-white/55 mt-0.5">{t('customers.notesEmptySub')}</div>
               </>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {notes.map(n => (
-                  <div key={n.id}>
-                    <div className="m-callout text-white">{n.text}</div>
-                    <div className="m-caption text-white/45 mt-0.5">
-                      {[n.author, relativeTime(n.atMs)].filter(Boolean).join(' · ')}
-                    </div>
-                  </div>
+                  <NoteRow
+                    key={n.id} note={n} customerId={customer.id} canEdit
+                    onSaved={() => setNoteRev(v => v + 1)}
+                  />
                 ))}
               </div>
             )}

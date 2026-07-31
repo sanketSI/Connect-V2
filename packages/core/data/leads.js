@@ -19,7 +19,7 @@
 // record lands in the right state and a manager's explicit choice always wins.
 // ============================================================
 import { getCalls, getCallById, setLeadStatus as setCallLeadStatus } from './calls.js'
-import { getCustomers, customerSourceType } from './customers.js'
+import { getCustomers, customerSourceType, recordedName } from './customers.js'
 import { LEAD_STATUSES, LEAD_STATUS_IDS, LEAD_SOURCES } from './leadStatus.js'
 import { dayClock } from './format.js'
 
@@ -90,6 +90,11 @@ function fromCustomer(cu, source) {
     atMs: cu.firstSeenAtMs ?? cu.lastSeenAtMs ?? 0,
     repeats: 1,
     outcome: null,
+    // CONDITIONAL, and only ever on a form lead: what the customer themselves typed into
+    // the enquiry form on the microsite. Nobody types a description into a phone call and
+    // a walk-in is recorded by the manager, so on every other source this is absent and
+    // the screens render nothing rather than an empty "Customer notes" heading.
+    micrositeNote: source === 'form' ? (cu.micrositeNote ?? null) : null,
   }
 }
 
@@ -162,12 +167,15 @@ export function updateLeadStatus(lead, status) {
  */
 export function leadAsCustomer(lead, detail = null) {
   if (!lead) return null
+  const subjectId = `lead:${lead.id}`
   return {
-    id: `lead:${lead.id}`,
+    id: subjectId,
     synthetic: true,
     leadId: lead.id,
     storeId: lead.storeId,
-    name: lead.name ?? null,
+    // A projection is exactly the case where the manager's own note of who this is may
+    // be the ONLY name anyone holds — there is no contact record behind it to carry one.
+    name: recordedName(subjectId) ?? lead.name ?? null,
     masked: lead.masked,
     phone: null,
     sourceType: lead.source,
@@ -197,6 +205,7 @@ export function leadAsCustomer(lead, detail = null) {
     }].filter(e => e.detail),
     aiGuess: null,
     aiGuessKey: null,
+    micrositeNote: lead.micrositeNote ?? null,
   }
 }
 
