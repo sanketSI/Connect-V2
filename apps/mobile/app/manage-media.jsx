@@ -183,9 +183,30 @@ function ManageMediaBody({ storeId, t }) {
     setView('main')
   }
 
+  // PM feedback 4(i): "when delete a image, a confirmation comes to delete". A listing
+  // photo is public, so removing one is asked about rather than done on a tap. Alert is
+  // the platform's own confirmation here rather than a hand-built modal — it is what an
+  // Android/iOS user already recognises as "this one is destructive".
+  // Translator TODO: the catalogs carry no confirmation copy — media.photoRemovedTitle
+  // describes the AFTERMATH, so reusing it would say "Photo removed" before it was.
   function removePhoto(id) {
-    vibrate(10)
-    setLibrary(list => list.filter(m => m.id !== id))
+    vibrate(6)
+    Alert.alert(
+      'Delete this photo?',
+      'It will be taken off your listing.',
+      [
+        { text: t('common.cancel', { defaultValue: 'Cancel' }), style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            vibrate(12)
+            setLibrary(list => list.filter(m => m.id !== id))
+            notifySuccess()
+          },
+        },
+      ],
+    )
   }
 
   if (view === 'upload') {

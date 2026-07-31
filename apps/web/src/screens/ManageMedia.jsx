@@ -298,11 +298,24 @@ export default function ManageMedia({ onClose, storeId }) {
   // behind this, the same shape holds: defer the removal call until the Undo window closes,
   // or use Google's soft-delete + restore. What must never happen is a one-tap, no-way-back
   // deletion of a live photo — which is exactly what this replaces.)
+  // PM feedback 4(i): "when delete a image, a confirmation comes to delete". Asked for
+  // BEFORE the fact — the Undo below is the safety net after it, and both are kept: the
+  // confirmation stops the accident, the Undo recovers the one that gets through anyway.
+  const [pendingDelete, setPendingDelete] = useState(null)
+
+  function askRemovePhoto(id) {
+    const photo = library.find(p => p.id === id)
+    if (!photo) return
+    vibrate(6)
+    setPendingDelete(photo)
+  }
+
   function removePhoto(id) {
     const index = library.findIndex(p => p.id === id)
     if (index === -1) return
     const removed = library[index]
     setLibrary(list => list.filter(p => p.id !== id))
+    setPendingDelete(null)
     vibrate(12)
     toast.push({
       kind: 'info',
@@ -421,7 +434,7 @@ export default function ManageMedia({ onClose, storeId }) {
               <PhotosSection
                 photos={photos}
                 onAdd={() => push('upload')}
-                onRemove={removePhoto}
+                onRemove={askRemovePhoto}
                 onProtect={() => push('protect')}
               />
             )}
@@ -436,6 +449,57 @@ export default function ManageMedia({ onClose, storeId }) {
       </div>
 
       {fileInputs}
+
+      {/* DELETE CONFIRMATION (PM feedback 4i). A listing photo is public, so removing one
+          is asked about rather than done on a tap. Translator TODO: the catalogs carry no
+          confirmation copy — media.photoRemovedTitle/Body describe the AFTERMATH, not the
+          question, so reusing them here would say "Photo removed" before it was. */}
+      {pendingDelete && (
+        <div
+          className="absolute inset-0 z-30 grid place-items-center px-6"
+          style={{ background: 'rgba(4,8,20,.55)' }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Delete this photo?"
+        >
+          <div
+            className="w-full rounded-2xl p-4"
+            style={{ background: 'var(--bg-sheet)', border: '1px solid var(--border-glass-strong)', boxShadow: 'var(--shadow-sheet)' }}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className="w-10 h-10 rounded-xl grid place-items-center shrink-0"
+                style={{ background: 'rgba(220,38,38,.12)', border: '1px solid rgba(220,38,38,.35)' }}
+              >
+                <Trash2 size={18} style={{ color: '#DC2626' }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="m-headline text-white">Delete this photo?</div>
+                <div className="m-caption text-white/70 mt-1">
+                  It will be taken off your listing. You can undo this straight afterwards.
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setPendingDelete(null)}
+                className="h-10 px-4 rounded-xl m-subhead text-white/70 press"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={() => removePhoto(pendingDelete.id)}
+                className="on-dark h-10 px-4 rounded-xl m-subhead font-semibold text-white press md-state inline-flex items-center gap-1.5"
+                style={{ background: '#DC2626' }}
+              >
+                <Trash2 size={14} /> Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </SheetViews>
   )

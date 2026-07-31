@@ -1,250 +1,370 @@
-import React, { useMemo, useEffect, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Sparkles, Wallet, PartyPopper, MessageSquareQuote, X, ArrowRight } from 'lucide-react'
-import { AIBadge, PrimaryButton, GhostButton, Chip, AIShimmer } from '../components/UI.jsx'
-import { getPostTemplates, askAI, getStoreLocations, computeLocationFlags } from '@connect/core'
-const POST_TEMPLATES = getPostTemplates()
+import {
+  Sparkles, Wallet, PartyPopper, MessageSquareQuote, X, Eye, Send,
+  Image as ImageIcon, MapPin, ChevronLeft, CheckCircle2,
+} from 'lucide-react'
+import { PrimaryButton, GhostButton } from '../components/UI.jsx'
+import {
+  POST_TYPES, getPostType, validatePost, POST_IMAGE_HINT,
+  getStoreLocations, computeLocationFlags,
+} from '@connect/core'
 import { useToast } from '../components/Toast.jsx'
+import { vibrate, cn } from '../lib/utils.js'
 
-// The four Nova post types — Standard, Offer, Event, Testimonial — come from the data
-// layer, each carrying its own catalog key beside an English value. Render through the
-// key and fall back to the seed value, so a template we haven't translated yet still
-// reads as words rather than a raw key. The seed `name` stays English on purpose: it
-// feeds the askAI prompt, which is written in English.
+// ============================================================
+// CREATE POST — four typed forms, then a preview, then submit.
+//
+// PM feedback 5: "Add flow of post addition, keep the form same exact as below", with a
+// screenshot per type, plus "Submit for approval and Preview will come once the post form
+// has been submitted. After the preview is confirmed, a success message will come."
+//
+// WHAT THIS REPLACES: a template picker that generated AI copy and showed a preview
+// immediately. Four brand templates and a paragraph of generated text is not the same
+// product as a typed Offer with a coupon code, a redeem URL, a date window and terms —
+// Google requires those fields and there was nowhere to enter them.
+//
+// THE FIELDS ARE NOT DEFINED HERE. They come from core's POST_TYPES, which native renders
+// too; see packages/core/data/postForms.js for why ~30 labels and ceilings live in one
+// place rather than being typed twice.
+//
+// TWO STEPS, in the order the brief gives: FORM → PREVIEW → success. The preview is a
+// confirmation step rather than a live sidebar, because the brief makes confirming it the
+// thing that submits.
+//
+// Icons per type are this screen's own: core's spec carries data, not lucide imports.
+// ============================================================
 
-// Post composer — brand-approved templates + on-demand AI copy.
-// Extracted from Profile so it can be reused inside Manage Media.
+const TYPE_ICON = {
+  standard: Sparkles,
+  offer: Wallet,
+  event: PartyPopper,
+  testimonial: MessageSquareQuote,
+}
+
 export default function CreatePostSheet({ onClose, storeId }) {
-  // A post publishes to ONE Google listing. The preview footer and the AI prompt used to
-  // name Indiranagar no matter which branch you were in — so a Koramangala manager wrote
-  // a post that said Indiranagar on it. Both now read the branch this sheet was opened
-  // for (ManageMedia is already per-store, and the aggregate view reaches it through the
-  // branch picker), so what the preview shows is the listing that will carry it.
+  const { t } = useTranslation()
+  const toast = useToast()
+
+  // A post publishes to ONE Google listing. The preview footer used to name Indiranagar
+  // whichever branch you were in, so a Koramangala manager wrote a post that said
+  // Indiranagar on it. It reads the branch this sheet was opened for.
   const postStore = useMemo(
     () => getStoreLocations().find(l => l.id === storeId) || getStoreLocations()[0],
     [storeId],
   )
-  // A post is public marketing copy, so it may only name what the listing can vouch
-  // for. An 'address' flag means the city itself is in doubt — HSR Layout carries a
-  // data-entry error that puts it in Bandra — so that draft names the branch alone.
-  // A 'latlng' drift is only a misplaced pin, which says nothing about the city, so
-  // those stores keep theirs.
+  // A post is public marketing copy, so it may only name what the listing can vouch for.
+  // An 'address' flag means the city itself is in doubt — HSR Layout carries a data-entry
+  // error that puts it in Bandra — so that draft names the branch alone. A 'latlng' drift
+  // is only a misplaced pin and says nothing about the city.
   const postArea = useMemo(() => {
     const cityInDoubt = computeLocationFlags(postStore).some(f => f.type === 'address')
     return cityInDoubt ? postStore.branch : `${postStore.branch} ${postStore.city}`
   }, [postStore])
-  const { t } = useTranslation()
-  const [tpl, setTpl] = useState(POST_TEMPLATES[0])
-  const [copy, setCopy] = useState('')
-  const [loading, setLoading] = useState(false)
-  // DESIGN REVIEW 3, item 16 — the details each post TYPE actually needs. Picking a
-  // template used to only re-roll the AI copy: an Offer with no code and no expiry, or an
-  // Event with nobody told when, is not a post anyone can publish. Google requires these
-  // for those types, so they are real fields and they gate the submit.
-  const [offerCode, setOfferCode] = useState('')
-  const [offerValid, setOfferValid] = useState('')
-  const [eventDate, setEventDate] = useState('')
-  const [eventTime, setEventTime] = useState('')
 
-  const isOffer = tpl.id === 'pt-offer'
-  const isEvent = tpl.id === 'pt-event'
-  // Standard and Testimonial carry no extra required fields — copy alone is a valid post.
-  const detailsReady = isOffer
-    ? !!(offerCode.trim() && offerValid)
-    : isEvent
-      ? !!(eventDate && eventTime)
-      : true
-  const toast = useToast()
+  const [typeId, setTypeId] = useState(POST_TYPES[0].id)
+  const [values, setValues] = useState({})
+  const [step, setStep] = useState('form') // form | preview
+  // Errors show only AFTER a submit attempt. Marking every required field red before the
+  // manager has typed anything reads as a broken form, not a helpful one.
+  const [showErrors, setShowErrors] = useState(false)
 
-  const tplName = item => t(item.nameKey, { defaultValue: item.name })
-  const tplCta = item => t(item.ctaKey, { defaultValue: item.cta })
+  const type = getPostType(typeId)
+  const result = validatePost(typeId, values)
 
-  async function generate(template = tpl) {
-    setLoading(true)
-    const out = await askAI(
-      `You are an AI marketing assistant for a local store. Generate ONE post for the brand "Lakshmi Electronics" branch "${postArea}", localized to weekend shoppers in that area. Template type: "${template.name}". Format: 1 short headline (max 5 words) on its own line, then ONE short body line (max 25 words). No emoji, no quotes, no hashtags. Friendly, confident.`,
-      {
-        temperature: 0.9,
-        // The fallback is read by the shop owner, so its headline goes through the
-        // catalog — unlike the prompt above, which stays English for the model.
-        fallback: t('post.copyFallback', { headline: t(template.headlineKey, { defaultValue: template.headline }) }),
-      },
-    )
-    setCopy(out)
-    setLoading(false)
+  const set = (key, v) => setValues(prev => ({ ...prev, [key]: v }))
+
+  // Switching type CLEARS the draft. The forms share almost no fields, and carrying a
+  // "Redeem URL" into an Event post would submit a value its own form never showed.
+  function pickType(id) {
+    if (id === typeId) return
+    vibrate(6)
+    setTypeId(id)
+    setValues({})
+    setShowErrors(false)
   }
 
-  useEffect(() => { generate() }, [])
+  function goPreview() {
+    if (!result.ok) { setShowErrors(true); vibrate(20); return }
+    vibrate(10)
+    setStep('preview')
+  }
 
-  const iconMap = { Sparkles, Wallet, PartyPopper, MessageSquareQuote }
+  function submit() {
+    vibrate(15)
+    // The wording the brief asks for. Translator TODO: the catalogs' post.submittedTitle
+    // / post.submittedBody say "Brand team will review and publish", which is not the
+    // promise the PM wants made here — this one names the delay.
+    toast.push({
+      kind: 'success',
+      title: 'Post submitted successfully',
+      body: 'It might take up to a few hours to reflect.',
+    })
+    onClose?.()
+  }
 
   return (
     <div className="px-4 pb-6">
-      <div className="m-title2 text-white">{t('post.title')}</div>
-      <div className="m-callout text-white/55 mb-3">{t('post.subtitle')}</div>
-
-      <div className="m-subhead text-white/60 mb-2">{t('post.chooseTemplate')}</div>
-      <div className="grid grid-cols-2 gap-2.5 mb-4">
-        {POST_TEMPLATES.map(item => {
-          const I = iconMap[item.icon] || Sparkles
-          const active = tpl.id === item.id
-          return (
-            <button key={item.id} onClick={() => { setTpl(item); generate(item) }} className="press text-left rounded-2xl p-3 relative overflow-hidden" style={{ background: active ? `${item.accent}18` : 'rgba(255,255,255,.04)', border: `1px solid ${active ? item.accent + '60' : 'rgba(255,255,255,.08)'}` }}>
-              <div className="w-9 h-9 rounded-lg grid place-items-center" style={{ background: `${item.accent}28`, border: `1px solid ${item.accent}50` }}>
-                <I size={16} style={{ color: item.accent }} />
-              </div>
-              <div className="mt-2 m-headline text-white">{tplName(item)}</div>
-              <div className="m-caption text-white/55">{tplCta(item)}</div>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* The type-specific journey. Only rendered for the types that have one. */}
-      {(isOffer || isEvent) && (
-        <div className="mb-4">
-          <div className="m-subhead text-white/60 mb-2">
-            {isOffer
-              ? t('post.offerDetails', { defaultValue: 'Offer details' })
-              : t('post.eventDetails', { defaultValue: 'Event details' })}
-          </div>
-          <div className="grid grid-cols-2 gap-2.5">
-            {isOffer ? (
-              <>
-                <PostField label={t('post.offerCode', { defaultValue: 'Coupon code' })}>
-                  <input
-                    value={offerCode}
-                    onChange={e => setOfferCode(e.target.value.toUpperCase().slice(0, 18))}
-                    placeholder="DIWALI20"
-                    autoCapitalize="characters"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    className="w-full bg-transparent text-white m-headline outline-none m-tabular placeholder:text-white/25"
-                  />
-                </PostField>
-                <PostField label={t('post.offerValid', { defaultValue: 'Valid till' })}>
-                  <input
-                    type="date"
-                    value={offerValid}
-                    onChange={e => setOfferValid(e.target.value)}
-                    className="w-full bg-transparent text-white m-headline outline-none m-tabular"
-                  />
-                </PostField>
-              </>
-            ) : (
-              <>
-                <PostField label={t('post.eventDate', { defaultValue: 'Date' })}>
-                  <input
-                    type="date"
-                    value={eventDate}
-                    onChange={e => setEventDate(e.target.value)}
-                    className="w-full bg-transparent text-white m-headline outline-none m-tabular"
-                  />
-                </PostField>
-                <PostField label={t('post.eventTime', { defaultValue: 'Start time' })}>
-                  <input
-                    type="time"
-                    value={eventTime}
-                    onChange={e => setEventTime(e.target.value)}
-                    className="w-full bg-transparent text-white m-headline outline-none m-tabular"
-                  />
-                </PostField>
-              </>
-            )}
+      {/* Header — title, the listing this publishes to, and close. */}
+      <div className="flex items-start justify-between gap-3 pr-1">
+        <div className="min-w-0">
+          <div className="m-title2 text-white">{t('post.title', { defaultValue: 'Create Post' })}</div>
+          <div className="m-caption text-white/55 mt-0.5 flex items-center gap-1">
+            <MapPin size={11} className="shrink-0" />
+            <span className="truncate">{postArea}</span>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t('common.close', { defaultValue: 'Close' })}
+          className="w-9 h-9 rounded-full grid place-items-center shrink-0 press"
+          style={{ background: 'var(--bg-iconbtn)', border: '1px solid var(--border-glass)' }}
+        >
+          <X size={16} className="text-white" />
+        </button>
+      </div>
+
+      {step === 'form' ? (
+        <>
+          {/* THE FOUR TYPES. A scrolling rail, not a 4-across grid: "Testimonial Post"
+              does not fit a quarter of a 375px screen without becoming "Testimoni…". */}
+          <div className="flex items-center gap-2 mt-3.5 mb-1 overflow-x-auto no-scrollbar">
+            {POST_TYPES.map(pt => {
+              const Icon = TYPE_ICON[pt.id] || Sparkles
+              const on = pt.id === typeId
+              return (
+                <button
+                  key={pt.id}
+                  type="button"
+                  onClick={() => pickType(pt.id)}
+                  aria-pressed={on}
+                  className={cn(
+                    'shrink-0 h-10 px-3.5 rounded-full inline-flex items-center gap-1.5 m-subhead press md-state',
+                    on ? 'text-white' : 'text-white/70',
+                  )}
+                  style={{
+                    background: on ? 'rgba(0,112,252,.16)' : 'var(--bg-subtle)',
+                    border: `1px solid ${on ? 'rgba(0,112,252,.55)' : 'var(--border-glass)'}`,
+                  }}
+                >
+                  <Icon size={14} /> {pt.label}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="mt-3 space-y-3.5">
+            {type.fields.map(f => (
+              <Field
+                key={f.key}
+                field={f}
+                value={values[f.key] ?? ''}
+                onChange={v => set(f.key, v)}
+                error={showErrors && (
+                  result.missing.includes(f.key) ? 'required'
+                    : result.tooLong.includes(f.key) ? 'long'
+                      : result.invalid.includes(f.key) ? 'invalid' : null
+                )}
+              />
+            ))}
+          </div>
+
+          {showErrors && !result.ok && (
+            <div className="m-caption text-[#FF6B7E] mt-3">
+              Fill the required fields before previewing this post.
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2 mt-5">
+            <GhostButton onClick={onClose}>{t('common.cancel')}</GhostButton>
+            <PrimaryButton icon={Eye} onClick={goPreview}>
+              {t('post.preview', { defaultValue: 'Preview' })}
+            </PrimaryButton>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* PREVIEW — what the brief calls confirming. Everything typed, read back, with
+              the way to go and fix it still on screen. */}
+          <div className="mt-4">
+            <PostPreview type={type} values={values} area={postArea} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 mt-5">
+            <GhostButton icon={ChevronLeft} onClick={() => { vibrate(6); setStep('form') }}>
+              {t('common.back', { defaultValue: 'Back' })}
+            </GhostButton>
+            <PrimaryButton icon={Send} onClick={submit}>
+              {t('post.submitCta', { defaultValue: 'Submit for approval' })}
+            </PrimaryButton>
+          </div>
+        </>
       )}
-
-      {/* Preview */}
-      <div className="m-subhead text-white/60 mb-2">{t('post.preview')}</div>
-      <div
-        className="on-dark relative rounded-2xl overflow-hidden p-4"
-        style={{
-          background: `linear-gradient(135deg, ${tpl.accent}55 0%, #0E0071 70%, #06070D 100%)`,
-          border: '1px solid rgba(255,255,255,.10)',
-          minHeight: 160,
-        }}
-      >
-        <div className="absolute top-3 right-3">
-          <AIBadge />
-        </div>
-        {loading ? (
-          <div className="space-y-2 mt-3">
-            <AIShimmer className="h-4 w-3/5" />
-            <AIShimmer className="h-3 w-4/5" />
-            <AIShimmer className="h-3 w-3/5" />
-          </div>
-        ) : (
-          <>
-            <div className="m-title2 text-white">{copy.split('\n')[0]}</div>
-            <div className="mt-1 m-callout text-white/85">{copy.split('\n').slice(1).join(' ')}</div>
-          </>
-        )}
-        {/* The type's own facts, ON the post — a coupon nobody can read is not an offer,
-            and an event with no time is not an invitation. */}
-        {(isOffer || isEvent) && (offerCode || offerValid || eventDate || eventTime) && (
-          <div
-            className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 h-7 rounded-full m-caption font-semibold text-white"
-            style={{ background: 'rgba(255,255,255,.14)', border: '1px solid rgba(255,255,255,.22)' }}
-          >
-            {isOffer
-              ? [offerCode, offerValid && t('post.validTill', { date: offerValid, defaultValue: 'till {{date}}' })]
-                  .filter(Boolean).join(' · ')
-              : [eventDate, eventTime].filter(Boolean).join(' · ')}
-          </div>
-        )}
-
-        <div className="mt-4 flex items-center justify-between">
-          {/* The listing this post goes to — named, not assumed. */}
-          <span className="m-caption text-white/60 truncate">{postStore.name} · {postStore.branch}</span>
-          <span className="px-3 h-7 rounded-full text-white m-caption font-semibold inline-flex items-center" style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.18)' }}>
-            {tplCta(tpl)}
-          </span>
-        </div>
-      </div>
-
-      <div className="mt-3 flex gap-2">
-        <Chip onClick={() => generate()} icon={Sparkles}>{t('post.regenerate')}</Chip>
-        <Chip>{t('post.addImage')}</Chip>
-        <Chip>{t('post.schedule')}</Chip>
-      </div>
-
-      {/* Says WHY the button is dead rather than leaving a disabled control with no cause. */}
-      {!detailsReady && (
-        <div className="mt-3 m-caption text-white/45">
-          {isOffer
-            ? t('post.offerRequired', { defaultValue: 'Add the coupon code and the date it runs out to submit this offer.' })
-            : t('post.eventRequired', { defaultValue: 'Add the date and start time to submit this event.' })}
-        </div>
-      )}
-
-      <div className="mt-5 grid grid-cols-3 gap-2">
-        <GhostButton icon={X} onClick={onClose}>{t('common.cancel')}</GhostButton>
-        <div className="col-span-2">
-          <PrimaryButton
-            icon={ArrowRight}
-            disabled={!detailsReady}
-            onClick={() => { toast.push({ kind: 'success', title: t('post.submittedTitle'), body: t('post.submittedBody') }); onClose?.() }}
-          >
-            {t('post.submitCta')}
-          </PrimaryButton>
-        </div>
-      </div>
     </div>
   )
 }
 
-/** One labelled field in the type-specific details grid. */
-function PostField({ label, children }) {
+/**
+ * ONE FIELD, rendered from the spec's `kind`. Every ceiling in the brief comes with a
+ * live counter, because a limit you only discover by being truncated is not a limit the
+ * manager was ever told about.
+ */
+function Field({ field: f, value, onChange, error }) {
+  const len = String(value ?? '').length
+  const over = f.max ? len > f.max : false
+  const border = error ? '1px solid rgba(220,38,38,.6)' : '1px solid var(--border-subtle)'
+  const base = 'w-full rounded-xl px-3 bg-transparent text-white m-callout outline-none placeholder:text-white/35'
+
   return (
-    <div>
-      <div className="m-caption text-white/50 mb-1 ml-1">{label}</div>
-      <div
-        className="h-12 rounded-xl px-3 flex items-center"
-        style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-glass)' }}
-      >
-        {children}
+    <label className="block">
+      <div className="flex items-end justify-between gap-2 mb-1">
+        <span className="m-caption text-white/70">
+          {f.label}{f.required && <span style={{ color: '#FF6B7E' }}> *</span>}
+        </span>
+        {f.altUrl && (
+          // "Paste URL instead" — the escape hatch beside the label in every screenshot.
+          <span className="m-caption" style={{ color: 'var(--si-primary-text)' }}>Paste URL instead</span>
+        )}
+        {f.max && (
+          <span className={cn('m-caption m-tabular', over ? 'text-[#FF6B7E]' : 'text-white/40')}>
+            {len} / {f.max}
+          </span>
+        )}
       </div>
-    </div>
+
+      {f.kind === 'textarea' && (
+        <textarea
+          value={value} onChange={e => onChange(e.target.value)} placeholder={f.placeholder}
+          className={`${base} py-2.5 resize-none min-h-[96px]`}
+          style={{ background: 'var(--bg-subtle)', border }}
+        />
+      )}
+
+      {(f.kind === 'text' || f.kind === 'url') && (
+        <input
+          type={f.kind === 'url' ? 'url' : 'text'} value={value} onChange={e => onChange(e.target.value)}
+          placeholder={f.placeholder} className={`${base} h-11`}
+          style={{ background: 'var(--bg-subtle)', border }}
+        />
+      )}
+
+      {f.kind === 'select' && (
+        <select
+          value={value} onChange={e => onChange(e.target.value)}
+          className={`${base} h-11`} style={{ background: 'var(--bg-subtle)', border, colorScheme: 'dark' }}
+        >
+          <option value="">{f.placeholder}</option>
+          {f.options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+        </select>
+      )}
+
+      {(f.kind === 'date' || f.kind === 'datetime') && (
+        <input
+          type={f.kind === 'date' ? 'date' : 'datetime-local'} value={value}
+          onChange={e => onChange(e.target.value)}
+          className={`${base} h-11 m-tabular`}
+          style={{ background: 'var(--bg-subtle)', border, colorScheme: 'dark' }}
+        />
+      )}
+
+      {f.kind === 'image' && (
+        <>
+          {/* The upload zone is drawn as specified, but there is no upload service behind
+              this build — so the URL field is the path that actually works, and the brief
+              already offers it as "Paste URL instead" rather than it being a substitute
+              invented here. */}
+          <input
+            type="url" value={value} onChange={e => onChange(e.target.value)}
+            placeholder="https://…" className={`${base} h-11`}
+            style={{ background: 'var(--bg-subtle)', border }}
+          />
+          <div
+            className="mt-2 rounded-xl grid place-items-center py-6 px-3 text-center"
+            style={{ border: '1px dashed var(--border-glass-strong)' }}
+          >
+            <ImageIcon size={20} className="text-white/40" />
+            <div className="m-caption text-white/55 mt-1.5">Click to upload image</div>
+            <div className="m-caption text-white/35 mt-0.5">{POST_IMAGE_HINT}</div>
+          </div>
+        </>
+      )}
+
+      {f.hint && <div className="m-caption text-white/40 mt-1">{f.hint}</div>}
+      {error === 'invalid' && (
+        <div className="m-caption text-[#FF6B7E] mt-1">
+          {f.kind === 'url' ? 'Enter a full URL starting with https://' : 'Check this value.'}
+        </div>
+      )}
+    </label>
+  )
+}
+
+/** Everything typed, read back — the confirmation step, not a decorative card. */
+function PostPreview({ type, values, area }) {
+  const { t } = useTranslation()
+  const filled = type.fields.filter(f => {
+    const v = values[f.key]
+    return typeof v === 'string' ? v.trim() : v
+  })
+  const cta = type.fields.find(f => f.key === 'cta')
+  const ctaLabel = cta?.options.find(o => o.id === values.cta)?.label
+
+  return (
+    <>
+      <div className="m-subhead text-white/55 mb-2">{t('post.preview', { defaultValue: 'Preview' })}</div>
+
+      <div
+        className="on-dark rounded-2xl p-4 overflow-hidden"
+        style={{ background: 'linear-gradient(140deg,#0E0071 0%, #0033B8 55%, #06003A 100%)' }}
+      >
+        <div className="m-title3 text-white">
+          {values.offerTitle || values.eventTitle || values.customerName || type.label}
+        </div>
+        <p className="m-callout text-white/85 mt-1.5 whitespace-pre-wrap">
+          {values.caption || values.description || values.eventDescription || values.quote || ''}
+        </p>
+        <div className="flex items-center justify-between gap-2 mt-3">
+          <span className="m-caption text-white/55 truncate">{area}</span>
+          {ctaLabel && (
+            <span
+              className="shrink-0 h-8 px-3 rounded-full grid place-items-center m-subhead text-white"
+              style={{ background: 'rgba(255,255,255,.14)', border: '1px solid rgba(255,255,255,.24)' }}
+            >
+              {ctaLabel}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Every value, spelled out. The card above is what the customer sees; this is what
+          the manager is confirming, including the fields the card has no room for —
+          dates, coupon code, terms, redeem URL. */}
+      <div className="mt-3 rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-glass)' }}>
+        {filled.map((f, i) => {
+          const raw = values[f.key]
+          const shown = f.kind === 'select'
+            ? (f.options.find(o => o.id === raw)?.label ?? raw)
+            : String(raw)
+          return (
+            <div
+              key={f.key}
+              className="px-3 py-2.5 flex items-start gap-3"
+              style={i ? { borderTop: '1px solid var(--border-glass)' } : undefined}
+            >
+              <span className="m-caption text-white/45 shrink-0" style={{ width: '38%' }}>{f.label}</span>
+              <span className="m-caption text-white/85 flex-1 min-w-0 break-words">{shown}</span>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="flex items-start gap-2 mt-3">
+        <CheckCircle2 size={14} className="shrink-0 mt-0.5" style={{ color: '#22D38B' }} />
+        <span className="m-caption text-white/55">
+          Submitting sends this for approval. It might take up to a few hours to reflect.
+        </span>
+      </div>
+    </>
   )
 }
