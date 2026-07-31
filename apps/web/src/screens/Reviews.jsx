@@ -900,8 +900,22 @@ export function ReviewCard({ review, onOpen, onPitchAutoReply, aggregate }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <span className="m-headline text-white truncate">{review.customer}</span>
-            {review.priority && !review.responded && (
-              <span className="m-caption text-[#FF6B7E] font-semibold shrink-0">{t('common.replyNow')}</span>
+            {/* PM feedback 7 — the inbox read flat next to the newer screens because an
+                answered review and one still waiting looked identical until you got to
+                the bottom of the card. The state now sits beside the NAME, where the eye
+                lands first, and an unanswered one carries the same "act here" pill the
+                Leads cards use for Call back rather than a bare red word.
+                Translator TODO on the waiting label — the catalogs have replyNow, which
+                is an instruction, not a status. */}
+            {!review.responded && !review.removed && (
+              <span
+                className="shrink-0 inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption font-semibold whitespace-nowrap"
+                style={review.priority
+                  ? { background: 'rgba(220,38,38,.10)', color: 'var(--si-error-text)', border: '1px solid rgba(220,38,38,.30)' }
+                  : { background: 'rgba(0,112,252,.10)', color: 'var(--si-primary-text)', border: '1px solid rgba(0,112,252,.28)' }}
+              >
+                {review.priority ? t('common.replyNow') : 'Waiting'}
+              </span>
             )}
           </div>
           <div className="flex items-center gap-2 mt-0.5">

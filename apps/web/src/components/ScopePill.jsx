@@ -37,12 +37,15 @@ export default function ScopePill({ store, onSwitchStore, className = '' }) {
   return (
     <button
       onClick={onSwitchStore}
-      className={`inline-flex items-center min-h-[var(--m-touch-min)] press ${className}`}
+      // shrink-0: this sits in a scrolling chip row beside the period and filter chips,
+      // and without it flex squeezed the pill until "Tetley · Indiranagar" wrapped mid-
+      // label onto a second line and pushed the row to double height.
+      className={`inline-flex items-center shrink-0 min-h-[var(--m-touch-min)] press ${className}`}
     >
       {/* Chip idiom (see UI.jsx): the BUTTON is the full 44px touch target, the painted
           pill stays 32px as an inner span. The hit area grows, the design does not. */}
       <span
-        className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-full m-subhead md-state"
+        className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-full m-subhead md-state whitespace-nowrap"
         style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-glass)', color: 'var(--text-secondary)' }}
       >
         {aggregate

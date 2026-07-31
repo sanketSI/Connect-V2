@@ -29,7 +29,9 @@ export default function ScopePill({ className = '' }) {
       onPress={() => { vibrate(8); router.push('/switch') }}
       accessibilityRole="button"
       accessibilityLabel={t('store.switchTitle', { defaultValue: 'Switch location' })}
-      className={`flex-row items-center gap-1.5 self-start h-9 px-3 rounded-pill bg-card dark:bg-white/5 border border-hairline dark:border-d-hairline ${className}`}
+      // shrink-0: this sits in a wrapping chip row beside the period chip, and without
+      // it flex squeezed the pill until the store label wrapped mid-word.
+      className={`flex-row items-center gap-1.5 self-start shrink-0 h-9 px-3 rounded-pill bg-card dark:bg-white/5 border border-hairline dark:border-d-hairline ${className}`}
     >
       <Text className="text-[13px] font-hk-medium text-ink-2 dark:text-d-ink2" numberOfLines={1}>
         {aggregate

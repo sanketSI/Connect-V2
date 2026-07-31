@@ -234,6 +234,20 @@ export default function ReviewsTab() {
         <Card key={r.id} onPress={() => router.push(`/review/${r.id}`)} label={r.customer} className="mb-2.5">
           <View className="flex-row items-center justify-between gap-2">
             <Body className="font-hk-semi text-ink dark:text-d-ink flex-1" numberOfLines={1}>{r.customer}</Body>
+            {/* PM feedback 7 — an answered review and one still waiting looked identical
+                until the bottom of the card. The state now sits beside the NAME, where
+                the eye lands first, matching the web card.
+                Translator TODO on "Waiting": reviews.waitingStat is the long stat label
+                ("Waiting for a reply"), which does not fit a pill on this row. */}
+            {!r.responded && !r.removed ? (
+              <View className={`h-6 px-2 rounded-pill items-center justify-center border ${
+                r.priority ? 'bg-bad/10 border-bad/30' : 'bg-brand-blue/10 border-brand-blue/28'
+              }`}>
+                <Text className={`text-[11px] font-hk-semi ${r.priority ? 'text-bad dark:text-d-bad' : 'text-primaryText dark:text-d-primaryText'}`}>
+                  {r.priority ? t('common.replyNow', { defaultValue: 'Reply now' }) : 'Waiting'}
+                </Text>
+              </View>
+            ) : null}
             <Stars n={r.rating} />
           </View>
           <Caption className="mt-0.5">{r.platform} · {r.time}</Caption>
@@ -247,17 +261,14 @@ export default function ReviewsTab() {
               ))}
             </View>
           ) : null}
+          {/* The posted reply, when there is one. The "waiting" case is NOT repeated
+              here: the pill on the name row above already says it, and printing the same
+              fact twice on one card is what made this screen read as busy. */}
           {r.replies?.length ? (
             <View className="mt-2 pl-3 border-l-2 border-brand-blue/30">
               <Caption numberOfLines={3}>{r.replies[r.replies.length - 1].text}</Caption>
             </View>
-          ) : (!r.removed && (
-            <View className="self-start mt-2 h-6 px-2 rounded-pill bg-[#CA8A04]/10 items-center justify-center">
-              <Text className="text-[11px] font-hk-semi text-[#CA8A04]">
-                {t('reviews.waitingStat', { defaultValue: 'Waiting for a reply' })}
-              </Text>
-            </View>
-          ))}
+          ) : null}
         </Card>
           ))}
         </View>
