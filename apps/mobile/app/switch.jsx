@@ -69,6 +69,9 @@ export default function SwitchScreen() {
   const label = scopeLabel(fullIds, sel)
   const isOn = (row) => (sel[row.level] || []).includes(row.value)
   const anySel = !!(sel.subBrands.length || sel.states.length || sel.cities.length || sel.locations.length)
+  // How much is ticked, and across how many of the four rungs — see the web selector.
+  const selCount = sel.subBrands.length + sel.states.length + sel.cities.length + sel.locations.length
+  const activeLevels = [sel.subBrands, sel.states, sel.cities, sel.locations].filter(a => a.length).length
 
   function toggle(row) {
     vibrate(6)
@@ -136,6 +139,16 @@ export default function SwitchScreen() {
               </Pressable>
             ) : null}
           </View>
+          {/* SAY THAT IT IS MULTI-SELECT. Every row is a checkbox and picks across tabs
+              combine, but nothing on screen said so — and a manager who assumes
+              one-at-a-time never tries a second tick. Once something IS picked the hint
+              gives way to the count, the more useful fact at that point.
+              Translator TODO: the catalogs carry no string for either. */}
+          <Caption className="mt-0.5" numberOfLines={2}>
+            {anySel
+              ? `${selCount} selected across ${activeLevels} of 4 levels`
+              : 'Tick as many as you need — sub-brands, states, cities and stores combine.'}
+          </Caption>
         </View>
         <View className="flex-row items-center gap-2">
           <Pressable
