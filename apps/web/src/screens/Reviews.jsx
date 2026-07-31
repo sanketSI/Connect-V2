@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { LargeTitle } from '../components/TopBar.jsx'
 import ScopePill from '../components/ScopePill.jsx'
+import TimeFilterSheet from '../components/TimeFilterSheet.jsx'
 import { FEATURES } from '../lib/features.js'
 import { Card, AICard, AIBadge, Chip, PrimaryButton, GhostButton, Avatar, IconBtn, AIShimmer, SourceChip, StoreBadge, StoreGroupHeader } from '../components/UI.jsx'
 import ScreenScroll from '../components/ScreenScroll.jsx'
@@ -213,19 +214,8 @@ function activeFilterChips(t, f) {
   return out
 }
 
-const pad2 = (n) => String(n).padStart(2, '0')
-const toDateInput = (ms) => {
-  const d = new Date(ms)
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
-}
-const startOfDayMs = (s) => {
-  const [y, m, d] = s.split('-').map(Number)
-  return new Date(y, m - 1, d, 0, 0, 0, 0).getTime()
-}
-const endOfDayMs = (s) => {
-  const [y, m, d] = s.split('-').map(Number)
-  return new Date(y, m - 1, d, 23, 59, 59, 999).getTime()
-}
+// The date helpers and the period sheet moved to components/TimeFilterSheet.jsx when
+// Leads needed the same control — see the note there.
 
 // ============================================================
 // INBOX
@@ -509,7 +499,7 @@ function Inbox({ store, onSwitchStore }) {
         onApply={(next) => setFilters(next)}
       />
 
-      <TimeSheet
+      <TimeFilterSheet
         open={timeSheet}
         value={filters.window}
         onClose={() => setTimeSheet(false)}
@@ -883,132 +873,6 @@ function CheckRow({ checked, onChange, icon: Icon, label, hint }) {
 // ============================================================
 // TIME SHEET
 // ============================================================
-
-function TimeSheet({ open, value, onClose, onApply }) {
-  const { t } = useTranslation()
-  const presets = TIME_WINDOWS.filter(w => w.id !== 'custom')
-  const isCustom = (win) => typeof win === 'object' && win !== null
-
-  const [sel, setSel] = useState(isCustom(value) ? 'custom' : value)
-  const [start, setStart] = useState(isCustom(value) ? toDateInput(value.startMs) : '')
-  const [end, setEnd] = useState(isCustom(value) ? toDateInput(value.endMs) : '')
-
-  useEffect(() => {
-    if (!open) return
-    setSel(isCustom(value) ? 'custom' : value)
-    setStart(isCustom(value) ? toDateInput(value.startMs) : '')
-    setEnd(isCustom(value) ? toDateInput(value.endMs) : '')
-  }, [open, value])
-
-  const rangeValid = !!start && !!end && startOfDayMs(start) <= endOfDayMs(end)
-  const canApply = sel !== 'custom' || rangeValid
-
-  function apply() {
-    vibrate(12)
-    onApply(sel === 'custom' ? { startMs: startOfDayMs(start), endMs: endOfDayMs(end) } : sel)
-    onClose()
-  }
-
-  return (
-    <BottomSheet open={open} onClose={onClose} label={t('reviews.timePeriod', { defaultValue: 'Time period' })}>
-      <div className="px-4 pb-2">
-        <div className="m-title3 text-white mb-3">{t('reviews.timePeriod', { defaultValue: 'Time period' })}</div>
-
-        <div className="grid grid-cols-2 gap-2">
-          {presets.map(w => (
-            <SelectRow
-              key={w.id}
-              selected={sel === w.id}
-              onClick={() => setSel(w.id)}
-              label={t(w.labelKey, { defaultValue: w.label })}
-            />
-          ))}
-        </div>
-
-        <Section label={t('window.custom', { defaultValue: 'Custom range' })}>
-          <SelectRow
-            selected={sel === 'custom'}
-            onClick={() => setSel('custom')}
-            label={t('reviews.pickDates', { defaultValue: 'Pick your own dates' })}
-          />
-          <AnimatePresence initial={false}>
-            {sel === 'custom' && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <DateField label={t('reviews.startDate', { defaultValue: 'Start Date' })} value={start} onChange={setStart} />
-                  <DateField label={t('reviews.endDate', { defaultValue: 'End Date' })} value={end} onChange={setEnd} />
-                </div>
-                {!rangeValid && (
-                  <div className="m-caption text-[#FF6B7E] mt-2">
-                    {t('reviews.rangeInvalid', { defaultValue: 'Pick a start date on or before the end date.' })}
-                  </div>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </Section>
-
-        <div
-          className="sticky bottom-0 mt-5 pt-3 pb-1 grid grid-cols-3 gap-2"
-          style={{ background: 'linear-gradient(180deg, transparent 0%, var(--bg-sheet) 30%)' }}
-        >
-          <GhostButton
-            icon={RotateCcw}
-            onClick={() => { setSel(DEFAULT_REVIEW_FILTERS.window); setStart(''); setEnd('') }}
-          >
-            {t('reviews.reset', { defaultValue: 'Reset' })}
-          </GhostButton>
-          <GhostButton onClick={onClose}>{t('common.cancel')}</GhostButton>
-          <PrimaryButton onClick={apply} disabled={!canApply}>{t('reviews.apply', { defaultValue: 'Apply' })}</PrimaryButton>
-        </div>
-      </div>
-    </BottomSheet>
-  )
-}
-
-function SelectRow({ selected, onClick, label }) {
-  return (
-    <button
-      onClick={onClick}
-      // Colour via the text-white/* utilities, which index.css remaps per theme — both of
-      // these backgrounds are translucent tints that sit on white in the light theme.
-      className={'w-full h-11 px-3 rounded-xl flex items-center gap-2 m-callout press text-left '
-        + (selected ? 'text-white' : 'text-white/75')}
-      style={{
-        background: selected ? 'rgba(0,112,252,.14)' : 'var(--bg-subtle)',
-        border: `1px solid ${selected ? 'rgba(0,112,252,.55)' : 'var(--border-subtle)'}`,
-      }}
-    >
-      <span
-        className="w-4 h-4 rounded-full grid place-items-center shrink-0"
-        style={{ border: `1px solid ${selected ? '#0070FC' : 'var(--border-glass-strong)'}` }}
-      >
-        {selected && <span className="w-2 h-2 rounded-full" style={{ background: '#0070FC' }} />}
-      </span>
-      <span className="truncate">{label}</span>
-    </button>
-  )
-}
-
-function DateField({ label, value, onChange }) {
-  return (
-    <label className="block">
-      <span className="m-caption text-white/55 block mb-1">{label}</span>
-      <input
-        type="date"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="w-full h-11 px-3 rounded-xl bg-transparent outline-none text-white m-callout m-tabular"
-        style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)', colorScheme: 'dark' }}
-      />
-    </label>
-  )
-}
 
 // ============================================================
 // REVIEW CARD + DETAIL

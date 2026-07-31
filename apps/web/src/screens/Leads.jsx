@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { PhoneCall, FileText, Store as StoreIcon, Users as UsersIcon, Check, Lock, Repeat2, ChevronRight } from 'lucide-react'
+import { PhoneCall, FileText, Store as StoreIcon, Users as UsersIcon, Check, Lock, Repeat2, ChevronRight, CalendarRange } from 'lucide-react'
 import { NameField, NoteRow } from './Customers.jsx'
 
 /**
@@ -22,6 +22,7 @@ import { TimelineRow } from '../components/Timeline.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
 import ProfileButton from '../components/ProfileButton.jsx'
 import ScopePill from '../components/ScopePill.jsx'
+import TimeFilterSheet, { useWindowLabeller } from '../components/TimeFilterSheet.jsx'
 import BottomSheet from '../components/BottomSheet.jsx'
 import { useDataVersion } from '../lib/useDataVersion.js'
 import { emitChange } from '@connect/core/events.js'
@@ -70,14 +71,24 @@ export default function Leads({ store, onOpenProfile, onSwitchStore, preset }) {
     if (preset.source) setSource(preset.source)
   }, [preset?.seq])
   const [openId, setOpenId] = useState(null)
+  // THE GLOBAL TIME FILTER (PM feedback 8). Leads had none at all — Reviews kept its
+  // period picker and this screen lost one, which is the half that "got stripped".
+  // Default 'all': a lead list that silently hid anything older than 30 days would make
+  // the lifecycle chips lie, and Expired leads are by definition the old ones.
+  const [win, setWin] = useState('all')
+  const [timeSheet, setTimeSheet] = useState(false)
+  const windowLabel = useWindowLabeller()
 
   // Counts come from the store scope only — NOT from the status/source filters, or every
   // chip but the active one would read zero and the row would stop being usable.
-  const counts = useMemo(() => leadCounts({ storeId: scopeId }), [scopeId, version])
+  // The window feeds the COUNTS as well as the list. Narrow one and not the other and
+  // the chips promise rows the list will not show — the same class of mismatch the
+  // canonical-window work existed to kill.
+  const counts = useMemo(() => leadCounts({ storeId: scopeId, win }), [scopeId, win, version])
 
   const list = useMemo(
-    () => getLeads({ storeId: scopeId, status, source }),
-    [scopeId, status, source, version],
+    () => getLeads({ storeId: scopeId, status, source, win }),
+    [scopeId, status, source, win, version],
   )
 
   const allGroups = useMemo(
@@ -105,8 +116,14 @@ export default function Leads({ store, onOpenProfile, onSwitchStore, preset }) {
       <div className="px-4">
         {/* ALWAYS, never gated on `aggregate` — see the note on Reviews. A switcher
             that vanishes when you narrow to one store cannot take you back out. */}
-        <div className="mb-3">
+        <div className="flex items-center gap-2 mb-3 overflow-x-auto no-scrollbar">
           <ScopePill store={store} onSwitchStore={onSwitchStore} />
+          {/* Period sits BESIDE the location, because together they are the scope every
+              count below is measured over — the lifecycle chips underneath are value
+              filters and belong on their own row. Same order as Reviews. */}
+          <Chip icon={CalendarRange} active={win !== 'all'} onClick={() => { vibrate(6); setTimeSheet(true) }}>
+            {windowLabel(win)}
+          </Chip>
         </div>
 
         {/* WHERE THE LEAD HAS GOT TO — the manager's first question. */}
@@ -161,6 +178,14 @@ export default function Leads({ store, onOpenProfile, onSwitchStore, preset }) {
           <div className="h-4" />
         </div>
       </div>
+
+      <TimeFilterSheet
+        open={timeSheet}
+        value={win}
+        defaultWindow="all"
+        onClose={() => setTimeSheet(false)}
+        onApply={setWin}
+      />
 
       <BottomSheet open={!!open} onClose={() => setOpenId(null)} fullHeight label={open?.name || open?.masked}>
         {open && <LeadDetail lead={open} onClose={() => setOpenId(null)} />}

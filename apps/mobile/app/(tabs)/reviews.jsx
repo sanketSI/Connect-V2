@@ -11,11 +11,12 @@ import { Star, Copy, MessageCircle, Send, SlidersHorizontal, EyeOff, Pencil, Che
 import * as Clipboard from 'expo-clipboard'
 import {
   filterReviews, reviewMetrics, reviewsWaitingCount, CANONICAL_REVIEW_WINDOW,
-  storeReviewLink, getCurrentUser, groupByStore, TIME_WINDOWS,
+  storeReviewLink, getCurrentUser, groupByStore,
   DEFAULT_REVIEW_FILTERS, REVIEW_SENTIMENTS, REVIEW_RATING_TYPES, REVIEW_STATUSES, REVIEW_TAGS,
 } from '@connect/core'
 import { Screen, Card, Title, Body, Caption, Chip, PrimaryButton, GhostButton } from '../../components/UI.jsx'
 import ScopePill from '../../components/ScopePill.jsx'
+import TimeFilterSheet, { windowLabelFor } from '../../components/TimeFilterSheet.jsx'
 import RatingRange from '../../components/RatingRange.jsx'
 import { HeaderRight } from '../../components/Header.jsx'
 import { useSession } from '../../lib/session.js'
@@ -146,7 +147,7 @@ export default function ReviewsTab() {
           active={filters.window !== DEFAULT_REVIEW_FILTERS.window}
           onPress={() => setWindowOpen(o => !o)}
         >
-          {t(`window.${filters.window}`, { defaultValue: filters.window })}
+          {windowLabelFor(t, filters.window)}
         </Chip>
         <Chip icon={SlidersHorizontal} active={nActive > 0} onPress={() => setFiltersOpen(true)}>
           {nActive > 0
@@ -155,21 +156,15 @@ export default function ReviewsTab() {
         </Chip>
       </View>
 
-      {/* The period options — every canonical window except custom (its date-range
-          inputs need a native picker; documented deviation, not a silent drop). */}
-      {windowOpen && (
-        <View className="flex-row flex-wrap gap-2 mt-3 -mb-1">
-          {TIME_WINDOWS.filter(w => w.id !== 'custom').map(w => (
-            <Chip
-              key={w.id}
-              active={filters.window === w.id}
-              onPress={() => { setFilters(f => ({ ...f, window: w.id })); setWindowOpen(false) }}
-            >
-              {t(w.labelKey, { defaultValue: w.label })}
-            </Chip>
-          ))}
-        </View>
-      )}
+      {/* The period sheet — the same control Leads opens, now WITH the custom range the
+          inline chip row could not offer. */}
+      <TimeFilterSheet
+        open={windowOpen}
+        value={filters.window}
+        defaultWindow={DEFAULT_REVIEW_FILTERS.window}
+        onClose={() => setWindowOpen(false)}
+        onApply={(w) => setFilters(f => ({ ...f, window: w }))}
+      />
       {/* Listing metrics — the CountsCard idiom, three across. */}
       <Card className="mt-4 mb-2 !p-3.5">
         <View className="flex-row">

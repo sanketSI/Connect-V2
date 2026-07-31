@@ -7,13 +7,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { View, Text, Pressable, Linking } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { PhoneCall, FileText, Store as StoreIcon, Users as UsersIcon, Lock, Repeat2, ChevronRight } from 'lucide-react-native'
+import { PhoneCall, FileText, Store as StoreIcon, Users as UsersIcon, Lock, Repeat2, ChevronRight, CalendarRange } from 'lucide-react-native'
 import {
   getLeads, leadCounts, groupByStore, LEAD_STATUSES, LEAD_SOURCES, rupees,
   getCustomerById, customerDialDigits, updateLeadStatus, dayClock,
 } from '@connect/core'
 import { Screen, Card, Title, Body, Caption, Chip } from '../../components/UI.jsx'
 import ScopePill from '../../components/ScopePill.jsx'
+import TimeFilterSheet, { windowLabelFor } from '../../components/TimeFilterSheet.jsx'
 import { HeaderRight } from '../../components/Header.jsx'
 import { useSession } from '../../lib/session.js'
 import { useDataVersion } from '../../lib/useDataVersion.js'
@@ -40,6 +41,11 @@ export default function LeadsTab() {
 
   const [status, setStatus] = useState('all')
   const [source, setSource] = useState('all')
+  // THE GLOBAL TIME FILTER (PM feedback 8). Leads had no period control at all.
+  // Default 'all': hiding anything older than 30 days would make the lifecycle chips
+  // lie, and Expired leads are by definition the old ones.
+  const [win, setWin] = useState('all')
+  const [timeOpen, setTimeOpen] = useState(false)
 
   // Preset contract: Home's "Call now" opens this tab ON missed (web: goTab preset).
   const params = useLocalSearchParams()
@@ -50,8 +56,10 @@ export default function LeadsTab() {
 
   // Counts from the store scope only — not the filters, or every chip but the active
   // one would read zero.
-  const counts = useMemo(() => leadCounts({ storeId: scopeId }), [scopeId, version])
-  const list = useMemo(() => getLeads({ storeId: scopeId, status, source }), [scopeId, status, source, version])
+  // The window feeds the COUNTS as well as the list — narrow one and not the other and
+  // the chips promise rows the list will not show.
+  const counts = useMemo(() => leadCounts({ storeId: scopeId, win }), [scopeId, win, version])
+  const list = useMemo(() => getLeads({ storeId: scopeId, status, source, win }), [scopeId, status, source, win, version])
   // Grouped BEFORE the branch filter — the picker reads its counts off this, and a
   // filtered grouping would show every other branch as 0.
   const allGroups = useMemo(
@@ -83,14 +91,15 @@ export default function LeadsTab() {
         <HeaderRight />
       </View>
 
-      {/* WHICH LISTINGS ARE IN PLAY — the branch picker leads on the cumulative view. */}
-      {aggregate && (
-        <View className="mt-3 -mb-1">
-          {/* ALWAYS shown, never gated on `aggregate`: a switcher that vanishes once
-              you narrow to one store cannot take you back out. */}
-          <ScopePill />
-        </View>
-      )}
+      {/* SCOPE — location then period, the two things every count below is measured
+          over. ALWAYS shown, never gated on `aggregate`: a switcher that vanishes once
+          you narrow to one store cannot take you back out. */}
+      <View className="flex-row flex-wrap items-center gap-2 mt-3 -mb-1">
+        <ScopePill />
+        <Chip icon={CalendarRange} active={win !== 'all'} onPress={() => { vibrate(6); setTimeOpen(true) }}>
+          {windowLabelFor(t, win)}
+        </Chip>
+      </View>
 
       {/* WHERE THE LEAD HAS GOT TO — chips carry live counts, exactly as web. */}
       <View className="flex-row flex-wrap gap-2 mt-4 mb-2.5">
@@ -135,6 +144,14 @@ export default function LeadsTab() {
           <Caption className="mt-0.5">{t('leads.emptySub', { defaultValue: 'No leads match this status and source.' })}</Caption>
         </Card>
       )}
+
+      <TimeFilterSheet
+        open={timeOpen}
+        value={win}
+        defaultWindow="all"
+        onClose={() => setTimeOpen(false)}
+        onApply={setWin}
+      />
     </Screen>
   )
 }
