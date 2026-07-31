@@ -3,7 +3,7 @@ import { FEATURES } from '../lib/features.js'
 import {
   Bell, LogOut, ChevronRight, Sparkles, Building2,
   Layers, Check, Plus, Images, Shield, Users,
-  RefreshCcw, Globe, Moon, Sun, QrCode, ExternalLink, Link as LinkIcon
+  RefreshCcw, Globe, Moon, Sun, QrCode, ExternalLink, Link as LinkIcon, LifeBuoy
 } from 'lucide-react'
 import { LargeTitle, TopBar } from '../components/TopBar.jsx'
 import { Card, AIBadge, PrimaryButton, Avatar } from '../components/UI.jsx'
@@ -21,6 +21,7 @@ import ManageMedia from './ManageMedia.jsx'
 import LocationVerify from './LocationVerify.jsx'
 import BusinessProfile from './BusinessProfile.jsx'
 import ReviewQrSheet from './ReviewQrSheet.jsx'
+import RaiseTicketSheet from './RaiseTicketSheet.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { useTheme } from '../lib/theme.jsx'
 import { vibrate } from '../lib/utils.js'
@@ -142,6 +143,18 @@ export default function Profile({ role, store, onChangeRole, onLogout, onSwitchS
           <Divider />
           <SettingsRow icon={Shield} label={t('profile.privacy')} sub={t('profile.privacySub')} trailing={t('profile.privacyOk')} />
           <Divider />
+          {/* RAISE A TICKET (PM feedback 3) — the support channel. A settings row rather
+              than a quick-action tile: the tiles above are the things a manager does
+              weekly, and needing support is not one of them.
+              Translator TODO — the catalogs carry no ticketing strings. */}
+          <SettingsRow
+            icon={LifeBuoy}
+            label="Raise a ticket"
+            sub="Report an issue or ask for help"
+            trailing={<ChevronRight size={16} className="text-white/45" />}
+            onClick={() => setSheet('ticket')}
+          />
+          <Divider />
           <SettingsRow icon={LogOut} label={t('profile.logout')} sub="" trailing="" danger onClick={onLogout} />
         </Card>
 
@@ -179,6 +192,9 @@ export default function Profile({ role, store, onChangeRole, onLogout, onSwitchS
       </BottomSheet>
       <BottomSheet open={sheet === 'alerts'} onClose={() => setSheet(null)} label={t('profile.alerts')}>
         <AlertsSheet />
+      </BottomSheet>
+      <BottomSheet open={sheet === 'ticket'} onClose={() => setSheet(null)} fullHeight label="Create New Ticket">
+        <RaiseTicketSheet onClose={() => setSheet(null)} storeId={aggregate ? null : store?.id} />
       </BottomSheet>
       {!aggregate && <ReviewQrSheet open={qrOpen} onClose={() => setQrOpen(false)} store={store} />}
     </div>

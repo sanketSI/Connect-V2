@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import {
   Bell, LogOut, ChevronRight, Users, RefreshCcw, Globe, Shield, Building2, Images,
-  Layers, Sun, Moon, Check, QrCode, ExternalLink, Link as LinkIcon,
+  Layers, Sun, Moon, Check, QrCode, ExternalLink, Link as LinkIcon, LifeBuoy,
 } from 'lucide-react-native'
 import { useColorScheme } from 'react-native'
 import { setTheme } from '../lib/theme.js'
@@ -214,6 +214,18 @@ export default function ProfileScreen() {
           label={t('profile.privacy', { defaultValue: 'Privacy & data' })}
           sub={t('profile.privacySub', { defaultValue: 'GDPR · numbers stay masked' })}
           trailing={<Caption>{t('profile.privacyOk', { defaultValue: 'OK' })}</Caption>}
+        />
+        <Hairline />
+        {/* RAISE A TICKET (PM feedback 3) — the support channel. A settings row rather
+            than a quick-action card: the cards above are the things a manager does
+            weekly, and needing support is not one of them.
+            Translator TODO — the catalogs carry no ticketing strings. */}
+        <SettingsRow
+          icon={LifeBuoy} tint="#0355DB"
+          label="Raise a ticket"
+          sub="Report an issue or ask for help"
+          trailing={<ChevronRight size={16} color="#93A0C8" />}
+          onPress={() => router.push('/raise-ticket')}
         />
         <Hairline />
         <SettingsRow

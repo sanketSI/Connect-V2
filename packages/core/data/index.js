@@ -32,6 +32,7 @@ export * from './leads.js' // getLeads/leadCounts/leadStatusOf + the 5-state lif
 export * from './locations.js' // getStoreLocations/Cluster/City/Regional, computeLocationFlags, locationNeedsVerification, verifyLocation, metersBetween, makePlusCode, sinceLastLogin, getLastLogin, LAST_LOGIN, makeAllLocationsStore, AGGREGATE_STORE_ID
 export * from './network.js'   // storeRollup, storeRollups, networkRollup — every count DERIVED from the records
 export * from './profile.js'   // getBusinessProfile, profileCompleteness, categoryOptionKey, attributeOptionKey, GBP_FIELDS, CATEGORY_OPTIONS, ATTRIBUTE_GROUPS, DAYS
+export * from './tickets.js'   // getTickets, raiseTicket, validateTicket — support tickets
 export * from './postForms.js' // POST_TYPES, validatePost, POST_CTAS — the create-post form spec
 export * from './content.js'   // getMediaLibrary, getUploadSamples, getPostTemplates, checkCompliance, complianceCapability, COMPETITOR_BRANDS, NON_BRAND_NAME_SIGNALS
 export * from './notifications.js' // getNotifications, unreadNotificationCount, notificationCount, markNotificationRead, markAllNotificationsRead, NOTIFICATION_KINDS
