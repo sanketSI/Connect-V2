@@ -23,7 +23,7 @@ import LocationVerify from './screens/LocationVerify.jsx'
 import BottomSheet from './components/BottomSheet.jsx'
 
 import {
-  getStoreLocations, isReturningUser, locationNeedsVerification, markReturningUser,
+  getStoreLocations, isReturningUser, assignedStoreIds, locationNeedsVerification, markReturningUser,
   openMissedCount, reviewsWaitingCount, leadCounts,
   setSessionAssignments, clearSessionAssignments, makeAllLocationsStore,
   defaultSubBrand, makeScopeStore,
@@ -159,7 +159,19 @@ function AppContent() {
   // EVERYTHING this number holds, across every sub-brand — the switcher drills over
   // this even while the session is narrowed to one node of it. Without it, narrowing
   // to Lakshmi Electronics would make Lakshmi Digital unfindable.
-  const [fullStores, setFullStores] = useState([])
+  // `?capture` never runs handleAuthed, which is the only place fullStores is set — so
+  // the store SELECTOR rendered with an empty holding ("0 stores", "Nothing here") and
+  // could not be inspected at all in capture mode. Seeded here for that mode only; the
+  // signed-in path still fills it from the number that authenticated.
+  //
+  // The manager's OWN assignment, not every mapped location: the fixture also holds
+  // Jayanagar, which belongs to a different dealer. assignedStoreIds() returns exactly
+  // that before any session is set. Seeding all of them made capture mode show
+  // "19 stores" where a real sign-in shows 18 — a screenshot that quietly disagrees with
+  // the product is worse than no screenshot.
+  const [fullStores, setFullStores] = useState(
+    () => (CAP ? MAPPED_LOCATIONS.filter(l => assignedStoreIds().includes(l.id)) : []),
+  )
   const [verifyStore, setVerifyStore] = useState(null)
   const [firstTime, setFirstTime] = useState(() => CAP ? !!CAP.welcome : !isReturningUser())
   const toast = useToast()

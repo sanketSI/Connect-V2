@@ -52,13 +52,16 @@ describe('SEED MODE — zero env vars, and nothing about it changed', () => {
     expectSignInMatrix()
   })
 
-  it('still names this dealer’s six outlets and nobody else’s', () => {
-    // Six, not three: Mysore, Andheri and Baner are this dealer's too. They were in
-    // MAPPED_LOCATIONS but missing from the code registry, so sign-in counted three
-    // while the next screen counted six.
-    expect(storeCodesFor(DEALER_PHONE)).toEqual([
-      'LKS-IND-01', 'LKS-KOR-02', 'LKS-HSR-03', 'LKS-MYS-04', 'LKS-BOM-05', 'LKS-PUN-06',
-    ])
+  it('still names this dealer’s outlets and nobody else’s', () => {
+    // Counted from the registry, not spelled out. Locations have twice been added to
+    // MAPPED_LOCATIONS without a registry row — first Mysore/Andheri/Baner, then the
+    // twelve brand-hierarchy stores — and each time sign-in resolved fewer stores than
+    // the next screen displayed. What matters is that the two agree, which a hard-coded
+    // array asserts only until someone updates the array to make it pass.
+    const expected = STORE_CODE_REGISTRY.filter(r => r.phone === DEALER_PHONE).map(r => r.code)
+    expect(storeCodesFor(DEALER_PHONE)).toEqual(expected)
+    expect(storeCodesFor(DEALER_PHONE)).toContain('LKS-IND-01')
+    expect(storeCodesFor(DEALER_PHONE)).not.toContain(OTHER_DEALER_CODE)
     expect(storeCodesFor('9845077777')).toEqual([OTHER_DEALER_CODE])
     expect(storeCodesFor('0000000000')).toEqual([])
   })

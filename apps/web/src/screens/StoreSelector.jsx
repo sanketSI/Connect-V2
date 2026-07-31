@@ -42,8 +42,18 @@ export default function StoreSelector({ current, fullStores = [], onPick, onBack
 
   const seed = () => {
     if (!current) return { subBrands: [], states: [], cities: [], locations: [] }
+    // ONLY THE LOCATION. The session holds one fact — "I am looking at Indiranagar" —
+    // and writing its sub-brand, state and city into the filter as well made every one
+    // of them look like the manager's own pick. It also broke adding to the selection:
+    // tick another sub-brand and pruneScope finds the state/city/location picks
+    // contradict it and drops them, so the selector appears to SWAP rather than add,
+    // which is what "I can't select multi-location" looks like from the outside.
+    //
+    // The ancestry is still SHOWN — impliedAt() exists for exactly this — it is simply
+    // not written into the filter, which is the rule toggleScope's own doc comment
+    // states and this seed was quietly breaking.
     if (!current.aggregate) {
-      return { subBrands: [subBrandOf(current)], states: [current.state], cities: [current.city], locations: [current.id] }
+      return { subBrands: [], states: [], cities: [], locations: [current.id] }
     }
     return current.sel || { subBrands: [], states: [], cities: [], locations: [] }
   }

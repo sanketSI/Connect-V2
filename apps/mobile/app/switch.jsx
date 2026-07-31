@@ -47,8 +47,11 @@ export default function SwitchScreen() {
 
   const seed = () => {
     if (!current) return { subBrands: [], states: [], cities: [], locations: [] }
+    // ONLY THE LOCATION — see the long note in the web StoreSelector. Seeding all four
+    // levels made adding a second pick look like a swap, because pruneScope drops the
+    // picks the new one contradicts.
     if (!current.aggregate) {
-      return { subBrands: [subBrandOf(current)], states: [current.state], cities: [current.city], locations: [current.id] }
+      return { subBrands: [], states: [], cities: [], locations: [current.id] }
     }
     return current.sel || { subBrands: [], states: [], cities: [], locations: [] }
   }

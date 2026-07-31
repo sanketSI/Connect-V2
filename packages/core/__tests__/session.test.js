@@ -8,6 +8,9 @@ import {
   maskPhone, getCurrentUser, isReturningUser, markReturningUser,
   DEALER_PHONE, STORE_CODE_EXAMPLE,
 } from '../data/session.js'
+// Read straight from the fixture so the invariant below compares two independently
+// maintained lists rather than a copy of one of them.
+import { STORE_CODE_REGISTRY, MANAGER_ASSIGNMENTS, MAPPED_LOCATIONS } from '../lib/seedData.js'
 
 const OTHER_DEALER_CODE = 'LKS-JAY-04'   // real store, different owner
 const NO_SUCH_CODE = 'LKS-ZZZ-99'        // well-formed, does not exist
@@ -169,12 +172,36 @@ describe('phoneOnFileFor / storeCodesFor / allStoreCodes', () => {
 
   it('storeCodesFor lists exactly this dealer’s outlets', () => {
     const mine = storeCodesFor(DEALER_PHONE)
-    // All six. The registry used to list only the first three, so sign-in said "3 stores
-    // on this number" and the picker on the very next screen said "6 locations".
-    expect(mine).toEqual([
-      'LKS-IND-01', 'LKS-KOR-02', 'LKS-HSR-03', 'LKS-MYS-04', 'LKS-BOM-05', 'LKS-PUN-06',
-    ])
+
+    // THE INVARIANT, not a copy of the list. The registry once held only the first three
+    // of this dealer's stores, so sign-in said "3 stores on this number" and the picker
+    // on the very next screen said 6 — and the same thing happened again when twelve
+    // more locations were added for the brand hierarchy. Asserting a hard-coded array
+    // caught it both times but had to be rewritten both times, and a test you edit to
+    // make it pass is a test that stops catching the third occurrence.
+    //
+    // So: every code sign-in resolves must belong to a location that actually exists,
+    // and every location the app scopes itself to must be one sign-in can resolve.
+    // Those are two independently maintained lists (STORE_CODE_REGISTRY and
+    // MANAGER_ASSIGNMENTS), which is what makes this worth asserting.
+    const registryForDealer = STORE_CODE_REGISTRY
+      .filter(r => r.phone === DEALER_PHONE)
+      .map(r => r.locationId)
+      .sort()
+    expect([...MANAGER_ASSIGNMENTS].sort()).toEqual(registryForDealer)
+
+    const codeToLocation = new Map(STORE_CODE_REGISTRY.map(r => [r.code, r.locationId]))
+    for (const code of mine) {
+      const locationId = codeToLocation.get(code)
+      expect(MAPPED_LOCATIONS.some(l => l.id === locationId)).toBe(true)
+    }
+    expect(mine.length).toBe(registryForDealer.length)
+
+    // The anchors that must never move, and the boundary that must hold.
+    expect(mine).toContain('LKS-IND-01')
+    expect(mine).toContain('LKS-PUN-06')
     expect(mine).not.toContain(OTHER_DEALER_CODE)
+
     expect(storeCodesFor('98450 12342')).toEqual(mine) // spacing-insensitive
     expect(storeCodesFor('0000000000')).toEqual([])
     expect(storeCodesFor('+91 98450 12342')).toEqual([]) // see the KNOWN LIMITATION above

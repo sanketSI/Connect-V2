@@ -2234,6 +2234,23 @@ export const STORE_CODE_REGISTRY = [
   { code: 'LKS-MYS-04', locationId: 'lks-mys', phone: DEALER_PHONE },
   { code: 'LKS-BOM-05', locationId: 'lks-bom', phone: DEALER_PHONE },
   { code: 'LKS-PUN-06', locationId: 'lks-pun', phone: DEALER_PHONE },
+  // The wider brand. Registered here as well as in MAPPED_LOCATIONS, which is the whole
+  // point of the note above: adding a location without a registry row means sign-in
+  // resolves one count and every screen after it shows another. Twelve stores would have
+  // reproduced that bug at four times the size — and worse, they would never appear in
+  // the location picker at all, because the picker lists what the NUMBER holds.
+  { code: 'CRO-BLR-07', locationId: 'cro-blr', phone: DEALER_PHONE },
+  { code: 'CRO-MAA-08', locationId: 'cro-maa', phone: DEALER_PHONE },
+  { code: 'CRO-HYD-09', locationId: 'cro-hyd', phone: DEALER_PHONE },
+  { code: 'CRO-DEL-10', locationId: 'cro-del', phone: DEALER_PHONE },
+  { code: 'TIT-BOM-11', locationId: 'tit-bom', phone: DEALER_PHONE },
+  { code: 'TIT-PNQ-12', locationId: 'tit-pnq', phone: DEALER_PHONE },
+  { code: 'TIT-AMD-13', locationId: 'tit-amd', phone: DEALER_PHONE },
+  { code: 'WST-CCU-14', locationId: 'wst-ccu', phone: DEALER_PHONE },
+  { code: 'WST-MAA-15', locationId: 'wst-maa', phone: DEALER_PHONE },
+  { code: 'WST-JAI-16', locationId: 'wst-jai', phone: DEALER_PHONE },
+  { code: 'LKS-HUB-17', locationId: 'tet-hub', phone: DEALER_PHONE },
+  { code: 'TAM-BLR-18', locationId: 'tam-blr', phone: DEALER_PHONE },
   // Same brand code prefix, different owner — a valid code this dealer may not use.
   // Jayanagar is a REAL store now (see MAPPED_LOCATIONS): one shop, one manager, which
   // is what makes the single-location build something you can sign into and see rather
@@ -2265,7 +2282,17 @@ export const PRIMARY_STORE_ID = 'lks-ind'
 // have handed the owner someone else's shop and quietly added it to every roll-up.
 // This is only the fallback: a real session's assignment comes from the number that
 // signed in — see setSessionAssignments() in data/assignments.js.
-export const MANAGER_ASSIGNMENTS = ['lks-ind', 'lks-kor', 'lks-new', 'lks-mys', 'lks-bom', 'lks-pun']
+// Eighteen now, not six: everything DEALER_PHONE holds in STORE_CODE_REGISTRY. The two
+// lists have to say the same thing — the registry decides what sign-in resolves and this
+// decides what the app is scoped to, so a store in one and not the other is a store the
+// manager can sign into and then not see (or the reverse).
+export const MANAGER_ASSIGNMENTS = [
+  'lks-ind', 'lks-kor', 'lks-new', 'lks-mys', 'lks-bom', 'lks-pun',
+  'cro-blr', 'cro-maa', 'cro-hyd', 'cro-del',
+  'tit-bom', 'tit-pnq', 'tit-amd',
+  'wst-ccu', 'wst-maa', 'wst-jai',
+  'tet-hub', 'tam-blr',
+]
 
 export const MAPPED_LOCATIONS = [
   {
@@ -2336,6 +2363,131 @@ export const MAPPED_LOCATIONS = [
     missed: 4, answered: 12, recovered: 3, recovery: 75, health: 79, healthPrev: 75,
     reviews: 15, rating: 4.7, verified: true,
     addedAgo: 'Added 6 weeks ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(44),
+  },
+  // ---- THE REST OF THE BRAND -----------------------------------------------
+  // TATA is a holding company, and until now this fixture gave it two sub-brands in one
+  // state each — so STATE was a decorative rung (pick Tetley and Karnataka was the only
+  // state there was) and "select several locations" had almost nothing to select
+  // between. Three more retail sub-brands across six more states and six more cities, so
+  // every rung of Brand → Sub-brand → State → City → Location actually branches.
+  //
+  // THE GEOGRAPHY IS REAL — cities, states, pincodes and the lat/lngs are factual. The
+  // STORES are fixture: illustrative branches for a demo account, in the same spirit as
+  // the Tetley and Tata Motors shops above (neither of which runs consumer retail
+  // either). Nothing here should be read as a real outlet.
+  //
+  // Each one declares its own missed / answered / reviews / rating, and the generator at
+  // the bottom of this file turns those into that many real call and review records —
+  // so no location in the picker is an empty shell reporting zeroes, and the summary a
+  // store states can never drift from the records behind it.
+  {
+    id: 'cro-blr', storeCode: 'CRO-BLR-07', name: 'Croma', subBrand: 'Croma', branch: 'Jayanagar 4th Block', city: 'Bangalore',
+    address: '11th Main, 4th Block, Jayanagar, Bangalore', pincode: '560011', state: 'Karnataka',
+    stated: { lat: 12.9250, lng: 77.5938 }, actual: { lat: 12.9250, lng: 77.5938 },
+    landmark: 'Near Jayanagar Bus Stand',
+    missed: 9, answered: 16, recovered: 6, recovery: 67, health: 74, healthPrev: 71,
+    reviews: 12, rating: 4.4, verified: true,
+    addedAgo: 'Added 2 months ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(62),
+  },
+  {
+    id: 'cro-maa', storeCode: 'CRO-MAA-08', name: 'Croma', subBrand: 'Croma', branch: 'T. Nagar', city: 'Chennai',
+    address: 'Usman Road, T. Nagar, Chennai', pincode: '600017', state: 'Tamil Nadu',
+    stated: { lat: 13.0418, lng: 80.2341 }, actual: { lat: 13.0418, lng: 80.2341 },
+    landmark: 'Near Panagal Park',
+    missed: 14, answered: 11, recovered: 4, recovery: 29, health: 58, healthPrev: 64,
+    reviews: 9, rating: 4.0, verified: true,
+    addedAgo: 'Added 5 weeks ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(35),
+  },
+  {
+    id: 'cro-hyd', storeCode: 'CRO-HYD-09', name: 'Croma', subBrand: 'Croma', branch: 'Banjara Hills', city: 'Hyderabad',
+    address: 'Road No. 12, Banjara Hills, Hyderabad', pincode: '500034', state: 'Telangana',
+    // Pin drifts ~200 m from the storefront → the lat-long check flags this one.
+    stated: { lat: 17.4126, lng: 78.4482 }, actual: { lat: 17.4139, lng: 78.4498 },
+    landmark: 'Opposite GVK One Mall',
+    missed: 6, answered: 18, recovered: 5, recovery: 83, health: 81, healthPrev: 78,
+    reviews: 10, rating: 4.5, verified: false,
+    addedAgo: 'Added 3 months ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(92),
+  },
+  {
+    id: 'cro-del', storeCode: 'CRO-DEL-10', name: 'Croma', subBrand: 'Croma', branch: 'Saket', city: 'New Delhi',
+    address: 'District Centre, Saket, New Delhi', pincode: '110017', state: 'Delhi',
+    stated: { lat: 28.5245, lng: 77.2066 }, actual: { lat: 28.5245, lng: 77.2066 },
+    landmark: 'Select Citywalk',
+    missed: 17, answered: 8, recovered: 3, recovery: 18, health: 46, healthPrev: 55,
+    reviews: 14, rating: 3.8, verified: true,
+    addedAgo: 'Added 4 months ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(121),
+  },
+  {
+    id: 'tit-bom', storeCode: 'TIT-BOM-11', name: 'Titan', subBrand: 'Titan', branch: 'Colaba', city: 'Mumbai',
+    address: 'Colaba Causeway, Mumbai', pincode: '400005', state: 'Maharashtra',
+    stated: { lat: 18.9220, lng: 72.8322 }, actual: { lat: 18.9220, lng: 72.8322 },
+    landmark: 'Near Regal Cinema',
+    missed: 5, answered: 13, recovered: 4, recovery: 80, health: 77, healthPrev: 74,
+    reviews: 8, rating: 4.6, verified: true,
+    addedAgo: 'Added 6 weeks ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(45),
+  },
+  {
+    id: 'tit-pnq', storeCode: 'TIT-PNQ-12', name: 'Titan', subBrand: 'Titan', branch: 'FC Road', city: 'Pune',
+    address: 'Fergusson College Road, Pune', pincode: '411004', state: 'Maharashtra',
+    stated: { lat: 18.5215, lng: 73.8410 }, actual: { lat: 18.5215, lng: 73.8410 },
+    landmark: 'Near Goodluck Chowk',
+    missed: 8, answered: 10, recovered: 4, recovery: 50, health: 66, healthPrev: 69,
+    reviews: 7, rating: 4.2, verified: false,
+    addedAgo: 'Added 2 weeks ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(16),
+  },
+  {
+    id: 'tit-amd', storeCode: 'TIT-AMD-13', name: 'Titan', subBrand: 'Titan', branch: 'CG Road', city: 'Ahmedabad',
+    address: 'Chimanlal Girdharlal Road, Ahmedabad', pincode: '380009', state: 'Gujarat',
+    stated: { lat: 23.0276, lng: 72.5662 }, actual: { lat: 23.0276, lng: 72.5662 },
+    landmark: 'Near Municipal Market',
+    missed: 3, answered: 15, recovered: 3, recovery: 100, health: 88, healthPrev: 84,
+    reviews: 6, rating: 4.8, verified: true,
+    addedAgo: 'Added 1 month ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(29),
+  },
+  {
+    id: 'wst-ccu', storeCode: 'WST-CCU-14', name: 'Westside', subBrand: 'Westside', branch: 'Park Street', city: 'Kolkata',
+    address: 'Park Street, Kolkata', pincode: '700016', state: 'West Bengal',
+    stated: { lat: 22.5535, lng: 88.3520 }, actual: { lat: 22.5535, lng: 88.3520 },
+    landmark: 'Near Park Street Metro',
+    missed: 12, answered: 9, recovered: 5, recovery: 42, health: 62, healthPrev: 60,
+    reviews: 11, rating: 4.1, verified: true,
+    addedAgo: 'Added 7 weeks ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(50),
+  },
+  {
+    id: 'wst-maa', storeCode: 'WST-MAA-15', name: 'Westside', subBrand: 'Westside', branch: 'Anna Nagar', city: 'Chennai',
+    address: '2nd Avenue, Anna Nagar, Chennai', pincode: '600040', state: 'Tamil Nadu',
+    stated: { lat: 13.0850, lng: 80.2101 }, actual: { lat: 13.0850, lng: 80.2101 },
+    landmark: 'Near Anna Nagar Tower Park',
+    missed: 7, answered: 12, recovered: 4, recovery: 57, health: 72, healthPrev: 70,
+    reviews: 8, rating: 4.3, verified: false,
+    addedAgo: 'Added 3 weeks ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(23),
+  },
+  {
+    id: 'wst-jai', storeCode: 'WST-JAI-16', name: 'Westside', subBrand: 'Westside', branch: 'C Scheme', city: 'Jaipur',
+    address: 'Ashok Marg, C Scheme, Jaipur', pincode: '302001', state: 'Rajasthan',
+    stated: { lat: 26.9124, lng: 75.7873 }, actual: { lat: 26.9124, lng: 75.7873 },
+    landmark: 'Near Statue Circle',
+    missed: 10, answered: 7, recovered: 2, recovery: 20, health: 51, healthPrev: 57,
+    reviews: 6, rating: 3.9, verified: true,
+    addedAgo: 'Added 9 weeks ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(64),
+  },
+  {
+    id: 'tet-hub', storeCode: 'LKS-HUB-17', name: 'Tetley', subBrand: 'Tetley', branch: 'Hubballi', city: 'Hubballi',
+    address: 'Koppikar Road, Hubballi', pincode: '580020', state: 'Karnataka',
+    stated: { lat: 15.3647, lng: 75.1240 }, actual: { lat: 15.3647, lng: 75.1240 },
+    landmark: 'Near Chennamma Circle',
+    missed: 4, answered: 8, recovered: 2, recovery: 50, health: 69, healthPrev: 67,
+    reviews: 5, rating: 4.2, verified: true,
+    addedAgo: 'Added 5 days ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(5),
+  },
+  {
+    id: 'tam-blr', storeCode: 'TAM-BLR-18', name: 'Tata Motors', subBrand: 'Tata Motors', branch: 'Whitefield', city: 'Bangalore',
+    address: 'Whitefield Main Road, Bangalore', pincode: '560066', state: 'Karnataka',
+    stated: { lat: 12.9698, lng: 77.7500 }, actual: { lat: 12.9698, lng: 77.7500 },
+    landmark: 'Near Phoenix Marketcity',
+    missed: 11, answered: 10, recovered: 6, recovery: 55, health: 64, healthPrev: 62,
+    reviews: 9, rating: 4.0, verified: true,
+    addedAgo: 'Added 8 weeks ago', addedAgoKey: 'seed.location.addedWhen', addedAtOffsetMs: daysAgo(58),
   },
   // NOT the flagship dealer's. Jayanagar belongs to JAYANAGAR_PHONE, and it is here so
   // there is a real single-store manager to sign in as. It stays out of every roll-up
@@ -2770,3 +2922,184 @@ export const OUTBOUND_AGENT_ENABLED = false
 export const REVIEW_AI_COST = 15
 
 // makePlusCode() and profileCompleteness() moved to src/data/locations.js and src/data/profile.js.
+
+// ============================================================
+// RECORDS FOR THE WIDER BRAND — generated, deterministic, and derived from each
+// location's OWN declared summary.
+//
+// The twelve locations added for the Brand → Sub-brand → State → City → Location picker
+// would otherwise be empty shells: they would appear in every selector and then report
+// zero calls, zero reviews and no roll-up anywhere. A location you can pick that tells
+// you nothing is worse than one that is not there.
+//
+// WHY GENERATED RATHER THAN HAND-WRITTEN. Twelve stores at ~10 calls and ~9 reviews each
+// is roughly 230 records. Hand-authoring them means 230 chances to mistype a storeId or
+// let a store's stated `missed: 9` disagree with the nine records behind it — which is
+// the exact drift the roll-up work spent so long closing. Here the COUNT IS THE SOURCE:
+// a store says `missed: 9`, so nine missed calls exist, and networkRows() recomputing
+// from records can never contradict the summary.
+//
+// NOTHING IS RANDOM. Every value comes from a hash of the store id and the record index,
+// so the fixture is byte-identical on every run — a screenshot taken today matches one
+// taken next week, and a test can assert on it. Math.random() here would make every
+// reload a different demo.
+//
+// The hand-written stores above are untouched. Their records are real editorial work —
+// transcripts, reasons, named customers — and a generator would flatten them.
+// ============================================================
+
+/** Deterministic 0..1 from a string. Small, stable, and not pretending to be a PRNG. */
+function seedHash(str) {
+  let h = 2166136261
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return ((h >>> 0) % 100000) / 100000
+}
+
+const pick = (arr, key) => arr[Math.floor(seedHash(key) * arr.length) % arr.length]
+
+const GEN_CATEGORIES = [
+  ['Air Conditioner', 'seed.category.airConditioner', 42000],
+  ['Smart TV', 'seed.category.smartTv', 58000],
+  ['Refrigerator', 'seed.category.refrigerator', 36000],
+  ['Washing Machine', 'seed.category.washingMachine', 27000],
+  ['Microwave', 'seed.category.microwave', 14000],
+]
+// DERIVED from the canonical map, never re-typed. The first draft hand-wrote three pairs
+// and invented one of them ("Stock check" / seed.callReason.stockCheck) — the real entry
+// is "Stock availability". callingReasons()' own test caught it, which is the argument
+// for reading the closed set rather than copying out of it.
+const GEN_REASONS = Object.entries(CALL_REASON_KEYS)
+  .filter(([reason]) => reason !== 'Spam / unwanted')
+const GEN_NAMES = [
+  'Rohan Desai', 'Meera Iyer', 'Sanjay Bhat', 'Divya Menon', 'Karthik Reddy',
+  'Ananya Ghosh', 'Imran Sheikh', 'Pooja Nair', 'Vivek Joshi', 'Sunita Rao',
+  'Harish Kumar', 'Neha Kapoor', 'Arun Pillai', 'Ritu Malhotra',
+]
+/** Review bodies keyed to the star band, so a 5★ never reads like a complaint. */
+const GEN_REVIEW_GOOD = [
+  'Staff were patient and the price was exactly what was quoted on the phone.',
+  'Quick billing, and they arranged delivery for the same evening.',
+  'Good range in store and no pressure to upgrade. Will come back.',
+]
+const GEN_REVIEW_MID = [
+  'Product is fine. Took a while to find someone free to help.',
+  'Decent experience overall, though the billing queue was slow.',
+]
+const GEN_REVIEW_BAD = [
+  'Waited twenty minutes and nobody came to the counter.',
+  'Was quoted one price on the phone and another in store.',
+]
+
+/**
+ * The stores this generator owns — everything added for the wider brand. Listed by ID
+ * rather than inferred, so a future hand-written store cannot be swallowed by accident.
+ */
+export const GENERATED_STORE_IDS = [
+  'cro-blr', 'cro-maa', 'cro-hyd', 'cro-del',
+  'tit-bom', 'tit-pnq', 'tit-amd',
+  'wst-ccu', 'wst-maa', 'wst-jai',
+  'tet-hub', 'tam-blr',
+]
+
+for (const id of GENERATED_STORE_IDS) {
+  const loc = MAPPED_LOCATIONS.find(l => l.id === id)
+  if (!loc) continue
+
+  // MISSED — exactly as many as the store says it missed.
+  for (let i = 0; i < loc.missed; i++) {
+    const k = `${id}-m${i}`
+    const [cat, catKey, base] = pick(GEN_CATEGORIES, k)
+    const [reason, reasonKey] = pick(GEN_REASONS, `${k}r`)
+    const last = String(100 + Math.floor(seedHash(`${k}n`) * 899))
+    // Spread across the last ~20 hours so the canonical 24h window holds most of them
+    // and the older ones fall out of it — the same shape the hand-written stores have.
+    const mins = 15 + Math.floor(seedHash(`${k}t`) * 1200)
+    MISSED_CALLS.push({
+      id: `mc-${id}-${i}`, storeId: id, kind: 'missed',
+      masked: maskNumber(last), fullMaskedDisplay: `+91 ●●●●● ●●${last}`,
+      minutesAgo: mins, time: '—', atOffsetMs: minsAgo(mins),
+      source: 'SingleInterface', repeats: seedHash(`${k}x`) > 0.85 ? 2 : 1,
+      cli: 40 + Math.floor(seedHash(`${k}c`) * 55),
+      intent: seedHash(`${k}i`) > 0.6 ? 'high' : 'medium',
+      intentReason: 'Enquiry from the listing', intentReasonKey: 'seed.reason.urgentThreeCalls',
+      estValue: base + Math.floor(seedHash(`${k}v`) * 20000),
+      category: cat, categoryKey: catKey,
+      sentiment: 'neutral', callReason: reason, callReasonKey: reasonKey,
+      // RECOVERED IS A MISSED CALL THAT WAS WON BACK — storeRollup() counts missed calls
+      // with leadStatus 'converted', so the first `recovered` of this store's missed
+      // calls carry it. The first draft put 'converted' on the ANSWERED calls instead,
+      // which left every new store on 0% recovery and dropped the network headline from
+      // 20% to 4% while each location's card still claimed its declared rate.
+      leadStatus: i < loc.recovered ? 'converted' : 'open',
+      reviewLinkSent: i < loc.recovered,
+    })
+  }
+
+  // ANSWERED — no transcript. A generated transcript would be invented dialogue put in
+  // a customer's mouth, and the screens already handle a call that has none.
+  for (let i = 0; i < loc.answered; i++) {
+    const k = `${id}-a${i}`
+    const [cat, catKey, base] = pick(GEN_CATEGORIES, k)
+    const [reason, reasonKey] = pick(GEN_REASONS, `${k}r`)
+    const last = String(100 + Math.floor(seedHash(`${k}n`) * 899))
+    const mins = 20 + Math.floor(seedHash(`${k}t`) * 4000)
+    // An answered call that converted. Independent of the missed-call recovery above —
+    // this is a sale made on the phone, not a lost caller won back.
+    const won = seedHash(`${k}w`) > 0.72
+    CONNECTED_CALLS.push({
+      id: `cc-${id}-${i}`, storeId: id, kind: 'connected',
+      masked: maskNumber(last), fullMaskedDisplay: `+91 ●●●●● ●●${last}`,
+      atOffsetMs: minsAgo(mins), time: '—',
+      source: 'SingleInterface', direction: 'inbound',
+      duration: `${1 + Math.floor(seedHash(`${k}d`) * 5)}m ${10 + Math.floor(seedHash(`${k}s`) * 49)}s`,
+      cli: 45 + Math.floor(seedHash(`${k}c`) * 50),
+      estValue: base + Math.floor(seedHash(`${k}v`) * 18000),
+      category: cat, categoryKey: catKey,
+      sentiment: seedHash(`${k}p`) > 0.75 ? 'positive' : 'neutral',
+      callReason: reason, callReasonKey: reasonKey,
+      leadStatus: won ? 'converted' : 'open', reviewLinkSent: won,
+    })
+  }
+
+  // REVIEWS. The star spread is WEIGHTED by the declared rating — a 4.8 store draws
+  // mostly 4s and 5s, a 3.8 gets a fatter tail — but it does NOT average out to it, and
+  // is not meant to. `rating` is the listing's lifetime Google score across hundreds of
+  // reviews; these records are the recent sample the inbox holds. The hand-written
+  // stores behave the same way (Indiranagar declares 4.6 and its twenty seeded reviews
+  // average 4.0), because those are two different facts about a store rather than one
+  // fact written twice.
+  for (let i = 0; i < loc.reviews; i++) {
+    const k = `${id}-r${i}`
+    const roll = seedHash(k)
+    // A 4.4-rated store gets mostly 4s and 5s; a 3.8 gets a fatter tail of 2s and 3s.
+    const generosity = (loc.rating - 3.5) / 1.5 // 0..1 across 3.5–5.0
+    const stars = roll < 0.12 + (1 - generosity) * 0.28 ? (roll < 0.06 ? 1 : 3)
+      : roll < 0.45 ? 4 : 5
+    const body = stars >= 4 ? pick(GEN_REVIEW_GOOD, k)
+      : stars === 3 ? pick(GEN_REVIEW_MID, k)
+        : pick(GEN_REVIEW_BAD, k)
+    const days = Math.floor(seedHash(`${k}t`) * 28)
+    REVIEWS.push({
+      id: `rv-${id}-${i}`, storeId: id,
+      customer: pick(GEN_NAMES, `${k}c`),
+      rating: stars,
+      time: days === 0 ? 'today' : `${days}d ago`,
+      atOffsetMs: days === 0 ? hoursAgo(2 + Math.floor(seedHash(`${k}h`) * 9)) : daysAgo(days),
+      platform: seedHash(`${k}p`) > 0.8 ? 'Justdial' : 'Google',
+      body,
+      tags: stars >= 4 ? ['staff'] : ['staff', 'pricing'],
+      // Roughly half the older ones already answered, so "waiting for a reply" is a real
+      // subset rather than every review on the screen.
+      replies: (days > 3 && seedHash(`${k}q`) > 0.5)
+        ? [{
+          id: `rp-${id}-${i}`, platform: 'gbp', author: 'Store Manager',
+          atOffsetMs: daysAgo(Math.max(0, days - 1)), deleted: false, deletedAtOffsetMs: null,
+          text: 'Thank you for taking the time to write in — we appreciate the feedback.',
+        }]
+        : [],
+    })
+  }
+}
