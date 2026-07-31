@@ -21,7 +21,7 @@ import { LargeTitle } from '../components/TopBar.jsx'
 import { TimelineRow } from '../components/Timeline.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
 import ProfileButton from '../components/ProfileButton.jsx'
-import LocationPicker from '../components/LocationPicker.jsx'
+import ScopePill from '../components/ScopePill.jsx'
 import BottomSheet from '../components/BottomSheet.jsx'
 import { useDataVersion } from '../lib/useDataVersion.js'
 import { emitChange } from '@connect/core/events.js'
@@ -42,7 +42,7 @@ import { vibrate } from '../lib/utils.js'
 
 const SOURCE_ICON = { call: PhoneCall, form: FileText, walk_in: StoreIcon }
 
-export default function Leads({ store, onOpenProfile, preset }) {
+export default function Leads({ store, onOpenProfile, onSwitchStore, preset }) {
   const { t } = useTranslation()
   const version = useDataVersion()
 
@@ -69,7 +69,6 @@ export default function Leads({ store, onOpenProfile, preset }) {
     if (preset.status) setStatus(preset.status)
     if (preset.source) setSource(preset.source)
   }, [preset?.seq])
-  const [branch, setBranch] = useState('all')
   const [openId, setOpenId] = useState(null)
 
   // Counts come from the store scope only — NOT from the status/source filters, or every
@@ -85,10 +84,10 @@ export default function Leads({ store, onOpenProfile, preset }) {
     () => (aggregate ? groupByStore(list) : [{ storeId: null, label: null, count: list.length, items: list }]),
     [aggregate, list],
   )
-  const groups = useMemo(
-    () => (branch === 'all' ? allGroups : allGroups.filter(g => g.storeId === branch)),
-    [allGroups, branch],
-  )
+  // No screen-local branch filter any more: the SCOPE PILL above is the one location
+  // control and it narrows `list` at source, through assignedStoreIds(). Filtering a
+  // second time here would mean this screen could disagree with the pill's own label.
+  const groups = allGroups
 
   const open = useMemo(
     () => (openId ? getLeads({ storeId: scopeId }).find(l => l.id === openId) : null),
@@ -104,11 +103,11 @@ export default function Leads({ store, onOpenProfile, preset }) {
       />
 
       <div className="px-4">
-        {aggregate && (
-          <div className="mb-3">
-            <LocationPicker value={branch} onChange={setBranch} groups={allGroups} total={list.length} />
-          </div>
-        )}
+        {/* ALWAYS, never gated on `aggregate` — see the note on Reviews. A switcher
+            that vanishes when you narrow to one store cannot take you back out. */}
+        <div className="mb-3">
+          <ScopePill store={store} onSwitchStore={onSwitchStore} />
+        </div>
 
         {/* WHERE THE LEAD HAS GOT TO — the manager's first question. */}
         <div className="flex items-center gap-2 mb-2.5 overflow-x-auto no-scrollbar">
@@ -137,7 +136,7 @@ export default function Leads({ store, onOpenProfile, preset }) {
         <div className="space-y-2.5">
           {groups.map(g => (
             <div key={g.storeId ?? 'all'} className="space-y-2.5">
-              {g.label && branch === 'all' && <StoreGroupHeader label={g.label} count={g.count} />}
+              {g.label && <StoreGroupHeader label={g.label} count={g.count} />}
               {g.items.map((lead, i) => (
                 <motion.div
                   key={lead.id}

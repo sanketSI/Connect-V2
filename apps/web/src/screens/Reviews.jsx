@@ -7,7 +7,7 @@ import {
   Trash2, Pencil, EyeOff, RotateCcw, Info, Inbox as InboxIcon, Bot, ChevronRight,
 } from 'lucide-react'
 import { LargeTitle } from '../components/TopBar.jsx'
-import LocationPicker from '../components/LocationPicker.jsx'
+import ScopePill from '../components/ScopePill.jsx'
 import { FEATURES } from '../lib/features.js'
 import { Card, AICard, AIBadge, Chip, PrimaryButton, GhostButton, Avatar, IconBtn, AIShimmer, SourceChip, StoreBadge, StoreGroupHeader } from '../components/UI.jsx'
 import ScreenScroll from '../components/ScreenScroll.jsx'
@@ -48,7 +48,7 @@ const ALL_TABS = [
 const STAR_MIN = 1
 const STAR_MAX = 5
 
-export default function Reviews({ role, store, onOpenProfile }) {
+export default function Reviews({ role, store, onOpenProfile, onSwitchStore }) {
   // PULL TO REFRESH — re-derive from the store every selector here reads. The short
   // await is not theatre: a spinner that vanishes in the same frame reads as a control
   // that did nothing.
@@ -91,7 +91,7 @@ export default function Reviews({ role, store, onOpenProfile }) {
         </div>
 
         <AnimatePresence mode="wait">
-          {tab === 'inbox' && <motion.div key="inbox" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><Inbox store={store} /></motion.div>}
+          {tab === 'inbox' && <motion.div key="inbox" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><Inbox store={store} onSwitchStore={onSwitchStore} /></motion.div>}
           {tab === 'link' && <motion.div key="link" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><ReviewLink /></motion.div>}
           {tab === 'leaderboard' && <motion.div key="leaderboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><Leaderboard /></motion.div>}
         </AnimatePresence>
@@ -231,7 +231,7 @@ const endOfDayMs = (s) => {
 // INBOX
 // ============================================================
 
-function Inbox({ store }) {
+function Inbox({ store, onSwitchStore }) {
   const { t } = useTranslation()
   const windowLabel = useWindowLabel()
   const dur = useDuration()
@@ -241,7 +241,6 @@ function Inbox({ store }) {
   const [filterSheet, setFilterSheet] = useState(false)
   const [timeSheet, setTimeSheet] = useState(false)
   const [pitch, setPitch] = useState(false)
-  const [branch, setBranch] = useState('all') // cumulative view only
 
   // postReviewReply() mutates the shared review record in place, which React cannot see.
   // This is the subscription that tells every derived read below to run again — and it is
@@ -288,10 +287,10 @@ function Inbox({ store }) {
     () => (aggregate ? groupByStore(list) : [{ storeId: null, label: null, count: list.length, items: list }]),
     [aggregate, list],
   )
-  const groups = useMemo(
-    () => (branch === 'all' ? allGroups : allGroups.filter(g => g.storeId === branch)),
-    [allGroups, branch],
-  )
+  // No screen-local branch filter any more: the SCOPE PILL above is the one location
+  // control and it narrows `list` at source, through assignedStoreIds(). Filtering a
+  // second time here would mean this screen could disagree with the pill's own label.
+  const groups = allGroups
 
   // How many reviews the WINDOW holds before the other filters narrow it — the denominator
   // in "showing 3 of 16", so the shortened list is accounted for rather than just short.
@@ -358,9 +357,11 @@ function Inbox({ store }) {
           whatever it selected. (On Customers the picker sits on its own line instead,
           because that screen's chip row is value filters, not scope.) */}
       <div className="flex items-center gap-2 mb-2.5 overflow-x-auto no-scrollbar">
-        {aggregate && (
-          <LocationPicker value={branch} onChange={setBranch} groups={allGroups} total={list.length} />
-        )}
+        {/* ALWAYS, never gated on `aggregate`. This is the GLOBAL switcher, and a
+            control that disappears once you narrow to one store is a control you cannot
+            use to get back out — the manager's only route to the whole brand became
+            Home. Home's own pill has never hidden; that is the consistency asked for. */}
+        <ScopePill store={store} onSwitchStore={onSwitchStore} />
         <Chip icon={CalendarRange} active={filters.window !== DEFAULT_REVIEW_FILTERS.window} onClick={() => setTimeSheet(true)}>
           {windowLabel(filters.window)}
         </Chip>
@@ -476,7 +477,7 @@ function Inbox({ store }) {
       <div className="space-y-2.5">
         {groups.map(g => (
           <div key={g.storeId ?? 'all'} className="space-y-2.5">
-            {g.label && branch === 'all' && <StoreGroupHeader label={g.label} count={g.count} />}
+            {g.label && <StoreGroupHeader label={g.label} count={g.count} />}
             {g.items.map((r, i) => (
               <motion.div key={r.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i, 6) * 0.04 }}>
                 <ReviewCard review={r} aggregate={false} onOpen={() => setSelectedId(r.id)} onPitchAutoReply={() => setPitch(true)} />

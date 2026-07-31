@@ -13,7 +13,7 @@ import {
   getCustomerById, customerDialDigits, updateLeadStatus, dayClock,
 } from '@connect/core'
 import { Screen, Card, Title, Body, Caption, Chip } from '../../components/UI.jsx'
-import LocationPicker from '../../components/LocationPicker.jsx'
+import ScopePill from '../../components/ScopePill.jsx'
 import { HeaderRight } from '../../components/Header.jsx'
 import { useSession } from '../../lib/session.js'
 import { useDataVersion } from '../../lib/useDataVersion.js'
@@ -40,7 +40,6 @@ export default function LeadsTab() {
 
   const [status, setStatus] = useState('all')
   const [source, setSource] = useState('all')
-  const [branch, setBranch] = useState('all')
 
   // Preset contract: Home's "Call now" opens this tab ON missed (web: goTab preset).
   const params = useLocalSearchParams()
@@ -60,8 +59,11 @@ export default function LeadsTab() {
     [aggregate, list],
   )
   const groups = useMemo(
-    () => (branch === 'all' ? allGroups : allGroups.filter(g => g.storeId === branch)),
-    [allGroups, branch],
+    // No screen-local branch filter any more: the SCOPE PILL above is the one location
+    // control and it narrows the list at source, through assignedStoreIds(). Filtering
+    // twice would let this screen disagree with the pill's own label.
+    () => allGroups,
+    [allGroups],
   )
 
   // EVERY card opens. It passes the LEAD id, not the customer id: core's
@@ -84,7 +86,9 @@ export default function LeadsTab() {
       {/* WHICH LISTINGS ARE IN PLAY — the branch picker leads on the cumulative view. */}
       {aggregate && (
         <View className="mt-3 -mb-1">
-          <LocationPicker value={branch} onChange={setBranch} groups={allGroups} total={list.length} />
+          {/* ALWAYS shown, never gated on `aggregate`: a switcher that vanishes once
+              you narrow to one store cannot take you back out. */}
+          <ScopePill />
         </View>
       )}
 
@@ -114,7 +118,7 @@ export default function LeadsTab() {
 
       {groups.map(g => (
         <View key={g.storeId ?? 'all'}>
-          {g.label && branch === 'all' ? (
+          {g.label ? (
             <View className="flex-row items-center justify-between mt-2 mb-2">
               <Caption className="font-hk-semi">{g.label}</Caption>
               <Caption>{g.count}</Caption>

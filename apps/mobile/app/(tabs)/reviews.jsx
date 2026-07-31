@@ -15,7 +15,7 @@ import {
   DEFAULT_REVIEW_FILTERS, REVIEW_SENTIMENTS, REVIEW_RATING_TYPES, REVIEW_STATUSES, REVIEW_TAGS,
 } from '@connect/core'
 import { Screen, Card, Title, Body, Caption, Chip, PrimaryButton, GhostButton } from '../../components/UI.jsx'
-import LocationPicker from '../../components/LocationPicker.jsx'
+import ScopePill from '../../components/ScopePill.jsx'
 import RatingRange from '../../components/RatingRange.jsx'
 import { HeaderRight } from '../../components/Header.jsx'
 import { useSession } from '../../lib/session.js'
@@ -49,7 +49,6 @@ export default function ReviewsTab() {
   const [filters, setFilters] = useState({ ...DEFAULT_REVIEW_FILTERS })
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [windowOpen, setWindowOpen] = useState(false)
-  const [branch, setBranch] = useState('all')
   const aggregate = !!session.store?.aggregate
 
   // How many controls sit off their default — the badge on the Filters chip, and the
@@ -96,8 +95,11 @@ export default function ReviewsTab() {
     [aggregate, list],
   )
   const groups = useMemo(
-    () => (branch === 'all' ? allGroups : allGroups.filter(g => g.storeId === branch)),
-    [allGroups, branch],
+    // No screen-local branch filter any more: the SCOPE PILL above is the one location
+    // control and it narrows the list at source, through assignedStoreIds(). Filtering
+    // twice would let this screen disagree with the pill's own label.
+    () => allGroups,
+    [allGroups],
   )
 
   const waiting = useMemo(() => list.filter(r => !r.responded && !r.removed).length, [list])
@@ -136,9 +138,9 @@ export default function ReviewsTab() {
       {/* Scope controls — the branch picker leads (WHICH listings are in play), then the
           period, then the filters. The web order, the web icons. */}
       <View className="flex-row flex-wrap items-center gap-2 mt-3 -mb-1">
-        {aggregate && (
-          <LocationPicker value={branch} onChange={setBranch} groups={allGroups} total={list.length} />
-        )}
+        {/* ALWAYS shown, never gated on `aggregate`: a switcher that vanishes once you
+            narrow to one store cannot take you back out, and Home's never hides. */}
+        <ScopePill />
         <Chip
           icon={CalendarRange}
           active={filters.window !== DEFAULT_REVIEW_FILTERS.window}
@@ -227,7 +229,7 @@ export default function ReviewsTab() {
           reply with the AI draft. Grouped per listing on the cumulative view. */}
       {groups.map(g => (
         <View key={g.storeId ?? 'all'}>
-          {g.label && branch === 'all' ? (
+          {g.label ? (
             <View className="flex-row items-center justify-between mt-2 mb-2">
               <Caption className="font-hk-semi">{g.label}</Caption>
               <Caption>{g.count}</Caption>
