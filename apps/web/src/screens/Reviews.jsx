@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Star, Sparkles, Send, MessageCircle, Copy, Link as LinkIcon,
   Trophy, Check, SlidersHorizontal, CalendarRange, X,
-  Trash2, Pencil, EyeOff, RotateCcw, Info, Inbox as InboxIcon, Bot, ChevronRight,
+  Trash2, Pencil, EyeOff, RotateCcw, Info, Inbox as InboxIcon, Bot, ChevronRight, AlertTriangle,
 } from 'lucide-react'
 import { LargeTitle } from '../components/TopBar.jsx'
 import ScopePill from '../components/ScopePill.jsx'
@@ -15,7 +15,7 @@ import ScreenScroll from '../components/ScreenScroll.jsx'
 import BottomSheet from '../components/BottomSheet.jsx'
 import {
   getReviewLeaderboard, getCurrentUser, getReviewById, getReviewReplies,
-  updateReviewReply, deleteReviewReply,
+  updateReviewReply, deleteReviewReply, reportReview, unreportReview,
   filterReviews, reviewMetrics, canPublishReply, reviewTag, askAI, postReviewReply,
   relativeTime, dayClock, calendarDate, dataStore, emitChange,
   reviewsWaitingCount, storeReviewLink, groupByStore, CANONICAL_REVIEW_WINDOW,
@@ -1110,6 +1110,11 @@ export function ReviewDetail({ review, onClose }) {
         <ReplyComposer review={review} platformId={platformId} onClose={onClose} />
       )}
 
+      {/* The last resort, and the least prominent thing on the sheet: replying is the job,
+          reporting is what is left when a review should not be on the listing at all.
+          Not shown for one Google has already taken down — there is nothing to report. */}
+      {!review.removed && <ReportReview review={review} />}
+
       {/* WHY IT VANISHED. The chip at the top of this sheet names the fact and the date;
           this says what the fact MEANS — that the review is off the listing, that our
           reply went with it, and that it is therefore missing from every count on the
@@ -1168,6 +1173,82 @@ export function ReviewDetail({ review, onClose }) {
  * confirmation that you are about to delete a review response." This is a PUBLIC
  * retraction; it is the one action on this screen a customer sees happen.
  */
+/**
+ * REPORT THIS REVIEW TO GOOGLE (PM feedback 9, "deleting a review").
+ *
+ * Deliberately NOT a delete. A store manager cannot remove a customer's Google review —
+ * they can report it and Google decides — so the control says what it does. A local
+ * "delete" would leave a one-star review live on the listing while the app showed it
+ * gone, which is the one outcome worth designing against.
+ *
+ * Asks first, and the report is undoable while it is still just a report.
+ * Translator TODO throughout: the catalogs carry nothing for reporting.
+ */
+function ReportReview({ review }) {
+  const { t } = useTranslation()
+  const [confirming, setConfirming] = useState(false)
+  const reported = !!review.reportedAtMs
+
+  if (reported) {
+    return (
+      <div className="mt-4 rounded-xl p-3" style={{ background: 'rgba(202,138,4,.10)', border: '1px solid rgba(202,138,4,.30)' }}>
+        <div className="flex items-start gap-2">
+          <Flag color="#CA8A04" icon={AlertTriangle}>Reported to Google</Flag>
+        </div>
+        <div className="m-caption text-white/70 mt-2">
+          Reported {relativeTime(review.reportedAtMs)}. Google decides whether it comes
+          down — it stays on your listing until they do.
+        </div>
+        <button
+          type="button"
+          onClick={() => { vibrate(8); unreportReview(review.id) }}
+          className="mt-2 m-caption font-semibold press"
+          style={{ color: 'var(--si-primary-text)' }}
+        >
+          {t('common.undo', { defaultValue: 'Undo' })}
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-4">
+      {confirming ? (
+        <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-glass)' }}>
+          <div className="m-callout text-white">Report this review to Google?</div>
+          <div className="m-caption text-white/70 mt-1">
+            You cannot delete a customer&apos;s review. Reporting asks Google to take it
+            down for a policy breach — fake, offensive or not about this business. It
+            stays on your listing until they rule.
+          </div>
+          <div className="flex items-center justify-end gap-2 mt-3">
+            <button type="button" onClick={() => setConfirming(false)} className="h-9 px-3 rounded-full m-subhead text-white/60 press">
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={() => { vibrate(15); reportReview(review.id); setConfirming(false) }}
+              className="on-dark h-9 px-4 rounded-full m-subhead font-semibold text-white press md-state inline-flex items-center gap-1.5"
+              style={{ background: '#CA8A04' }}
+            >
+              <AlertTriangle size={13} /> Report
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => { vibrate(6); setConfirming(true) }}
+          className="m-caption press inline-flex items-center gap-1.5"
+          style={{ color: 'var(--text-tertiary)' }}
+        >
+          <AlertTriangle size={12} /> Report this review to Google
+        </button>
+      )}
+    </div>
+  )
+}
+
 function ReplyRow({ reply, reviewId }) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)

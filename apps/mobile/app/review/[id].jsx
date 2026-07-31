@@ -12,13 +12,13 @@
 //     waiting counts, the badge and the list behind this screen all move at once.
 // ============================================================
 import { useEffect, useState } from 'react'
-import { View, Text, TextInput, Pressable } from 'react-native'
+import { View, Text, TextInput, Pressable, Alert } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import { Star, EyeOff, Pencil, MessageCircle, Sparkles, Trash2, AlertTriangle } from 'lucide-react-native'
 import {
   getReviewById, getReviewReplies, canPublishReply, postReviewReply,
-  updateReviewReply, deleteReviewReply,
+  updateReviewReply, deleteReviewReply, reportReview, unreportReview, relativeTime,
   PUBLISHING_PLATFORMS, REVIEW_TAGS, askAI, dayClock, getCurrentUser,
 } from '@connect/core'
 import { Screen, Card, Title, Body, Caption, PrimaryButton } from '../../components/UI.jsx'
@@ -144,6 +144,13 @@ export default function ReviewDetailScreen() {
 
       {canReply && !review.responded && <ReplyComposer review={review} platformId={platformId} t={t} platformLabel={platformLabel} />}
 
+      {/* REPORT TO GOOGLE (PM feedback 9, "deleting a review"). Deliberately not a
+          delete: a manager cannot remove a customer's Google review, only report it and
+          wait for Google to rule. A local delete would show it gone while it stayed live
+          on the listing. Hidden for one Google has already taken down.
+          Translator TODO — the catalogs carry nothing for reporting. */}
+      {!removed ? <ReportReview review={review} t={t} /> : null}
+
       {/* Why the box is gone — the fact means something, not just a warning label. */}
       {removed && (
         <Card className="mt-4 !p-3.5">
@@ -174,6 +181,55 @@ export default function ReviewDetailScreen() {
  * A reply already down offers neither action, and DELETE ASKS FIRST — a retraction is
  * the one thing on this screen the customer sees happen.
  */
+function ReportReview({ review, t }) {
+  const reported = !!review.reportedAtMs
+
+  function confirm() {
+    vibrate(6)
+    Alert.alert(
+      'Report this review to Google?',
+      'You cannot delete a customer\u2019s review. Reporting asks Google to take it down for a policy breach — fake, offensive or not about this business. It stays on your listing until they rule.',
+      [
+        { text: t('common.cancel', { defaultValue: 'Cancel' }), style: 'cancel' },
+        {
+          text: 'Report',
+          style: 'destructive',
+          onPress: () => { reportReview(review.id); notifySuccess() },
+        },
+      ],
+    )
+  }
+
+  if (reported) {
+    return (
+      <Card className="mt-4 !p-3.5 bg-[#CA8A04]/10 border-[#CA8A04]/30">
+        <View className="flex-row items-start gap-2">
+          <AlertTriangle size={14} color="#B45309" />
+          <View className="flex-1 min-w-0">
+            <Body className="font-hk-semi text-[#B45309]">Reported to Google</Body>
+            <Caption className="mt-1">
+              Reported {relativeTime(review.reportedAtMs)}. Google decides whether it comes
+              down — it stays on your listing until they do.
+            </Caption>
+            <Pressable onPress={() => { vibrate(8); unreportReview(review.id) }} accessibilityRole="button" className="mt-2">
+              <Text className="text-[13px] font-hk-semi text-primaryText dark:text-d-primaryText">
+                {t('common.undo', { defaultValue: 'Undo' })}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Card>
+    )
+  }
+
+  return (
+    <Pressable onPress={confirm} accessibilityRole="button" className="mt-4 flex-row items-center gap-1.5 self-start">
+      <AlertTriangle size={12} color="#93A0C8" />
+      <Caption>Report this review to Google</Caption>
+    </Pressable>
+  )
+}
+
 function ReplyRow({ reply, reviewId, t, platformLabel }) {
   const [editing, setEditing] = useState(false)
   const [confirming, setConfirming] = useState(false)

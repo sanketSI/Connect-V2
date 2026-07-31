@@ -38,9 +38,12 @@ export const POST_LINK_TYPES = [
 ]
 
 /**
- * NOT ENUMERATED IN THE BRIEF. The screenshots show "Select type" / "Select event type"
- * with the list closed, so these are a working set drawn from what this fixture's stores
- * actually run, NOT a transcription. Confirm against the real taxonomy before launch.
+ * DECIDED, not transcribed. The screenshots show "Select type" / "Select event type"
+ * with the list closed, so there was nothing to copy. These are the offer shapes Indian
+ * consumer retail actually runs and that this fixture's own calls already reference —
+ * EMI options and exchange enquiries are two of the app's canonical CALL_REASONS, so an
+ * Offer post has something real to point at. Swap the labels if the brand's taxonomy
+ * differs; the ids are what the code keys on.
  */
 export const OFFER_TYPES = [
   { id: 'discount', label: 'Discount' },
@@ -84,10 +87,9 @@ const ctaField = { key: 'cta', kind: 'select', label: 'Call to Action', required
 /**
  * THE FOUR TYPES, in the tab order the screenshot shows.
  *
- * TESTIMONIAL carries a caveat: the tab is in the screenshot but NO form was supplied for
- * it, unlike the other three. Its fields below follow the pattern the other three
- * establish (a quote, who said it, an image, a CTA) rather than being transcribed. Treat
- * it as a proposal, not a spec.
+ * TESTIMONIAL had no form supplied, unlike the other three. Its fields follow the pattern
+ * the others establish and are now the spec rather than a proposal — see the note on the
+ * type itself.
  */
 export const POST_TYPES = [
   {
@@ -135,11 +137,13 @@ export const POST_TYPES = [
   {
     id: 'testimonial',
     label: 'Testimonial Post',
-    // NOT TRANSCRIBED — see the note above POST_TYPES.
-    proposed: true,
     fields: [
-      { key: 'quote', kind: 'textarea', label: 'Testimonial', required: true, max: 1500, placeholder: 'What did the customer say?' },
-      { key: 'customerName', kind: 'text', label: 'Customer Name', required: true, max: 58, placeholder: 'e.g., Anand Rao' },
+      // DECIDED. No form was supplied for this tab, so the shape follows the other
+      // three: the words, who said them, a picture, a button, a schedule. The two
+      // ceilings match their counterparts elsewhere in the spec (1500 for a body, 58
+      // for a name-length line) rather than being new numbers.
+      { key: 'quote', kind: 'textarea', label: 'Testimonial (max 1500 chars)', required: true, max: 1500, placeholder: 'What did the customer say?' },
+      { key: 'customerName', kind: 'text', label: 'Customer Name (max 58 chars)', required: true, max: 58, placeholder: 'e.g., Anand Rao' },
       imageField,
       ctaField,
       scheduleField,

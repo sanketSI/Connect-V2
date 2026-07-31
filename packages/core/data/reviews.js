@@ -78,6 +78,20 @@ function replyMirrors(replies) {
 // for why an `atOffsetMs` in storage would drift a reply later on every reload.
 // ============================================================
 
+const REPORTS_KEY = 'connect-review-reports'
+
+/** `{ [reviewId]: { atMs, reason } }`. Never throws: storage may be blocked. */
+function readStoredReports() {
+  try {
+    const raw = storage.getItem(REPORTS_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
 const REPLIES_KEY = 'connect-review-replies'
 
 /** `{ [reviewId]: [{ id, platform, text, author, atMs }] }`. Never throws: storage may be blocked. */
@@ -169,6 +183,11 @@ function resolveReview(r) {
     tags: r.tags || [],
     removed: !!r.removed,
     edited: !!r.edited,
+    // A report the manager filed in an earlier session. Read from storage the way
+    // replies are, so "we reported this" survives a reload — a report that silently
+    // forgets itself would have the manager file it a second time.
+    reportedAtMs: r.reportedAtMs ?? readStoredReports()[r.id]?.atMs ?? null,
+    reportReason: r.reportReason ?? readStoredReports()[r.id]?.reason ?? null,
     // Legacy mirrors — see the note above.
     ...replyMirrors(replies),
   }
@@ -428,6 +447,58 @@ export function storeReviewLink(storeOrId) {
  *
  * @returns the updated reply, or null if it could not be found.
  */
+/**
+ * REPORT A REVIEW TO GOOGLE (PM feedback 9: "the option of ... deleting a review").
+ *
+ * A STORE MANAGER CANNOT DELETE A CUSTOMER'S REVIEW. It is the customer's, published on
+ * Google's platform, and the only lever a business has is to report it for policy
+ * violation and wait for Google to rule. So "delete" is implemented as what it actually
+ * is — a report — rather than as a local hide that would leave the manager believing a
+ * one-star review was gone while it stayed live on their listing. That is the one failure
+ * mode worth designing against here.
+ *
+ * The idiom already exists in this app: Manage Media flags images to Google for removal
+ * the same way, with the same honesty about who decides.
+ *
+ * The review stays in the inbox, flagged. `removed` remains Google's word for "this is
+ * off the listing", set by hydration when it actually happens; `reportedAtMs` is ours for
+ * "we asked". Two different facts, and conflating them is how the screen would start
+ * claiming an outcome it does not have.
+ *
+ * @returns the reported review, or null if it could not be found or was already reported.
+ */
+export function reportReview(reviewId, reason) {
+  const review = getReviewById(reviewId)
+  if (!review || review.reportedAtMs) return null
+
+  const atMs = Date.now()
+  review.reportedAtMs = atMs
+  review.reportReason = reason ? String(reason) : null
+
+  const all = readStoredReports()
+  all[reviewId] = { atMs, reason: review.reportReason }
+  storage.setItem(REPORTS_KEY, JSON.stringify(all))
+
+  // NOT mirrored to Supabase: reporting is a moderation action against Google, not a
+  // client write to our own row — the same reason postReviewReply does not send
+  // `deleted`. When a real reporting API exists this is where the call goes.
+  emitChange()
+  return review
+}
+
+/** Undo a report before Google has acted on it. */
+export function unreportReview(reviewId) {
+  const review = getReviewById(reviewId)
+  if (!review || !review.reportedAtMs) return null
+  review.reportedAtMs = null
+  review.reportReason = null
+  const all = readStoredReports()
+  delete all[reviewId]
+  storage.setItem(REPORTS_KEY, JSON.stringify(all))
+  emitChange()
+  return review
+}
+
 export function updateReviewReply(reviewId, replyId, body) {
   const review = getReviewById(reviewId)
   const text = String(body ?? '').trim()
