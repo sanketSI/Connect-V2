@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -15,6 +15,7 @@ import ScreenScroll from '../components/ScreenScroll.jsx'
 import BottomSheet from '../components/BottomSheet.jsx'
 import {
   getReviewLeaderboard, getCurrentUser, getReviewById, getReviewReplies,
+  updateReviewReply, deleteReviewReply,
   filterReviews, reviewMetrics, canPublishReply, reviewTag, askAI, postReviewReply,
   relativeTime, dayClock, calendarDate, dataStore, emitChange,
   reviewsWaitingCount, storeReviewLink, groupByStore, CANONICAL_REVIEW_WINDOW,
@@ -22,7 +23,7 @@ import {
   DEFAULT_REVIEW_FILTERS, TIME_WINDOWS,
 } from '@connect/core'
 import { altLanguage } from '@connect/core/i18n/languages.js'
-import { vibrate } from '../lib/utils.js'
+import { vibrate, cn } from '../lib/utils.js'
 import { useToast } from '../components/Toast.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
 import ProfileButton from '../components/ProfileButton.jsx'
@@ -1086,7 +1087,7 @@ function ReviewDetail({ review, onClose }) {
             <span className="m-caption text-white/40">{replies.length}</span>
           </div>
           <div className="space-y-2">
-            {replies.map(rep => <ReplyRow key={rep.id} reply={rep} />)}
+            {replies.map(rep => <ReplyRow key={rep.id} reply={rep} reviewId={review.id} />)}
           </div>
         </div>
       )}
@@ -1143,8 +1144,46 @@ function ReviewDetail({ review, onClose }) {
   )
 }
 
-function ReplyRow({ reply }) {
+/**
+ * ONE PUBLISHED REPLY — readable, editable, retractable (PM feedback 9).
+ *
+ * A reply that is already down (`deleted`) offers neither action: there is nothing to
+ * edit and nothing left to take down, and the dashed card already says so.
+ *
+ * DELETE ASKS FIRST, as specified — "when Deleting a response of a review, take the
+ * confirmation that you are about to delete a review response." This is a PUBLIC
+ * retraction; it is the one action on this screen a customer sees happen.
+ */
+function ReplyRow({ reply, reviewId }) {
   const { t } = useTranslation()
+  const [editing, setEditing] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const [draft, setDraft] = useState(reply.text)
+  const ref = useRef(null)
+
+  // Caret to the end when the edit opens — same rule as the lead notes: the browser
+  // otherwise restores offset 0 and the next keystroke lands in front of the reply.
+  useEffect(() => {
+    if (!editing) return
+    const el = ref.current
+    if (!el) return
+    el.focus()
+    el.setSelectionRange(el.value.length, el.value.length)
+  }, [editing])
+
+  function save() {
+    if (!draft.trim()) return
+    updateReviewReply(reviewId, reply.id, draft)
+    vibrate(12)
+    setEditing(false)
+  }
+
+  function remove() {
+    deleteReviewReply(reviewId, reply.id)
+    vibrate(18)
+    setConfirming(false)
+  }
+
   return (
     <Card
       className="!p-3"
@@ -1154,15 +1193,84 @@ function ReplyRow({ reply }) {
         <PlatformChip id={reply.platform} />
         <span className="m-caption text-white/45 truncate">{dayClock(reply.atMs)}</span>
       </div>
-      <p className={'mt-2 m-callout ' + (reply.deleted ? 'text-white/45' : 'text-white/85')}>{reply.text}</p>
+
+      {editing ? (
+        <>
+          <textarea
+            ref={ref}
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            className="w-full mt-2 rounded-xl p-2.5 bg-transparent text-white m-callout outline-none resize-none min-h-[88px]"
+            style={{ background: 'var(--bg-subtle)', border: '1px solid rgba(0,112,252,.45)' }}
+          />
+          <div className="flex items-center justify-end gap-2 mt-2">
+            <button type="button" onClick={() => { setDraft(reply.text); setEditing(false) }} className="h-9 px-3 rounded-full m-subhead text-white/60 press">
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button" onClick={save} disabled={!draft.trim()}
+              className={cn('on-dark h-9 px-4 rounded-full m-subhead font-semibold text-white press md-state', !draft.trim() && 'opacity-40')}
+              style={{ background: '#0070FC' }}
+            >
+              {t('common.save')}
+            </button>
+          </div>
+        </>
+      ) : (
+        <p className={'mt-2 m-callout ' + (reply.deleted ? 'text-white/45' : 'text-white/85')}>{reply.text}</p>
+      )}
+
       <div className="mt-1.5 flex items-center justify-between gap-2">
         <span className="m-caption text-white/40 truncate">— {reply.author}</span>
-        {reply.deleted && (
+        {reply.deleted ? (
           <Flag color="#FF6B7E" icon={Trash2}>
             {t('reviews.replyDeletedAt', { at: dayClock(reply.deletedAtMs), defaultValue: 'Deleted · {{at}}' })}
           </Flag>
+        ) : !editing && (
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => { vibrate(6); setDraft(reply.text); setEditing(true) }}
+              aria-label={t('reviews.edit', { defaultValue: 'Edit' })}
+              className="-m-2 p-2 press text-white/40 hover:text-white/70"
+            >
+              <Pencil size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => { vibrate(6); setConfirming(true) }}
+              /* Translator TODO: the catalogs carry no Delete string at all. */
+              aria-label="Delete reply"
+              className="-m-2 p-2 press text-white/40 hover:text-[#FF6B7E]"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
         )}
       </div>
+
+      {/* THE CONFIRMATION. Inline rather than a sheet on top of a sheet: this row is the
+          thing being deleted, and a dialog that covers it makes the manager confirm
+          against memory. Translator TODO — no catalog key for this warning. */}
+      {confirming && !reply.deleted && (
+        <div className="mt-2.5 pt-2.5" style={{ borderTop: '1px solid var(--border-glass)' }}>
+          <div className="m-caption text-white/80">
+            You are about to delete this review response. It will be taken down publicly.
+          </div>
+          <div className="flex items-center justify-end gap-2 mt-2">
+            <button type="button" onClick={() => setConfirming(false)} className="h-9 px-3 rounded-full m-subhead text-white/60 press">
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button" onClick={remove}
+              className="on-dark h-9 px-4 rounded-full m-subhead font-semibold text-white press md-state inline-flex items-center gap-1.5"
+              style={{ background: '#DC2626' }}
+            >
+              <Trash2 size={13} /> Delete reply
+            </button>
+          </div>
+        </div>
+      )}
     </Card>
   )
 }

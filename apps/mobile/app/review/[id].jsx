@@ -12,12 +12,13 @@
 //     waiting counts, the badge and the list behind this screen all move at once.
 // ============================================================
 import { useEffect, useState } from 'react'
-import { View, Text, TextInput } from 'react-native'
+import { View, Text, TextInput, Pressable } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { Star, EyeOff, Pencil, MessageCircle, Sparkles } from 'lucide-react-native'
+import { Star, EyeOff, Pencil, MessageCircle, Sparkles, Trash2, AlertTriangle } from 'lucide-react-native'
 import {
   getReviewById, getReviewReplies, canPublishReply, postReviewReply,
+  updateReviewReply, deleteReviewReply,
   PUBLISHING_PLATFORMS, REVIEW_TAGS, askAI, dayClock, getCurrentUser,
 } from '@connect/core'
 import { Screen, Card, Title, Body, Caption, PrimaryButton } from '../../components/UI.jsx'
@@ -133,15 +134,10 @@ export default function ReviewDetailScreen() {
             <Caption>{replies.length}</Caption>
           </View>
           {replies.map(rep => (
-            <Card key={rep.id} className="mb-2 !p-3">
-              <Body numberOfLines={6}>{rep.body}</Body>
-              <Caption className="mt-1.5">
-                {rep.deletedAtMs
-                  ? t('reviews.replyDeletedAt', { at: dayClock(rep.deletedAtMs), defaultValue: 'Deleted · {{at}}' })
-                  : t('reviews.replyPostedTo', { platform: platformLabel(rep.platform), defaultValue: 'Published to {{platform}}' })}
-                {' · '}{dayClock(rep.atMs)}
-              </Caption>
-            </Card>
+            <ReplyRow
+              key={rep.id} reply={rep} reviewId={review.id}
+              t={t} platformLabel={platformLabel}
+            />
           ))}
         </View>
       )}
@@ -165,6 +161,115 @@ export default function ReviewDetailScreen() {
         </Card>
       )}
     </Screen>
+  )
+}
+
+/**
+ * ONE PUBLISHED REPLY — readable, editable, retractable (PM feedback 9).
+ *
+ * It also FIXES a live bug: this row rendered `rep.body`, and the reply record has no
+ * such field (it is `text`), so every published reply in the history has been drawing as
+ * an empty card on device. The web row reads `reply.text` and always has.
+ *
+ * A reply already down offers neither action, and DELETE ASKS FIRST — a retraction is
+ * the one thing on this screen the customer sees happen.
+ */
+function ReplyRow({ reply, reviewId, t, platformLabel }) {
+  const [editing, setEditing] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const [draft, setDraft] = useState(reply.text)
+  // Caret after the existing text when the edit opens — same rule as the lead notes.
+  const [caret, setCaret] = useState(undefined)
+  const gone = !!reply.deleted
+
+  function save() {
+    if (!draft.trim()) return
+    updateReviewReply(reviewId, reply.id, draft)
+    setEditing(false)
+    notifySuccess()
+  }
+
+  function remove() {
+    deleteReviewReply(reviewId, reply.id)
+    setConfirming(false)
+    notifySuccess()
+  }
+
+  return (
+    <Card className={`mb-2 !p-3 ${gone ? 'opacity-70' : ''}`}>
+      {editing ? (
+        <>
+          <TextInput
+            value={draft}
+            onChangeText={setDraft}
+            autoFocus
+            multiline
+            selection={caret}
+            onSelectionChange={() => setCaret(undefined)}
+            accessibilityLabel={t('reviews.edit', { defaultValue: 'Edit' })}
+            className="min-h-[88px] rounded-xl border border-brand-blue/40 bg-screen dark:bg-white/5 p-3 text-[15px] text-ink dark:text-d-ink"
+          />
+          <View className="flex-row justify-end gap-2 mt-2">
+            <Pressable onPress={() => { setDraft(reply.text); setEditing(false) }} accessibilityRole="button"
+              className="h-9 px-3 rounded-pill border border-hairline dark:border-d-hairline items-center justify-center">
+              <Text className="text-[13px] font-hk-semi text-ink-2 dark:text-d-ink2">{t('common.cancel', { defaultValue: 'Cancel' })}</Text>
+            </Pressable>
+            <Pressable onPress={save} disabled={!draft.trim()} accessibilityRole="button"
+              className={`h-9 px-3.5 rounded-pill items-center justify-center ${draft.trim() ? 'bg-brand-blue' : 'bg-brand-blue/30'}`}>
+              <Text className="text-[13px] font-hk-semi text-white">{t('common.save', { defaultValue: 'Save' })}</Text>
+            </Pressable>
+          </View>
+        </>
+      ) : (
+        <Body numberOfLines={8} className={gone ? 'text-ink-3 dark:text-d-ink3' : ''}>{reply.text}</Body>
+      )}
+
+      <View className="flex-row items-center justify-between gap-2 mt-1.5">
+        <Caption className="flex-1" numberOfLines={1}>
+          {gone
+            ? t('reviews.replyDeletedAt', { at: dayClock(reply.deletedAtMs), defaultValue: 'Deleted · {{at}}' })
+            : t('reviews.replyPostedTo', { platform: platformLabel(reply.platform), defaultValue: 'Published to {{platform}}' })}
+          {' · '}{dayClock(reply.atMs)}
+        </Caption>
+        {!gone && !editing ? (
+          <View className="flex-row items-center gap-3">
+            <Pressable onPress={() => { vibrate(6); setDraft(reply.text); setCaret({ start: reply.text.length, end: reply.text.length }); setEditing(true) }}
+              accessibilityRole="button" accessibilityLabel={t('reviews.edit', { defaultValue: 'Edit' })} hitSlop={10}>
+              <Pencil size={13} color="#93A0C8" />
+            </Pressable>
+            {/* Translator TODO: the catalogs carry no Delete string at all. */}
+            <Pressable onPress={() => { vibrate(6); setConfirming(true) }}
+              accessibilityRole="button" accessibilityLabel="Delete reply" hitSlop={10}>
+              <Trash2 size={13} color="#93A0C8" />
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
+
+      {/* THE CONFIRMATION, inline — the row being deleted stays on screen, so the manager
+          is not confirming against memory. Translator TODO on the warning copy. */}
+      {confirming && !gone ? (
+        <View className="mt-2.5 pt-2.5 border-t border-hairline dark:border-d-hairline">
+          <View className="flex-row items-start gap-2">
+            <AlertTriangle size={14} color="#DC2626" />
+            <Body className="flex-1 text-ink dark:text-d-ink">
+              You are about to delete this review response. It will be taken down publicly.
+            </Body>
+          </View>
+          <View className="flex-row justify-end gap-2 mt-2.5">
+            <Pressable onPress={() => setConfirming(false)} accessibilityRole="button"
+              className="h-9 px-3 rounded-pill border border-hairline dark:border-d-hairline items-center justify-center">
+              <Text className="text-[13px] font-hk-semi text-ink-2 dark:text-d-ink2">{t('common.cancel', { defaultValue: 'Cancel' })}</Text>
+            </Pressable>
+            <Pressable onPress={remove} accessibilityRole="button"
+              className="h-9 px-3.5 rounded-pill bg-bad items-center justify-center flex-row gap-1.5">
+              <Trash2 size={13} color="#fff" />
+              <Text className="text-[13px] font-hk-semi text-white">Delete reply</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+    </Card>
   )
 }
 

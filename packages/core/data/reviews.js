@@ -104,6 +104,19 @@ function persistReply(reviewId, reply) {
   storage.setItem(REPLIES_KEY, JSON.stringify(all))
 }
 
+/**
+ * Rewrite one stored reply in place — the edit path. A SEEDED reply has no stored row
+ * yet, so this creates one rather than silently no-opping: without that the edit would
+ * survive until reload and then vanish back to the seed text.
+ */
+function persistReplyPatch(reviewId, replyId, patch) {
+  const all = readStoredReplies()
+  const list = Array.isArray(all[reviewId]) ? all[reviewId] : []
+  const i = list.findIndex(rep => rep && rep.id === replyId)
+  all[reviewId] = i === -1 ? [...list, { id: replyId, ...patch }] : list.map((rep, k) => (k === i ? { ...rep, ...patch } : rep))
+  storage.setItem(REPLIES_KEY, JSON.stringify(all))
+}
+
 /** Stored replies for one review, rebuilt into live records against THIS session's clock. */
 function restoredRepliesFor(reviewId) {
   const list = readStoredReplies()[reviewId]
@@ -117,8 +130,11 @@ function restoredRepliesFor(reviewId) {
       author: rep.author,
       atMs: rep.atMs,
       atOffsetMs: offsetForInstant(rep.atMs), // absolute → this session's offset frame
-      deleted: false,
-      deletedAtMs: null,
+      // Read from storage, NOT hardcoded false. A retraction that came back un-deleted
+      // on the next reload would be the app quietly re-publishing something the manager
+      // took down — the one direction this must never fail in.
+      deleted: !!rep.deleted,
+      deletedAtMs: Number.isFinite(rep.deletedAtMs) ? rep.deletedAtMs : null,
     }))
 }
 
@@ -399,6 +415,78 @@ export function storeReviewLink(storeOrId) {
  * @param f.tags        REVIEW_TAGS ids — matches a review carrying ANY of them.
  * @returns reviews, newest first.
  */
+/**
+ * Edit a reply that has already gone out (PM feedback 9).
+ *
+ * Keeps the reply's ID, AUTHOR, PLATFORM AND ORIGINAL TIME. A correction is not a second
+ * reply: replies are ordered by `atMs` and `repliedAtMs` is the moment the customer was
+ * first answered, so re-stamping an edit would move the review in the list and overstate
+ * how slowly it was handled — the metric this screen is judged on.
+ *
+ * An empty body is a no-op, not a retraction. Taking a public reply down is a separate,
+ * deliberate action (deleteReviewReply) and must not be reachable by a stray backspace.
+ *
+ * @returns the updated reply, or null if it could not be found.
+ */
+export function updateReviewReply(reviewId, replyId, body) {
+  const review = getReviewById(reviewId)
+  const text = String(body ?? '').trim()
+  if (!review || !text || !replyId) return null
+
+  const reply = (review.replies || []).find(rep => rep.id === replyId)
+  if (!reply || reply.deleted) return null
+  if (reply.text === text) return reply
+
+  reply.text = text
+  Object.assign(review, replyMirrors(review.replies))
+  persistReplyPatch(reviewId, replyId, {
+    platform: reply.platform, text, author: reply.author, atMs: reply.atMs, deleted: false,
+  })
+
+  const sb = liveClient()
+  if (sb) {
+    sb.from('review_replies').update({ body: text }).eq('id', replyId)
+      .throwOnError().then(null, (e) => console.warn('[data] supabase updateReviewReply failed:', e))
+  }
+  emitChange()
+  return reply
+}
+
+/**
+ * Take a published reply down (PM feedback 9).
+ *
+ * A SOFT delete: the row stays, flagged, because `repliedAtMs` must keep saying the
+ * customer WAS answered at the time they were — we did reply, and later retracted it.
+ * replyMirrors() already filters deleted replies out of `responded` and `aiReply`, so
+ * the review correctly returns to the unanswered queue without rewriting history.
+ *
+ * NOT MIRRORED TO SUPABASE, deliberately, and for the reason postReviewReply already
+ * documents for the same column: `deleted` is not in the anon grant (migration 0002)
+ * because retracting a public reply is a moderation action, not a client write. Sending
+ * it would fail permission-denied. Local + storage is the honest extent of it here.
+ *
+ * @returns the deleted reply, or null if it could not be found.
+ */
+export function deleteReviewReply(reviewId, replyId) {
+  const review = getReviewById(reviewId)
+  if (!review || !replyId) return null
+
+  const reply = (review.replies || []).find(rep => rep.id === replyId)
+  if (!reply || reply.deleted) return null
+
+  const atMs = Date.now()
+  reply.deleted = true
+  reply.deletedAtMs = atMs
+  Object.assign(review, replyMirrors(review.replies))
+  persistReplyPatch(reviewId, replyId, {
+    platform: reply.platform, text: reply.text, author: reply.author, atMs: reply.atMs,
+    deleted: true, deletedAtMs: atMs,
+  })
+
+  emitChange()
+  return reply
+}
+
 export function filterReviews(f = {}) {
   const {
     window: win = 'all', rating, sentiment = 'all', ratingType = 'both',
