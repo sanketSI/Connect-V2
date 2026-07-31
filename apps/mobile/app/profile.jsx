@@ -8,13 +8,18 @@
 // (Appearance.setColorScheme drives RN and NativeWind together, persisted through the
 // storage seam and re-applied at boot), the settings card, and the footer.
 // ============================================================
-import { View, Text, Pressable } from 'react-native'
+import { View, Text, Pressable, Linking } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { Bell, LogOut, ChevronRight, Users, RefreshCcw, Globe, Shield, Building2, Images, Layers, Sun, Moon, Check } from 'lucide-react-native'
+import {
+  Bell, LogOut, ChevronRight, Users, RefreshCcw, Globe, Shield, Building2, Images,
+  Layers, Sun, Moon, Check, QrCode, ExternalLink, Link as LinkIcon,
+} from 'lucide-react-native'
 import { useColorScheme } from 'react-native'
 import { setTheme } from '../lib/theme.js'
-import { getCurrentUser, assignedStores, locationNeedsVerification } from '@connect/core'
+import {
+  getCurrentUser, assignedStores, locationNeedsVerification, micrositeUrl, googleListingUrl,
+} from '@connect/core'
 import { FEATURES } from '../lib/features.js'
 import { getLanguage } from '@connect/core/i18n/languages.js'
 import { Screen, Card, Title, Body, Caption } from '../components/UI.jsx'
@@ -110,6 +115,50 @@ export default function ProfileScreen() {
             </View>
             <ChevronRight size={16} color="#93A0C8" />
           </View>
+        </Card>
+      )}
+
+      {/* THE REVIEW QR (PM feedback 10) — "an easy way for a store manager to be able to
+          allow buyers to scan the code and to add a review on their Google Business
+          Profile. Again, this was there in the previous build. It got stripped."
+          Restored, and features.js now carries reviewQr as in-scope rather than !IS_MVP.
+          A QR belongs to ONE listing, so it is hidden on the aggregate: there is no
+          single review box six stores could share.
+          Translator TODO — the catalogs carry no QR strings. */}
+      {FEATURES.reviewQr && !aggregate && (
+        <Card onPress={() => router.push('/review-qr')} label="Review QR" className="mt-3">
+          <View className="flex-row items-center gap-3">
+            <View className="w-10 h-10 rounded-xl bg-[#7C3AED]/10 items-center justify-center">
+              <QrCode size={17} color="#7C3AED" />
+            </View>
+            <View className="flex-1 min-w-0">
+              <Body className="font-hk-semi text-ink dark:text-d-ink">Review QR</Body>
+              <Caption className="mt-0.5">Buyers scan to review</Caption>
+            </View>
+            <ChevronRight size={16} color="#93A0C8" />
+          </View>
+        </Card>
+      )}
+
+      {/* WHERE THIS STORE LIVES ONLINE (PM feedback 10) — the listing and the microsite.
+          Both leave the app, so they carry an external-link glyph rather than the chevron
+          the in-app rows use. Hidden on the aggregate for the same reason as the QR. */}
+      {!aggregate && (
+        <Card className="mt-3 !p-0 overflow-hidden">
+          <SettingsRow
+            icon={Building2} tint="#0070FC"
+            label="Google Business Profile"
+            sub="Open your public listing"
+            trailing={<ExternalLink size={15} color="#93A0C8" />}
+            onPress={() => { const u = googleListingUrl(store); if (u) Linking.openURL(u) }}
+          />
+          <SettingsRow
+            icon={LinkIcon} tint="#0070FC"
+            label="Microsite"
+            sub={micrositeUrl(store) || ''}
+            trailing={<ExternalLink size={15} color="#93A0C8" />}
+            onPress={() => { const u = micrositeUrl(store); if (u) Linking.openURL(u) }}
+          />
         </Card>
       )}
 

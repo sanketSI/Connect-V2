@@ -136,6 +136,23 @@ export function micrositeUrl(loc) {
 }
 
 /**
+ * The store's public Google listing (PM feedback 10: "add a link to Google Business
+ * Profile and a link to Microsites").
+ *
+ * A MAPS SEARCH for the store's own name and address, NOT a /place/<place_id> deep link:
+ * this fixture holds no place_id, and minting a URL shaped like one would 404 for every
+ * store. A search on the exact name + address resolves to the listing when it exists and
+ * degrades to a sane result page when it does not, which is the honest behaviour for a
+ * link we cannot guarantee.
+ */
+export function googleListingUrl(loc) {
+  if (!loc || loc.aggregate) return null
+  const q = [loc.name, loc.branch, loc.address].filter(Boolean).join(', ')
+  if (!q) return null
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
+}
+
+/**
  * "ALL LOCATIONS" — the synthetic selection behind the cumulative view (feedback
  * round 4). Deliberately carries NO name/branch fields: every screen prints its label
  * through t('stores.allLocations'), and every fallback written for a missing store

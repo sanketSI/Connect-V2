@@ -3,12 +3,15 @@ import { FEATURES } from '../lib/features.js'
 import {
   Bell, LogOut, ChevronRight, Sparkles, Building2,
   Layers, Check, Plus, Images, Shield, Users,
-  RefreshCcw, Globe, Moon, Sun
+  RefreshCcw, Globe, Moon, Sun, QrCode, ExternalLink, Link as LinkIcon
 } from 'lucide-react'
 import { LargeTitle, TopBar } from '../components/TopBar.jsx'
 import { Card, AIBadge, PrimaryButton, Avatar } from '../components/UI.jsx'
 import BottomSheet from '../components/BottomSheet.jsx'
-import { getCurrentUser, ROLES, locationNeedsVerification, assignedStores, getStoreTeam, getAllStoreTeams, storeLabelOf } from '@connect/core'
+import {
+  getCurrentUser, ROLES, locationNeedsVerification, assignedStores, getStoreTeam,
+  getAllStoreTeams, storeLabelOf, micrositeUrl, googleListingUrl,
+} from '@connect/core'
 import { useTranslation } from 'react-i18next'
 import { setLanguage } from '../i18n/index.js'
 import { languagesByRegion, getLanguage } from '@connect/core/i18n/languages.js'
@@ -17,6 +20,7 @@ const PRIMARY_USER = getCurrentUser()
 import ManageMedia from './ManageMedia.jsx'
 import LocationVerify from './LocationVerify.jsx'
 import BusinessProfile from './BusinessProfile.jsx'
+import ReviewQrSheet from './ReviewQrSheet.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { useTheme } from '../lib/theme.jsx'
 import { vibrate } from '../lib/utils.js'
@@ -24,6 +28,9 @@ import NotificationBell from '../components/NotificationBell.jsx'
 
 export default function Profile({ role, store, onChangeRole, onLogout, onSwitchStore, onBack }) {
   const [sheet, setSheet] = useState(null)
+  // The review QR is its own sheet rather than a `sheet` value: ReviewQrSheet draws to a
+  // canvas on mount and takes `open` itself, so it manages its own lifecycle.
+  const [qrOpen, setQrOpen] = useState(false)
   const { t, i18n } = useTranslation()
   // A Google listing, its photo library and its staff all belong to ONE branch, so on
   // the All-locations view there is no store to open them for. Silently falling back to
@@ -80,7 +87,43 @@ export default function Profile({ role, store, onChangeRole, onLogout, onSwitchS
               list, so the aggregate view simply shows every branch's, grouped. */}
           <QuickTile icon={Users} label={t('profile.team')} sub={t('profile.teamSub')} onClick={() => setSheet('team')} accent="#16A34A" />
           <QuickTile icon={Layers} label={t('profile.switchRole')} sub={t('profile.switchRoleSub')} onClick={() => setSheet('role')} accent="#F97316" />
+
+          {/* THE REVIEW QR (PM feedback 10) — "an easy way for a store manager to be able
+              to allow buyers to scan the code and to add a review on their Google Business
+              Profile. Again, this was there in the previous build. It got stripped."
+              Restored, and features.js now carries reviewQr as in-scope rather than
+              !IS_MVP. A QR belongs to ONE listing, so it is hidden on the aggregate:
+              there is no single review box for six stores to point a camera at.
+              Translator TODO on the labels — the catalogs have no QR strings. */}
+          {FEATURES.reviewQr && !aggregate && (
+            <QuickTile icon={QrCode} label="Review QR" sub="Buyers scan to review" onClick={() => setQrOpen(true)} accent="#7C3AED" />
+          )}
         </div>
+
+        {/* WHERE THIS STORE LIVES ONLINE (PM feedback 10) — the listing and the microsite,
+            the two public pages this app manages. Both open OUTSIDE the app, so they are
+            rows with an external-link affordance rather than tiles that look like the
+            in-app sheets above them. Hidden on the aggregate for the same reason as the
+            QR: neither is a thing six stores share. */}
+        {!aggregate && (
+          <Card className="mt-3 !p-0 overflow-hidden">
+            <SettingsRow
+              icon={Building2}
+              label="Google Business Profile"
+              sub="Open your public listing"
+              trailing={<ExternalLink size={15} className="text-white/45" />}
+              onClick={() => { vibrate(8); const u = googleListingUrl(store); if (u) window.open(u, '_blank', 'noopener') }}
+            />
+            <Divider />
+            <SettingsRow
+              icon={LinkIcon}
+              label="Microsite"
+              sub={micrositeUrl(store) || ''}
+              trailing={<ExternalLink size={15} className="text-white/45" />}
+              onClick={() => { vibrate(8); const u = micrositeUrl(store); if (u) window.open(u, '_blank', 'noopener') }}
+            />
+          </Card>
+        )}
 
         {/* Appearance */}
         <div className="mt-4 mb-2 m-subhead text-white/55 px-1">{t('profile.appearance')}</div>
@@ -137,6 +180,7 @@ export default function Profile({ role, store, onChangeRole, onLogout, onSwitchS
       <BottomSheet open={sheet === 'alerts'} onClose={() => setSheet(null)} label={t('profile.alerts')}>
         <AlertsSheet />
       </BottomSheet>
+      {!aggregate && <ReviewQrSheet open={qrOpen} onClose={() => setQrOpen(false)} store={store} />}
     </div>
   )
 }

@@ -11,7 +11,11 @@ export const FEATURES = {
   locationVerify: !IS_MVP,
   reviewsInbox: true,
   reviewsAutoReplyPitch: !IS_MVP,
-  reviewQr: !IS_MVP,
+  /** The printable review QR sheet. IN SCOPE since Feedback-2 item 10: "this was there
+   *  in the previous build of the app. It got stripped in this version" — the QR is how a
+   *  buyer standing at the counter is asked for a Google review, which is the top of the
+   *  funnel the whole Reviews tab sits on. Plain `true`, not a flag that is always on. */
+  reviewQr: true,
   notifications: true,
 }
 
