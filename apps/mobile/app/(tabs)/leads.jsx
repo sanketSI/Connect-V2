@@ -7,7 +7,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { View, Text, Pressable, Linking } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { PhoneCall, FileText, Store as StoreIcon, Users as UsersIcon, Lock, Repeat2, ChevronRight, CalendarRange } from 'lucide-react-native'
+import { PhoneCall, FileText, Store as StoreIcon, Users as UsersIcon, Lock, Repeat2, ChevronRight, CalendarRange, Star as StarIcon, MessageSquare,
+} from 'lucide-react-native'
 import {
   getLeads, leadCounts, groupByStore, LEAD_STATUSES, LEAD_SOURCES, rupees,
   getCustomerById, customerDialDigits, updateLeadStatus, dayClock,
@@ -182,6 +183,59 @@ function StatusPill({ status, t }) {
   )
 }
 
+/**
+ * THE FIVE FACTS EVERY LEAD CARD CARRIES (PM feedback 8) — native twin of LeadFacts in
+ * apps/web/src/screens/Leads.jsx; the reasoning lives there.
+ *
+ * Four as one chip row: status, source, reason, review-requested. The fifth
+ * (hot/warm/cold) is the band pill in the card's top-right corner, where the brief asks
+ * for it and where it already was.
+ *
+ * ONE COMPONENT FOR BOTH CARDS, so the missed card and the rest cannot drift into
+ * disagreeing about what a lead is. The missed card previously showed NEITHER status nor
+ * source.
+ */
+function LeadFacts({ lead, t }) {
+  const src = LEAD_SOURCES.find(s => s.id === lead.source)
+  const SrcIcon = SOURCE_ICON[lead.source] || PhoneCall
+
+  return (
+    <View className="mt-2 flex-row items-center gap-1.5 flex-wrap">
+      <StatusPill status={lead.status} t={t} />
+
+      {src ? (
+        <View className="h-6 px-2 rounded-pill flex-row items-center gap-1 bg-card dark:bg-white/5 border border-hairline dark:border-d-hairline">
+          <SrcIcon size={10} color="#5F6878" />
+          <Text className="text-[11px] font-hk-medium text-ink-2 dark:text-d-ink2">
+            {t(src.labelKey, { defaultValue: src.label })}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Null on a walk-in and a form — nobody rang — so the chip is absent rather than
+          a placeholder. */}
+      {lead.callReason ? (
+        <View className="h-6 px-2 rounded-pill flex-row items-center gap-1 bg-card dark:bg-white/5 border border-hairline dark:border-d-hairline">
+          <MessageSquare size={10} color="#5F6878" />
+          <Text className="text-[11px] font-hk-medium text-ink-2 dark:text-d-ink2">
+            {t(lead.callReasonKey, { defaultValue: lead.callReason })}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Only when a review HAS been asked for: "not requested" is the default state of
+          almost every lead, and a chip on all of them says nothing.
+          Translator TODO — the catalogs carry no string for this. */}
+      {lead.reviewRequested ? (
+        <View className="h-6 px-2 rounded-pill flex-row items-center gap-1 bg-ok/10 border border-ok/30">
+          <StarIcon size={10} color="#15803D" />
+          <Text className="text-[11px] font-hk-semi text-[#15803D]">Review requested</Text>
+        </View>
+      ) : null}
+    </View>
+  )
+}
+
 function LeadCard({ lead, t, onOpen }) {
   // A missed call is the one row with an action on it — the web gives it its own card
   // shape (MissedCallCard), so it gets the same here, not a padded-out generic row.
@@ -210,9 +264,7 @@ function LeadCard({ lead, t, onOpen }) {
           <Caption className="mt-0.5">{since(lead.atMs)}</Caption>
         </View>
       </View>
-      <View className="mt-2 flex-row items-center">
-        <StatusPill status={lead.status} t={t} />
-      </View>
+      <LeadFacts lead={lead} t={t} />
     </Card>
   )
 }
@@ -292,6 +344,12 @@ function MissedCallCard({ lead, t, onOpen }) {
                 .filter(Boolean).join(' · ')}
             </Caption>
           ) : null}
+
+          {/* The same four facts every other lead row carries. This card used to show
+              NEITHER status nor source — the Call back button implied "missed" and the
+              phone icon implied "call", which reads fine alone and badly when scanning a
+              mixed list for what is still outstanding. */}
+          <LeadFacts lead={lead} t={t} />
         </View>
 
         <ChevronRight size={16} color="#93A0C8" style={{ alignSelf: 'center' }} />

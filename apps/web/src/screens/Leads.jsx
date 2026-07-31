@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { PhoneCall, FileText, Store as StoreIcon, Users as UsersIcon, Check, Lock, Repeat2, ChevronRight, CalendarRange } from 'lucide-react'
+import {
+  PhoneCall, FileText, Store as StoreIcon, Users as UsersIcon, Check, Lock, Repeat2,
+  ChevronRight, CalendarRange, Star as StarIcon, MessageSquare,
+} from 'lucide-react'
 import { NameField, NoteRow } from './Customers.jsx'
 
 /**
@@ -217,6 +220,75 @@ function StatusPill({ status }) {
   )
 }
 
+/**
+ * THE FIVE FACTS EVERY LEAD CARD CARRIES (PM feedback 8).
+ *
+ * "each card would have lead status (missed, contacted, converted, review requested,
+ * expired), top right lead type (hot, warm, cold), source type — whether the customer
+ * has come from form lead, call lead, walk in — whether review is requested or not, and
+ * reason of calling."
+ *
+ * Four of them live here as one chip row; the fifth (hot/warm/cold) is the CLIPill in
+ * the card's top-right corner, where the brief asks for it and where it already was.
+ *
+ * ONE COMPONENT FOR BOTH CARDS. A missed call and everything else render through
+ * different components — deliberately, a missed call is the only row with an action on
+ * it — and giving each its own copy of these chips is how the two drift into disagreeing
+ * about what a lead is. The missed card previously showed NEITHER status nor source: the
+ * Call back button implied "missed" and the phone icon implied "call", which reads fine
+ * until you are scanning a mixed list for what is outstanding.
+ *
+ * REASON is null on a walk-in and a form — nobody rang — so the chip is absent rather
+ * than a placeholder. Its vocabulary is the app's own closed set (CALL_REASONS: price
+ * enquiry, stock availability, EMI options, delivery delay, installation request,
+ * warranty / service), which is not the same list the brief sketches ("service enquiry,
+ * complaint, product purchase"). Using the real set rather than inventing three new ones
+ * — worth confirming which vocabulary you want.
+ */
+function LeadFacts({ lead }) {
+  const { t } = useTranslation()
+  const src = LEAD_SOURCES.find(s => s.id === lead.source)
+  const SrcIcon = SOURCE_ICON[lead.source] || PhoneCall
+
+  return (
+    <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+      <StatusPill status={lead.status} />
+
+      {/* WHERE IT CAME FROM — call, form or walk-in. */}
+      {src && (
+        <span
+          className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption shrink-0"
+          style={{ background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
+        >
+          <SrcIcon size={10} /> {t(src.labelKey, { defaultValue: src.label })}
+        </span>
+      )}
+
+      {/* WHY THEY RANG. */}
+      {lead.callReason && (
+        <span
+          className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption shrink-0"
+          style={{ background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
+        >
+          <MessageSquare size={10} /> {t(lead.callReasonKey, { defaultValue: lead.callReason })}
+        </span>
+      )}
+
+      {/* WHETHER A REVIEW WAS ASKED FOR. Only when it HAS been: "no review requested" is
+          the default state of almost every lead, and a chip on all of them says nothing.
+          Translator TODO — the catalogs have reviews.* strings but none for this. */}
+      {lead.reviewRequested && (
+        <span
+          className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption shrink-0"
+          style={{ background: 'rgba(22,163,74,.10)', color: '#15803D', border: '1px solid rgba(22,163,74,.30)' }}
+        >
+          <StarIcon size={10} /> Review requested
+        </span>
+      )}
+    </div>
+  )
+}
+
 function LeadCard({ lead, onOpen }) {
   const { t } = useTranslation()
   const Icon = SOURCE_ICON[lead.source] || PhoneCall
@@ -255,9 +327,7 @@ function LeadCard({ lead, onOpen }) {
           <div className="m-caption text-white/45 mt-0.5">{relativeTime(lead.atMs)}</div>
         </div>
       </div>
-      <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-        <StatusPill status={lead.status} />
-      </div>
+      <LeadFacts lead={lead} />
     </Card>
   )
 }
@@ -343,6 +413,11 @@ function MissedCallCard({ lead, onOpen }) {
                 .filter(Boolean).join(' · ')}
             </div>
           )}
+          {/* The same four facts every other lead row carries. This card used to show
+              NEITHER status nor source — the Call back button implied "missed" and the
+              phone icon implied "call", which reads fine on its own and badly when you
+              are scanning a mixed list for what is still outstanding. */}
+          <LeadFacts lead={lead} />
         </div>
 
         <ChevronRight size={16} className="shrink-0 self-center text-white/30" aria-hidden="true" />

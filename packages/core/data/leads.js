@@ -67,6 +67,16 @@ function fromCall(call) {
     atMs: call.atMs,
     repeats: call.repeats ?? 1,
     outcome: call.outcome,
+    // WHY THEY RANG, carried onto the lead so the CARD can show it rather than the
+    // manager having to open the row to find out. It lives on the call record — a
+    // walk-in and a form have no calling reason — so it is null for those sources
+    // rather than being invented to fill the field.
+    callReason: call.callReason ?? null,
+    callReasonKey: call.callReasonKey ?? null,
+    // WHETHER A REVIEW WAS ASKED FOR. Distinct from the 'review_requested' STATUS: the
+    // status is where the lifecycle got to, this is whether the link actually went out,
+    // and a converted lead can sit at either. Both appear on the card.
+    reviewRequested: !!(call.reviewLinkSent ?? false),
   }
 }
 
@@ -90,6 +100,10 @@ function fromCustomer(cu, source) {
     atMs: cu.firstSeenAtMs ?? cu.lastSeenAtMs ?? 0,
     repeats: 1,
     outcome: null,
+    // Nobody rang, so there is no calling reason — null, not a placeholder.
+    callReason: null,
+    callReasonKey: null,
+    reviewRequested: !!(cu.reviewSent ?? false),
     // CONDITIONAL, and only ever on a form lead: what the customer themselves typed into
     // the enquiry form on the microsite. Nobody types a description into a phone call and
     // a walk-in is recorded by the manager, so on every other source this is absent and
