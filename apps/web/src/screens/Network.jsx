@@ -5,10 +5,14 @@ import { useTranslation } from 'react-i18next'
 import {
   networkRows, rankRows, assignedStoreIds, assignedStores,
   getCalls, getLeads, LEAD_SOURCES, LEAD_STATUSES, updateLeadStatus, storeLabelOf, dayClock, relativeTime,
-  getCustomers, getCustomerById, leadAsCustomer,
+  getCustomers, getCustomerById, leadAsCustomer, filterReviews, getReviewById,
 } from '@connect/core'
 import { Card, Chip, CLIPill } from '../components/UI.jsx'
 import ScreenScroll from '../components/ScreenScroll.jsx'
+import BottomSheet from '../components/BottomSheet.jsx'
+// The city view reuses Reviews' OWN card and detail rather than drawing a third
+// version of a review — see the note on CityRecordsPage.
+import { ReviewCard, ReviewDetail } from './Reviews.jsx'
 import { LargeTitle, TopBar } from '../components/TopBar.jsx'
 import { CustomerCard, CustomerDetail, collidingMasks } from './Customers.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
@@ -80,6 +84,7 @@ export default function Network({ onOpenProfile, store }) {
   const [dir, setDir] = useState('desc')
   // Which store's calls are open. Store id, or null.
   const [openStore, setOpenStore] = useState(null)
+  const [openCity, setOpenCity] = useState(null)
 
   const atStore = level === 'store'
   const meta = BOARDS.find(b => b.id === board)
@@ -115,6 +120,18 @@ export default function Network({ onOpenProfile, store }) {
   // sliding a sheet over the leaderboard — a sheet keeps the list it came from half
   // visible behind a scrim, which is right for a quick confirm and wrong for the screen
   // you came all this way to reach. After the hooks above, so the hook order is fixed.
+  if (openCity) {
+    return (
+      <CityRecordsPage
+        city={openCity}
+        board={board}
+        onBack={() => { vibrate(6); setOpenCity(null) }}
+        onOpenStore={(id) => { setOpenCity(null); setOpenStore(id) }}
+        onOpenProfile={onOpenProfile}
+      />
+    )
+  }
+
   if (openStore) {
     return (
       <StoreCallsPage
@@ -221,9 +238,16 @@ export default function Network({ onOpenProfile, store }) {
                 row={r} rank={i + 1} metric={meta.metric}
                 drillable={false}
                 onDrill={undefined}
+                // PM feedback 1/2: the drill runs sub-brand → state → CITY, and a city
+                // is where it stops being a summary. Clicking one lands on the individual
+                // records inside it — the leads, or the reviews, whichever board is
+                // showing — rather than on yet another list of groups. Sub-brand and
+                // state still step down a level; a store still opens its own calls.
                 onOpen={atStore
                   ? () => { vibrate(8); setOpenStore(r.key) }
-                  : () => { vibrate(8); setLevel(level === 'subBrand' ? 'state' : level === 'state' ? 'city' : 'store') }}
+                  : level === 'city'
+                    ? () => { vibrate(8); setOpenCity(r.city || r.key) }
+                    : () => { vibrate(8); setLevel(level === 'subBrand' ? 'state' : 'city') }}
               />
             </motion.div>
           ))}
@@ -255,6 +279,146 @@ export default function Network({ onOpenProfile, store }) {
  *   ATTENDED  where the lead came from, how warm it was, and what they rang about —
  *             which only exists BECAUSE somebody picked up.
  */
+/**
+ * EVERY RECORD IN ONE CITY — where the drill stops summarising (PM feedback 1/2).
+ *
+ * "Once he has reached the city level, on clicking the city level, the user should be
+ * redirected to the individual data points within the city": the leads themselves, each
+ * opening its lead page, or the reviews themselves, each opening its review page.
+ *
+ * WHICH ONE depends on the board the manager was already reading. They arrived here by
+ * tapping a row ranked on missed calls or on negative reviews; showing them the other
+ * kind would answer a question they did not ask. The toggle stays on screen so it is one
+ * tap either way.
+ *
+ * A city is a SET of stores, so everything is filtered by that set rather than by a
+ * single storeId. The rows reuse the cards their own screens draw — CustomerCard via
+ * AttendedRow, and Reviews' own ReviewCard — so a record looks the same here as it does
+ * where it lives, and cannot drift into a third design.
+ */
+function CityRecordsPage({ city, board, onBack, onOpenStore, onOpenProfile }) {
+  const { t } = useTranslation()
+  const version = useDataVersion()
+  const [tab, setTab] = useState(board === 'reviews' ? 'reviews' : 'leads')
+
+  // The stores this city holds, within the manager's own scope.
+  const cityStores = useMemo(
+    () => assignedStores().filter(l => l.city === city),
+    [city, version],
+  )
+  const idSet = useMemo(() => new Set(cityStores.map(l => l.id)), [cityStores])
+
+  const leads = useMemo(
+    () => getLeads().filter(l => idSet.has(l.storeId)),
+    [idSet, version],
+  )
+  const reviews = useMemo(
+    () => filterReviews({ window: 'all' }).filter(r => idSet.has(r.storeId)),
+    [idSet, version],
+  )
+  const callById = useMemo(
+    () => new Map(getCalls('all').filter(c => idSet.has(c.storeId)).map(c => [c.id, c])),
+    [idSet, version],
+  )
+  const customers = useMemo(
+    () => getCustomers().filter(c => idSet.has(c.storeId)),
+    [idSet, version],
+  )
+  const sharedMasks = useMemo(() => collidingMasks(customers), [customers])
+
+  const [openSubject, setOpenSubject] = useState(null)
+  const [openLeadId, setOpenLeadId] = useState(null)
+  const openLead = useMemo(() => leads.find(l => l.id === openLeadId) || null, [leads, openLeadId])
+  const [openReviewId, setOpenReviewId] = useState(null)
+  const openReview = useMemo(() => (openReviewId ? getReviewById(openReviewId) : null), [openReviewId, version])
+
+  // After the hooks, so hook order is fixed regardless of which view renders.
+  if (openSubject) {
+    return (
+      <CustomerPage
+        subject={openSubject}
+        lead={openLead}
+        onBack={() => { vibrate(6); setOpenSubject(null); setOpenLeadId(null) }}
+        onOpenProfile={onOpenProfile}
+      />
+    )
+  }
+
+  return (
+    <div className="absolute top-[44px] left-0 right-0 bottom-0 pb-[88px] overflow-y-auto no-scrollbar">
+      <TopBar onBack={onBack} title="" transparent
+        right={<div className="flex items-center"><NotificationBell /><ProfileButton onClick={onOpenProfile} /></div>}
+      />
+      <LargeTitle
+        title={city}
+        subtitle={t('stores.nStoresShort', {
+          count: cityStores.length,
+          defaultValue_one: '{{count}} store',
+          defaultValue_other: '{{count}} stores',
+        })}
+      />
+
+      <div className="px-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Chip icon={PhoneCall} active={tab === 'leads'} onClick={() => { vibrate(6); setTab('leads') }}>
+            {t('leads.title', { defaultValue: 'Leads' })} {leads.length}
+          </Chip>
+          <Chip icon={Star} active={tab === 'reviews'} onClick={() => { vibrate(6); setTab('reviews') }}>
+            {t('reviews.title', { defaultValue: 'Reviews' })} {reviews.length}
+          </Chip>
+        </div>
+
+        {tab === 'leads' ? (
+          leads.length ? leads.map(lead => (
+            <AttendedRow
+              key={lead.id}
+              lead={lead}
+              call={lead.recordKind === 'call' ? callById.get(lead.recordId) : null}
+              customer={lead.customerId ? getCustomerById(lead.customerId) : null}
+              sharedMask={sharedMasks.has(lead.masked)}
+              onOpen={(subject, l) => { setOpenSubject(subject); setOpenLeadId(l.id) }}
+            />
+          )) : <EmptyNote t={t} />
+        ) : (
+          reviews.length ? reviews.map(r => (
+            <ReviewCard key={r.id} review={r} aggregate onOpen={() => { vibrate(8); setOpenReviewId(r.id) }} />
+          )) : <EmptyNote t={t} />
+        )}
+
+        {/* The stores themselves are still one tap away — the city view answers "what
+            happened here", not "which branch was it". */}
+        {cityStores.length > 1 && (
+          <div className="mt-4">
+            <div className="m-subhead text-white/55 mb-2">{t('stores.storesLabel', { defaultValue: 'Stores' })}</div>
+            {cityStores.map(l => (
+              <Card key={l.id} className="!p-3 mb-2" onClick={() => { vibrate(8); onOpenStore(l.id) }} label={l.branch}>
+                <div className="flex items-center gap-2">
+                  <MapPin size={13} className="text-white/45 shrink-0" />
+                  <span className="m-callout text-white flex-1 min-w-0 truncate">{l.branch}</span>
+                  <ChevronRight size={15} className="text-white/40 shrink-0" />
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <BottomSheet open={!!openReview} onClose={() => setOpenReviewId(null)} fullHeight label={openReview?.customer}>
+        {openReview && <ReviewDetail review={openReview} onClose={() => setOpenReviewId(null)} />}
+      </BottomSheet>
+    </div>
+  )
+}
+
+function EmptyNote({ t }) {
+  return (
+    <Card className="!p-6 text-center">
+      <div className="m-callout text-white">{t('leads.emptyTitle', { defaultValue: 'Nothing here' })}</div>
+      <div className="m-caption text-white/55 mt-0.5">{t('customers.emptySub', { defaultValue: 'Try another filter.' })}</div>
+    </Card>
+  )
+}
+
 function StoreCallsPage({ storeId, onBack, onOpenProfile }) {
   const { t } = useTranslation()
   const version = useDataVersion()

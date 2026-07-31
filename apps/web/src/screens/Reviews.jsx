@@ -889,7 +889,7 @@ function ReviewStars({ rating, size = 12 }) {
   )
 }
 
-function ReviewCard({ review, onOpen, onPitchAutoReply, aggregate }) {
+export function ReviewCard({ review, onOpen, onPitchAutoReply, aggregate }) {
   const { t } = useTranslation()
   const cs = ['#0070FC', '#0E0071', '#F59E0B', '#22D38B', '#FF6B7E']
   const c = cs[review.customer.charCodeAt(0) % cs.length]
@@ -1013,7 +1013,7 @@ function Flag({ children, color, textColor, icon: Icon }) {
   )
 }
 
-function ReviewDetail({ review, onClose }) {
+export function ReviewDetail({ review, onClose }) {
   const { t } = useTranslation()
   const platformLabel = usePlatformLabel()
   const replies = getReviewReplies(review)

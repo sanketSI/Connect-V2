@@ -166,9 +166,15 @@ export default function LocationsTab() {
           drillable={false}
           // A group row drops the board one level; a store row opens the calls behind
           // the number. Neither is a dead end, and the tabs still jump anywhere.
+          // PM feedback 1/2: sub-brand and state step down a level, but a CITY is where
+          // the drill stops summarising — it opens the individual leads and reviews
+          // inside that city, carrying the board so the manager lands on the kind of
+          // record they were already ranking on. A store still opens its own calls.
           onOpen={atStore
             ? () => router.push(`/store/${r.key}`)
-            : () => { vibrate(8); setLevel(level === 'subBrand' ? 'state' : level === 'state' ? 'city' : 'store') }}
+            : level === 'city'
+              ? () => { vibrate(8); router.push(`/city/${encodeURIComponent(r.city || r.key)}?board=${board}`) }
+              : () => { vibrate(8); setLevel(level === 'subBrand' ? 'state' : 'city') }}
         />
       ))}
 
