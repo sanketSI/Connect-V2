@@ -942,6 +942,14 @@ export function ReviewCard({ review, onOpen, onPitchAutoReply, aggregate }) {
       )}
 
       <div className="mt-2 flex items-center gap-2 flex-wrap">
+        {/* REPORTED shows on the CARD, not just in the sheet. A manager who reported a
+            review yesterday should be able to see that from the list rather than opening
+            every one to check — and without it the inbox looks untouched after the one
+            action they took. Sits before 'Removed' because a review can be both, in that
+            order. */}
+        {review.reportedAtMs && !review.removed && (
+          <Flag color="#CA8A04" icon={AlertTriangle}>Reported to Google</Flag>
+        )}
         {review.removed && (
           <Flag color="#FF6B7E" textColor="var(--si-error-text)" icon={EyeOff}>{t('reviews.removedFlag', { defaultValue: 'Removed from Google' })}</Flag>
         )}

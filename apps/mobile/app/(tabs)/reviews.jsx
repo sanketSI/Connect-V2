@@ -7,7 +7,8 @@ import { useMemo, useState } from 'react'
 import { View, Text, TextInput, Pressable, Linking } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { Star, Copy, MessageCircle, Send, SlidersHorizontal, EyeOff, Pencil, Check, CalendarRange } from 'lucide-react-native'
+import { Star, Copy, MessageCircle, Send, SlidersHorizontal, EyeOff, Pencil, Check, CalendarRange, AlertTriangle,
+} from 'lucide-react-native'
 import * as Clipboard from 'expo-clipboard'
 import {
   filterReviews, reviewMetrics, reviewsWaitingCount, CANONICAL_REVIEW_WINDOW,
@@ -239,6 +240,13 @@ export default function ReviewsTab() {
                 the eye lands first, matching the web card.
                 Translator TODO on "Waiting": reviews.waitingStat is the long stat label
                 ("Waiting for a reply"), which does not fit a pill on this row. */}
+            {/* Reported shows on the CARD too — see the web note. */}
+            {r.reportedAtMs && !r.removed ? (
+              <View className="h-6 px-2 rounded-pill flex-row items-center gap-1 bg-[#CA8A04]/10 border border-[#CA8A04]/30">
+                <AlertTriangle size={10} color="#B45309" />
+                <Text className="text-[11px] font-hk-semi text-[#B45309]">Reported</Text>
+              </View>
+            ) : null}
             {!r.responded && !r.removed ? (
               <View className={`h-6 px-2 rounded-pill items-center justify-center border ${
                 r.priority ? 'bg-bad/10 border-bad/30' : 'bg-brand-blue/10 border-brand-blue/28'
