@@ -4,7 +4,7 @@ import {
   Search, Users, ChevronRight, Sparkles, PhoneMissed, PhoneIncoming, PhoneOutgoing,
   Link as LinkIcon, Star as StarIcon, PhoneCall, MessageCircle, Lock as LockIcon, Flame,
   NotebookPen, Copy, Send, Plus, Check, Info, AlertTriangle, UserPlus, Mail, MapPin, User as UserIcon,
-  Pencil, UserPen, FileText
+  Pencil, UserPen, FileText, MessageSquare
 } from 'lucide-react'
 import { LargeTitle } from '../components/TopBar.jsx'
 import { TimelineRow } from '../components/Timeline.jsx'
@@ -17,7 +17,7 @@ import { useDataVersion } from '../lib/useDataVersion.js'
 import { useTranslation } from 'react-i18next'
 import {
   getCustomers, groupByStore, getCustomerById, getCustomerNotes, addCustomerNote, addCustomer,
-  updateCustomerNote, recordedName, setRecordedName,
+  updateCustomerNote, recordedName, setRecordedName, LEAD_STATUSES, leadStatusOf,
   customerDialDigits, isIndianMobile, isEmailAddress, isManuallyAdded,
   customerSourceType, customerSourceKey, CUSTOMER_INTENTS, assignedStores,
   getCurrentUser, rupees, askAI, relativeTime, calendarDate,
@@ -603,7 +603,7 @@ function IntentTag({ intent }) {
 // the SAME detail rather than growing a second, drifting pair. Customers is a full-build
 // SCREEN, but that is about what is routable, not about what may be imported — and the
 // bundle already carries this file either way (see lib/features.js on scope vs size).
-export function CustomerCard({ customer, onOpen, sharedMask, aggregate, footer }) {
+export function CustomerCard({ customer, onOpen, sharedMask, aggregate, footer, reason }) {
   const { t } = useTranslation()
   const category = categoryLabel(t, customer)
   const amount = customer.value != null ? rupees(customer.value) : null
@@ -637,6 +637,48 @@ export function CustomerCard({ customer, onOpen, sharedMask, aggregate, footer }
   // Built here, rendered by CardInsight on the same line as its "+N more" toggle.
   // `.filter(Boolean)` keeps this a countable list, so an absent badge costs nothing.
   const badges = [
+    // PM feedback 8 asked the LEAD CARD for five facts. Four of them were already here
+    // (source in the subline, the two review states below, hot/warm/cold as the CLI pill
+    // top-right) but the lifecycle STATUS and the CALLING REASON were not — and this is
+    // the card the feedback screenshot was actually of: CustomerCard, drawn by the
+    // Customers screen and the store drill-down, not the Leads tab's own row.
+    // DERIVED through core's leadStatusOf, not read off the record: a customer row
+    // carries no `leadStatus` field of its own (most of these were never a call), and
+    // leadStatusOf is the same function the Leads tab resolves a status with. A second
+    // derivation here is how this card and that list start disagreeing about the same
+    // person.
+    (() => {
+      const st = leadStatusOf(customer)
+      const meta = LEAD_STATUSES.find(x => x.id === st)
+      if (!meta) return null
+      const good = st === 'converted' || st === 'review_requested'
+      const bad = st === 'missed'
+      return (
+        <span
+          key="status"
+          className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption font-semibold"
+          style={bad
+            ? { background: 'rgba(220,38,38,.10)', color: '#B91C1C', border: '1px solid rgba(220,38,38,.30)' }
+            : good
+              ? { background: 'rgba(22,163,74,.10)', color: '#15803D', border: '1px solid rgba(22,163,74,.30)' }
+              : { background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
+        >
+          {t(meta.labelKey, { defaultValue: meta.label })}
+        </span>
+      )
+    })(),
+    // WHY THEY RANG. Passed in by the caller that holds the call record (AttendedRow);
+    // a customer row on the Customers screen has no single call to name a reason from,
+    // so it is absent there rather than guessed.
+    reason && (
+      <span
+        key="reason"
+        className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption"
+        style={{ background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
+      >
+        <MessageSquare size={10} /> {reason}
+      </span>
+    ),
     customer.reviewed && (
       <span key="reviewed" className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption font-semibold" style={{ background: 'rgba(22,163,74,.10)', color: '#15803D', border: '1px solid rgba(22,163,74,.30)' }}>
         <StarIcon size={10} fill="#F59E0B" stroke="#F59E0B" /> {t('customers.reviewed')}

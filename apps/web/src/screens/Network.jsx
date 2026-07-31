@@ -619,6 +619,9 @@ function AttendedRow({ lead, call, customer, sharedMask, onOpen }) {
   return (
     <CustomerCard
       customer={subject}
+      // The reason this call was about — the card had no way to show it, and PM
+      // feedback 8 asks for it on every lead row.
+      reason={reason}
       aggregate={false}
       onOpen={() => { vibrate(8); onOpen(subject, lead) }}
       sharedMask={sharedMask?.has?.(subject.masked)}

@@ -44,6 +44,12 @@ export function leadStatusOf(rec) {
   if (s === 'expired') return 'expired'
   if (s === 'converted') return rec.reviewLinkSent || rec.reviewSent ? 'review_requested' : 'converted'
   if (KNOWN.has(s)) return s
+  // A REVIEW LINK IS PROOF OF ENGAGEMENT. Nobody sends one to a caller they never spoke
+  // to, so a record carrying reviewSent/reviewLinkSent is at least review_requested —
+  // checked BEFORE the outcome fallback below, which is written for call records and
+  // resolves a customer row (no `outcome` field at all) to 'missed'. That put "Missed"
+  // and "Reviewed" side by side on the same card, which is not a state anything can be in.
+  if (rec.reviewLinkSent || rec.reviewSent) return 'review_requested'
   return rec.outcome === 'attended' ? 'contacted' : 'missed'
 }
 
