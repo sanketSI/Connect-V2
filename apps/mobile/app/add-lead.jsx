@@ -58,11 +58,17 @@ export default function AddLeadScreen() {
     // — render it against the field it names rather than as one generic "something went
     // wrong" at the bottom. (First pass here read res.field / res.reasonKey, which do not
     // exist; a probe of the real return caught it before it shipped.)
+    //
+    // `reason` is a field name for three of the four refusals — name, phone, email — but
+    // the fourth is 'duplicate', which is not a field, so nothing got the red border and
+    // the one input actually at fault looked fine. A duplicate IS a phone problem: that
+    // number is already in the book.
     if (!res || res.ok === false) {
       setSaving(false)
       vibrate(20)
+      const reason = res?.reason || 'name'
       setError({
-        field: res?.reason || 'name',
+        field: reason === 'duplicate' ? 'phone' : reason,
         message: t(res?.errorKey, { defaultValue: res?.error || 'Could not add this lead.' }),
       })
       return
