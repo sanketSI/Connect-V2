@@ -633,7 +633,12 @@ export function CustomerCard({ customer, onOpen, sharedMask, aggregate, footer, 
             when: customer.addedAtMs ? relativeTime(customer.addedAtMs) : '',
             defaultValue: 'Added by you {{when}}',
           }))
-    : `${calls} · ${t('customers.seenAgo', { when: relativeTime(customer.lastSeenAtMs), defaultValue: 'seen {{when}}' })}`
+    // An UNNAMED row leads with the source too. It used to open with the call count,
+    // because the title above already said what they were browsing — true on the
+    // Customers book, wrong on the Leads tab, where "how did this reach us" is one of the
+    // five facts every card owes and 285 of 305 leads have no name to trigger the branch
+    // above. Same rule both ways now: channel first, per design review 3 item 13.
+    : `${sourceLabel} · ${calls} · ${t('customers.seenAgo', { when: relativeTime(customer.lastSeenAtMs), defaultValue: 'seen {{when}}' })}`
 
   // Built here, rendered by CardInsight on the same line as its "+N more" toggle.
   // `.filter(Boolean)` keeps this a countable list, so an absent badge costs nothing.

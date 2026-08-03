@@ -158,7 +158,10 @@ export default function CustomerCard({ customer, onOpen, footer, reason, branch 
             when: customer.addedAtMs ? since(customer.addedAtMs) : '',
             defaultValue: 'Added by you {{when}}',
           }))
-    : `${calls} · ${t('customers.seenAgo', { when: since(customer.lastSeenAtMs), defaultValue: 'seen {{when}}' })}`
+    // An UNNAMED row leads with the source too — see the web note. "How did this reach
+    // us" is one of the five facts every lead card owes, and most leads have no name to
+    // trigger the branch above.
+    : `${sourceLabel} · ${calls} · ${t('customers.seenAgo', { when: since(customer.lastSeenAtMs), defaultValue: 'seen {{when}}' })}`
 
   // Prefer what the caller knows; fall back to this person's own most recent call. A
   // projected lead has an id of the form `lead:…` that the lookup cannot match, which is
