@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Star, Sparkles, Send, MessageCircle, Copy, Link as LinkIcon,
   Trophy, Check, SlidersHorizontal, CalendarRange, X,
-  Trash2, Pencil, EyeOff, RotateCcw, Info, Inbox as InboxIcon, Bot, ChevronRight, AlertTriangle,
+  Trash2, Pencil, EyeOff, RotateCcw, Info, Inbox as InboxIcon, Bot, ChevronRight, AlertTriangle, MoreVertical,
 } from 'lucide-react'
 import { LargeTitle } from '../components/TopBar.jsx'
 import ScopePill from '../components/ScopePill.jsx'
@@ -889,6 +889,81 @@ function ReviewStars({ rating, size = 12 }) {
   )
 }
 
+/**
+ * DELETE, BEHIND A KEBAB. Rare, destructive and public — a one-tap button beside the
+ * thing it deletes is how accidents happen, so it lives under the ⋮ while Reply stays
+ * upfront.
+ *
+ * The LABEL is "Delete", as specified. The CONFIRMATION is honest about what that can
+ * actually mean: a store manager cannot remove a customer's Google review, so what this
+ * does is report it and Google decides. Saying "deleted" and leaving a one-star live on
+ * the listing is the one outcome worth designing against, so the word the manager reads
+ * before committing is the true one.
+ */
+function ReviewKebab({ review }) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const reported = !!review.reportedAtMs
+
+  return (
+    <div className="relative" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={() => { vibrate(6); setOpen(o => !o) }}
+        aria-label="More actions"
+        aria-expanded={open}
+        className="w-8 h-8 rounded-full grid place-items-center press text-white/45 hover:text-white/80"
+      >
+        <MoreVertical size={16} />
+      </button>
+
+      {open && !confirming && (
+        <div
+          className="absolute right-0 bottom-full mb-1 z-20 rounded-xl overflow-hidden min-w-[168px]"
+          style={{ background: 'var(--bg-sheet)', border: '1px solid var(--border-glass-strong)', boxShadow: 'var(--shadow-sheet)' }}
+        >
+          <button
+            type="button"
+            disabled={reported}
+            onClick={() => { setOpen(false); setConfirming(true) }}
+            className="w-full text-left px-3 h-11 m-callout press inline-flex items-center gap-2"
+            style={{ color: reported ? 'var(--text-tertiary)' : '#FF6B7E' }}
+          >
+            <Trash2 size={14} /> {reported ? 'Already reported' : 'Delete'}
+          </button>
+        </div>
+      )}
+
+      {confirming && (
+        <div
+          className="absolute right-0 bottom-full mb-1 z-20 rounded-xl p-3 w-[260px]"
+          style={{ background: 'var(--bg-sheet)', border: '1px solid var(--border-glass-strong)', boxShadow: 'var(--shadow-sheet)' }}
+        >
+          <div className="m-callout text-white">Delete this review?</div>
+          <div className="m-caption text-white/70 mt-1">
+            You cannot remove a customer&apos;s Google review yourself. This reports it to
+            Google for a policy breach — it stays on your listing until they rule.
+          </div>
+          <div className="flex items-center justify-end gap-2 mt-3">
+            <button type="button" onClick={() => setConfirming(false)} className="h-9 px-3 rounded-full m-subhead text-white/60 press">
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={() => { vibrate(18); reportReview(review.id); setConfirming(false) }}
+              className="on-dark h-9 px-3.5 rounded-full m-subhead font-semibold text-white press inline-flex items-center gap-1.5"
+              style={{ background: '#DC2626' }}
+            >
+              <Trash2 size={13} /> Delete
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ReviewCard({ review, onOpen, onPitchAutoReply, aggregate }) {
   const { t } = useTranslation()
   const cs = ['#0070FC', '#0E0071', '#F59E0B', '#22D38B', '#FF6B7E']
@@ -1013,6 +1088,23 @@ export function ReviewCard({ review, onOpen, onPitchAutoReply, aggregate }) {
             </span>
           </button>
         )}
+      </div>
+      {/* THE TWO ACTIONS, on the card. Reply is UPFRONT because it is the job this
+          screen exists for; Delete sits behind a kebab because it is rare, destructive
+          and public, and a one-tap delete beside the thing it deletes is how accidents
+          happen. Both stopPropagation — the card itself opens the review. */}
+      <div className="mt-2.5 flex items-center justify-end gap-1.5">
+        {!review.responded && !review.removed && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); vibrate(6); onOpen?.() }}
+            className="h-8 px-3 rounded-full m-subhead font-semibold press md-state"
+            style={{ background: 'rgba(0,112,252,.10)', color: 'var(--si-primary-text)', border: '1px solid rgba(0,112,252,.28)' }}
+          >
+            {t('common.replyNow', { defaultValue: 'Reply now' })}
+          </button>
+        )}
+        {!review.removed && <ReviewKebab review={review} />}
       </div>
     </Card>
   )

@@ -4,15 +4,15 @@
 // hand-offs. The leaderboard tab is brand-roles only on web and a single/multi-store
 // manager never sees it; the filter sheet is the remaining iteration.
 import { useMemo, useState } from 'react'
-import { View, Text, TextInput, Pressable, Linking } from 'react-native'
+import { View, Text, TextInput, Pressable, Linking, Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { Star, Copy, MessageCircle, Send, SlidersHorizontal, EyeOff, Pencil, Check, CalendarRange, AlertTriangle,
+import { Star, Copy, MessageCircle, Send, SlidersHorizontal, EyeOff, Pencil, Check, CalendarRange, AlertTriangle, MoreVertical, Trash2,
 } from 'lucide-react-native'
 import * as Clipboard from 'expo-clipboard'
 import {
   filterReviews, reviewMetrics, reviewsWaitingCount, CANONICAL_REVIEW_WINDOW,
-  storeReviewLink, getCurrentUser, groupByStore,
+  storeReviewLink, getCurrentUser, groupByStore, reportReview,
   DEFAULT_REVIEW_FILTERS, REVIEW_SENTIMENTS, REVIEW_RATING_TYPES, REVIEW_STATUSES, REVIEW_TAGS,
 } from '@connect/core'
 import { Screen, Card, Title, Body, Caption, Chip, PrimaryButton, GhostButton } from '../../components/UI.jsx'
@@ -265,6 +265,48 @@ export default function ReviewsTab() {
           {/* The posted reply, when there is one. The "waiting" case is NOT repeated
               here: the pill on the name row above already says it, and printing the same
               fact twice on one card is what made this screen read as busy. */}
+          {/* THE TWO ACTIONS. Reply UPFRONT because it is the job this screen exists
+              for; Delete behind the kebab because it is rare, destructive and public,
+              and a one-tap delete beside the thing it deletes is how accidents happen.
+              The LABEL is "Delete" as specified; the confirmation is honest that a
+              manager cannot remove a customer's Google review — it reports it, and
+              Google rules. Translator TODO on both strings. */}
+          <View className="flex-row items-center justify-end gap-2 mt-2.5">
+            {!r.responded && !r.removed ? (
+              <Pressable
+                onPress={() => { vibrate(6); router.push(`/review/${r.id}`) }}
+                accessibilityRole="button"
+                className="h-8 px-3 rounded-pill items-center justify-center bg-brand-blue/10 border border-brand-blue/30"
+              >
+                <Text className="text-[13px] font-hk-semi text-primaryText dark:text-d-primaryText">
+                  {t('common.replyNow', { defaultValue: 'Reply now' })}
+                </Text>
+              </Pressable>
+            ) : null}
+            {!r.removed ? (
+              <Pressable
+                onPress={() => {
+                  vibrate(6)
+                  if (r.reportedAtMs) { Alert.alert('Already reported', 'Google is reviewing this one.'); return }
+                  Alert.alert(
+                    'Delete this review?',
+                    'You cannot remove a customer\u2019s Google review yourself. This reports it to Google for a policy breach — it stays on your listing until they rule.',
+                    [
+                      { text: t('common.cancel', { defaultValue: 'Cancel' }), style: 'cancel' },
+                      { text: 'Delete', style: 'destructive', onPress: () => { reportReview(r.id); notifySuccess() } },
+                    ],
+                  )
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="More actions"
+                hitSlop={8}
+                className="w-8 h-8 rounded-full items-center justify-center"
+              >
+                <MoreVertical size={16} color="#93A0C8" />
+              </Pressable>
+            ) : null}
+          </View>
+
           {r.replies?.length ? (
             <View className="mt-2 pl-3 border-l-2 border-brand-blue/30">
               <Caption numberOfLines={3}>{r.replies[r.replies.length - 1].text}</Caption>
