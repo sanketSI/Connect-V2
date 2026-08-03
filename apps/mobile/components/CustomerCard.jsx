@@ -138,15 +138,22 @@ function CardInsight({ customer, badges }) {
 export default function CustomerCard({ customer, onOpen, footer, reason, branch }) {
   const { t } = useTranslation()
   const category = categoryLabel(t, customer)
-  const amount = customer.value != null ? rupees(customer.value) : null
+  // `> 0`, NOT `!= null` — see the web note. A lead's value is never null, so the null
+  // check was always true and rupees(0) printed "₹0" on records the shop never estimated.
+  const amount = customer.value > 0 ? rupees(customer.value) : null
   const calls = t('customers.calls', { count: customer.callCount })
 
-  // Lead with the name when the shop knows it; otherwise with what they came for.
+  // Name, else what they came for, else the number — which is the only handle left when
+  // there is neither. Both enquiry strings interpolate {{category}}, so a record with no
+  // category rendered as the literal " enquiry": a card with a blank headline.
+  const titleIsNumber = !customer.name && !category
   const title = customer.name
     ? customer.name
-    : customer.value > 0
-      ? t('customers.enquiryTitle', { category, amount, defaultValue: '{{category}} · {{amount}}' })
-      : t('customers.enquiryTitleNoValue', { category, defaultValue: '{{category}} enquiry' })
+    : !category
+      ? customer.masked
+      : customer.value > 0
+        ? t('customers.enquiryTitle', { category, amount, defaultValue: '{{category}} · {{amount}}' })
+        : t('customers.enquiryTitleNoValue', { category, defaultValue: '{{category}} enquiry' })
 
   const sourceType = customerSourceType(customer)
   const sourceLabel = t(customerSourceKey(sourceType), { defaultValue: SOURCE_FALLBACK[sourceType] })
@@ -227,11 +234,15 @@ export default function CustomerCard({ customer, onOpen, footer, reason, branch 
           <View className="flex-row items-center gap-2">
             <View className="flex-1 min-w-0">
               <Caption className="mt-0.5" numberOfLines={1}>{subline}</Caption>
-              {/* The number, demoted to what it is: a detail you confirm before dialling. */}
-              <View className="flex-row items-center gap-1 mt-0.5">
-                <Lock size={9} color="#93A0C8" />
-                <Caption>{customer.masked}</Caption>
-              </View>
+              {/* The number, demoted to what it is: a detail you confirm before dialling.
+                  Not when the TITLE is already the number — printing it twice in two type
+                  sizes reads as two different numbers. */}
+              {!titleIsNumber ? (
+                <View className="flex-row items-center gap-1 mt-0.5">
+                  <Lock size={9} color="#93A0C8" />
+                  <Caption>{customer.masked}</Caption>
+                </View>
+              ) : null}
             </View>
             <ChevronRight size={16} color="#93A0C8" />
           </View>

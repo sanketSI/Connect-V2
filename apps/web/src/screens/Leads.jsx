@@ -267,6 +267,14 @@ function LeadCard({ lead, onOpen, aggregate }) {
     return {
       ...base,
       name: named || base.name,
+      // FACT 1 MUST AGREE WITH THE LIST IT IS IN. CustomerCard derives the pill through
+      // leadStatusOf(subject), and for a lead that resolves to a REAL contact that reads
+      // the CONTACT's lifecycle, not this lead's — seven rows here sat under the
+      // "Contacted 102" filter wearing a red "Missed" pill. The lead is what the list was
+      // filtered by, so the lead is what the pill has to say. leadStatusOf() returns an
+      // explicit `leadStatus` before any of its fallbacks, so setting it settles the
+      // question rather than competing with it.
+      leadStatus: lead.status,
       // FACT 2, hot/warm/cold, nearly went missing in this merge. A lead can score when
       // the contact record it resolves to does not — the ranking is computed on the CALL,
       // and a contact nobody has rung has nothing to rank. Taking base.cli alone silently

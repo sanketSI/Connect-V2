@@ -190,6 +190,10 @@ function LeadCard({ lead, t, onOpen }) {
     if (!base) return null
     return {
       ...base,
+      // FACT 1 MUST AGREE WITH THE LIST IT IS IN — see the web note. leadStatusOf() reads
+      // the CONTACT's lifecycle for a lead that resolves to a real one, which put a red
+      // "Missed" pill on seven rows sitting under the "Contacted" filter.
+      leadStatus: lead.status,
       // FACT 2, hot/warm/cold. A lead can score when the contact record it resolves to
       // does not — the ranking is computed on the CALL, and a contact nobody has rung has
       // nothing to rank. `??` not `||`: a real score of 0 is a score.

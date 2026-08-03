@@ -607,14 +607,26 @@ function IntentTag({ intent }) {
 export function CustomerCard({ customer, onOpen, sharedMask, aggregate, footer, reason }) {
   const { t } = useTranslation()
   const category = categoryLabel(t, customer)
-  const amount = customer.value != null ? rupees(customer.value) : null
+  // `> 0`, NOT `!= null`. A lead's value is never null — fromCall and fromCustomer both
+  // `?? 0` it — so the old null check was always true and rupees(0) printed "₹0" on 10
+  // records. The shop did not estimate zero, it estimated nothing, and "₹0" is the card
+  // asserting this person is worth nothing.
+  const amount = customer.value > 0 ? rupees(customer.value) : null
   const calls = t('customers.calls', { count: customer.callCount })
-  // Lead with the name when the shop knows it; otherwise with what they came for.
+  // Lead with the name when the shop knows it; otherwise with what they came for; and
+  // failing THAT, with the number, which is the only handle left.
+  //
+  // Six records have neither a name nor a category, and both enquiry strings interpolate
+  // {{category}} — so they rendered as the literal " enquiry", a card with a blank
+  // headline. A masked number is a poor title and an honest one.
+  const titleIsNumber = !customer.name && !category
   const title = customer.name
     ? customer.name
-    : customer.value > 0
-      ? t('customers.enquiryTitle', { category, amount, defaultValue: '{{category}} · {{amount}}' })
-      : t('customers.enquiryTitleNoValue', { category, defaultValue: '{{category}} enquiry' })
+    : !category
+      ? customer.masked
+      : customer.value > 0
+        ? t('customers.enquiryTitle', { category, amount, defaultValue: '{{category}} · {{amount}}' })
+        : t('customers.enquiryTitleNoValue', { category, defaultValue: '{{category}} enquiry' })
   // The facts we actually hold, in order, joined only where they exist. A hand-entered
   // contact has none of the last two, so it says when it was added instead — which is
   // the only true thing there is to say about it yet.
@@ -762,10 +774,14 @@ export function CustomerCard({ customer, onOpen, sharedMask, aggregate, footer, 
               <div className="m-subhead text-white/55 mt-0.5">{subline}</div>
 
               {/* The number, demoted to what it is: a detail you confirm before dialling. */}
+              {/* Not when the TITLE is already the number — see titleIsNumber above.
+                  Printing it twice in two type sizes reads as two different numbers. */}
               <div className="m-caption text-white/45 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                <span className="m-tabular inline-flex items-center gap-1">
-                  <LockIcon size={9} /> {customer.masked}
-                </span>
+                {!titleIsNumber && (
+                  <span className="m-tabular inline-flex items-center gap-1">
+                    <LockIcon size={9} /> {customer.masked}
+                  </span>
+                )}
                 {sharedMask && (
                   <span
                     className="inline-flex items-center gap-1 px-1.5 h-5 rounded-full m-caption font-semibold"
