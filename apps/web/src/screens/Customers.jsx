@@ -641,6 +641,12 @@ export function CustomerCard({ customer, onOpen, sharedMask, aggregate, footer, 
   const derived = reason ? null : callReasonForCustomer(customer.id)
   const shownReason = reason || (derived ? t(derived.reasonKey, { defaultValue: derived.reason }) : null)
 
+  // Derived ONCE, because two badges below turn on it and they must not contradict:
+  // the lifecycle pill labels `review_requested` "Review link sent", which is word for
+  // word what the reviewSent badge says. On the Leads tab that drew the same sentence
+  // twice on one card, in two different colours.
+  const derivedStatus = leadStatusOf(customer)
+
   const badges = [
     // PM feedback 8 asked the LEAD CARD for five facts. Four of them were already here
     // (source in the subline, the two review states below, hot/warm/cold as the CLI pill
@@ -653,7 +659,7 @@ export function CustomerCard({ customer, onOpen, sharedMask, aggregate, footer, 
     // derivation here is how this card and that list start disagreeing about the same
     // person.
     (() => {
-      const st = leadStatusOf(customer)
+      const st = derivedStatus
       const meta = LEAD_STATUSES.find(x => x.id === st)
       if (!meta) return null
       const good = st === 'converted' || st === 'review_requested'
@@ -690,7 +696,8 @@ export function CustomerCard({ customer, onOpen, sharedMask, aggregate, footer, 
         <StarIcon size={10} fill="#F59E0B" stroke="#F59E0B" /> {t('customers.reviewed')}
       </span>
     ),
-    customer.reviewSent && !customer.reviewed && (
+    // Only where the STATUS pill has not already said it — see derivedStatus above.
+    customer.reviewSent && !customer.reviewed && derivedStatus !== 'review_requested' && (
       <span key="sent" className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption font-semibold" style={{ background: 'rgba(56,189,248,.10)', color: '#0369A1', border: '1px solid rgba(56,189,248,.30)' }}>
         <LinkIcon size={10} /> {t('customers.reviewLinkSent')}
       </span>

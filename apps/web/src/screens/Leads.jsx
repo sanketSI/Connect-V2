@@ -2,9 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   PhoneCall, FileText, Store as StoreIcon, Users as UsersIcon, Check, Lock, Repeat2,
-  ChevronRight, CalendarRange, Star as StarIcon, MessageSquare, Plus,
+  ChevronRight, CalendarRange, UserPlus,
 } from 'lucide-react'
-import { NameField, NoteRow, AddCustomerSheet } from './Customers.jsx'
+import { NameField, NoteRow, AddCustomerSheet, CustomerCard } from './Customers.jsx'
 
 /**
  * The id the recorded-name overlay is keyed by for a lead: its customer record when one
@@ -16,7 +16,7 @@ import { useTranslation } from 'react-i18next'
 import {
   getLeads, leadCounts, updateLeadStatus, groupByStore,
   LEAD_STATUSES, LEAD_SOURCES, rupees, relativeTime, dayClock,
-  getCustomerById, getCustomerNotes, addCustomerNote, customerDialDigits, recordedName,
+  getCustomerById, getCustomerNotes, resolveSubject, addCustomerNote, customerDialDigits, recordedName,
 } from '@connect/core'
 import { Card, Chip, CLIPill, StoreGroupHeader, PrimaryButton } from '../components/UI.jsx'
 import ScreenScroll from '../components/ScreenScroll.jsx'
@@ -164,7 +164,7 @@ export default function Leads({ store, onOpenProfile, onSwitchStore, preset }) {
                   initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(i, 8) * 0.024, duration: 0.24, ease: [0.2, 0, 0, 1] }}
                 >
-                  <LeadCard lead={lead} onOpen={() => setOpenId(lead.id)} />
+                  <LeadCard lead={lead} aggregate={aggregate} onOpen={() => setOpenId(lead.id)} />
                 </motion.div>
               ))}
             </div>
@@ -196,7 +196,7 @@ export default function Leads({ store, onOpenProfile, onSwitchStore, preset }) {
         className="absolute right-4 bottom-[104px] w-14 h-14 rounded-full grid place-items-center press z-10"
         style={{ background: '#0070FC', boxShadow: '0 8px 24px rgba(0,112,252,.45)' }}
       >
-        <Plus size={26} className="text-white" />
+        <UserPlus size={26} className="text-white" />
       </button>
 
       <BottomSheet open={adding} onClose={() => setAdding(false)} fullHeight label="Add a lead">
@@ -224,157 +224,87 @@ export default function Leads({ store, onOpenProfile, onSwitchStore, preset }) {
   )
 }
 
-/** The status pill — the one thing the manager scans for. */
-function StatusPill({ status }) {
-  const { t } = useTranslation()
-  const meta = LEAD_STATUSES.find(s => s.id === status)
-  if (!meta) return null
-  // Missed is the only state that is a PROBLEM; converted and review-requested are wins;
-  // the rest are simply where the lead is. Colour says which of the three it is rather
-  // than giving five states five colours nobody can hold in their head.
-  const tone = status === 'missed'
-    ? { bg: 'rgba(220,38,38,.10)', fg: '#B91C1C', bd: 'rgba(220,38,38,.30)' }
-    : status === 'converted' || status === 'review_requested'
-      ? { bg: 'rgba(22,163,74,.10)', fg: '#15803D', bd: 'rgba(22,163,74,.30)' }
-      : { bg: 'var(--bg-subtle)', fg: 'var(--text-secondary)', bd: 'var(--border-glass)' }
-  return (
-    <span
-      className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption font-semibold shrink-0"
-      style={{ background: tone.bg, color: tone.fg, border: `1px solid ${tone.bd}` }}
-    >
-      {t(meta.labelKey, { defaultValue: meta.label })}
-    </span>
-  )
-}
-
 /**
- * THE FIVE FACTS EVERY LEAD CARD CARRIES (PM feedback 8).
+ * THE LEAD CARD IS THE CUSTOMER CARD. Not a copy of it — the same component.
  *
- * "each card would have lead status (missed, contacted, converted, review requested,
- * expired), top right lead type (hot, warm, cold), source type — whether the customer
- * has come from form lead, call lead, walk in — whether review is requested or not, and
- * reason of calling."
+ * On instruction: "from customer card, bring all data design and put all that design to
+ * the leads card; combine here". Two card designs for the same person is how the Leads
+ * tab and the Customers book ended up disagreeing about what a lead is — one showed the
+ * AI read and the score, the other showed a chip row; the five facts asked for four
+ * times running landed on whichever one was touched last. Importing CustomerCard rather
+ * than porting its markup means that cannot happen again: there is one card, and a
+ * change to it changes both screens by construction.
  *
- * Four of them live here as one chip row; the fifth (hot/warm/cold) is the CLIPill in
- * the card's top-right corner, where the brief asks for it and where it already was.
+ * WHAT IT NEEDS is a customer-shaped subject, and core already has the bridge:
+ * resolveSubject() returns the real contact record when the lead names one, and
+ * leadAsCustomer()'s projection when it does not — which is most of this fixture. So a
+ * lead nobody has a contact record for still draws the full card, with the fields it
+ * genuinely has and nothing invented for the ones it does not.
  *
- * ONE COMPONENT FOR BOTH CARDS. A missed call and everything else render through
- * different components — deliberately, a missed call is the only row with an action on
- * it — and giving each its own copy of these chips is how the two drift into disagreeing
- * about what a lead is. The missed card previously showed NEITHER status nor source: the
- * Call back button implied "missed" and the phone icon implied "call", which reads fine
- * until you are scanning a mixed list for what is outstanding.
+ * ALL FIVE FACTS come out of CustomerCard's own anatomy, which is why this merge works
+ * rather than costing something:
+ *   1. lead status      — the pill it derives through leadStatusOf()
+ *   2. lead type        — the CLIPill top-right, "95 · Hot"
+ *   3. source type      — first item of the subline, "Call lead · ₹32.5K · 1 call"
+ *   4. review requested — the "Review link sent" badge (and "Reviewed" once they have)
+ *   5. reason of calling— the `reason` prop, passed from the lead below
  *
- * REASON is null on a walk-in and a form — nobody rang — so the chip is absent rather
- * than a placeholder. Its vocabulary is the app's own closed set (CALL_REASONS: price
- * enquiry, stock availability, EMI options, delivery delay, installation request,
- * warranty / service), which is not the same list the brief sketches ("service enquiry,
- * complaint, product purchase"). Using the real set rather than inventing three new ones
- * — worth confirming which vocabulary you want.
+ * WHAT THIS CARD ADDS on top, because a lead list needs it and a contact book does not:
+ * WHEN it came in and — for a missed call — the button to ring back. Both live in the
+ * footer slot CustomerCard already owns, hairlined off inside the card.
  */
-function LeadFacts({ lead }) {
+function LeadCard({ lead, onOpen, aggregate }) {
   const { t } = useTranslation()
-  const src = LEAD_SOURCES.find(s => s.id === lead.source)
-  const SrcIcon = SOURCE_ICON[lead.source] || PhoneCall
+
+  const subject = useMemo(() => {
+    const base = resolveSubject(lead.id, { getCustomerById })
+    if (!base) return null
+    // The name the MANAGER recorded outranks the platform's: they typed it because what
+    // we hold is a masked number. Applied here as well as inside the projection, because
+    // a lead that resolves to a REAL contact record skips the projection entirely — and
+    // a name saved on the detail sheet has to reach the card it was opened from.
+    const named = recordedName(customerOf(lead))
+    return {
+      ...base,
+      name: named || base.name,
+      // FACT 2, hot/warm/cold, nearly went missing in this merge. A lead can score when
+      // the contact record it resolves to does not — the ranking is computed on the CALL,
+      // and a contact nobody has rung has nothing to rank. Taking base.cli alone silently
+      // dropped the band off every card that had one. `??` not `||`: a real score of 0 is
+      // a score, and must not fall through to the lead's.
+      cli: base.cli ?? lead.cli ?? null,
+    }
+  }, [lead, lead.id])
+
+  if (!subject) return null
+
+  // The fifth fact. Passed rather than left for CustomerCard to derive: its own
+  // derivation goes through callReasonForCustomer(customer.id), which finds nothing for
+  // a projection whose id is `lead:…` rather than a contact id. The lead carries the
+  // reason already — handing it over is both cheaper and correct for the orphan case.
+  const reason = lead.callReason
+    ? t(lead.callReasonKey, { defaultValue: lead.callReason })
+    : null
 
   return (
-    <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-      <StatusPill status={lead.status} />
-
-      {/* EVERY CARD CARRIES EVERY FACT IT HAS — missed calls included.
-       *
-       * This used to take a `minimal` flag that stripped source, reason and review from
-       * the missed card, per the earlier annotated screen ("for missed, data points will
-       * be ONLY: number, last time, count, status"). That instruction collided with the
-       * other one: missed leads sort FIRST, and there are ~76 of them, so the entire
-       * visible Leads page became cards with one chip on them. The five facts were
-       * implemented and invisible — you had to scroll past every missed call to reach a
-       * card that showed them. The later instruction ("each card would have…") wins.
-       *
-       * Nothing is faked to fill the row: a missed call with no logged reason still
-       * shows no reason chip. It shows what is known, which is the point. */}
-      {/* WHERE IT CAME FROM — call, form or walk-in. */}
-      {src && (
-        <span
-          className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption shrink-0"
-          style={{ background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
-        >
-          <SrcIcon size={10} /> {t(src.labelKey, { defaultValue: src.label })}
-        </span>
-      )}
-
-      {/* WHY THEY RANG. */}
-      {lead.callReason && (
-        <span
-          className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption shrink-0"
-          style={{ background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
-        >
-          <MessageSquare size={10} /> {t(lead.callReasonKey, { defaultValue: lead.callReason })}
-        </span>
-      )}
-
-      {/* WHETHER A REVIEW WAS ASKED FOR. Only when it HAS been: "no review requested" is
-          the default state of almost every lead, and a chip on all of them says nothing.
-          Translator TODO — the catalogs have reviews.* strings but none for this. */}
-      {lead.reviewRequested && (
-        <span
-          className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption shrink-0"
-          style={{ background: 'rgba(22,163,74,.10)', color: '#15803D', border: '1px solid rgba(22,163,74,.30)' }}
-        >
-          <StarIcon size={10} /> Review requested
-        </span>
-      )}
-    </div>
-  )
-}
-
-function LeadCard({ lead, onOpen }) {
-  const { t } = useTranslation()
-  const Icon = SOURCE_ICON[lead.source] || PhoneCall
-  // The name the MANAGER recorded outranks the platform's: they typed it because
-  // what we hold is a masked number. Read here rather than only on the detail, or a
-  // name saved on the sheet never reaches the card it was opened from.
-  const who = recordedName(customerOf(lead)) || lead.name || lead.masked
-  const src = LEAD_SOURCES.find(s => s.id === lead.source)
-
-  // A MISSED CALL IS THE ONE ROW WITH AN ACTION ON IT. Everything else in this list is a
-  // record to read; a missed call is somebody still waiting to be rung back, so it gets
-  // the treatment the Calls screen gives it — how many times they tried, when, and the
-  // call-back button — instead of being flattened into the same row as a walk-in from
-  // last Tuesday. Same idiom as Missed.jsx's CallCard, on lead data.
-  const missedCall = lead.source === 'call' && lead.status === 'missed'
-  if (missedCall) return <MissedCallCard lead={lead} onOpen={onOpen} />
-
-  return (
-    <Card onClick={onOpen} label={who} className="!p-4">
-      <div className="flex items-start gap-3">
-        <div
-          className="w-11 h-11 rounded-2xl grid place-items-center shrink-0"
-          style={{ background: 'rgba(0,112,252,.14)', border: '1px solid rgba(0,112,252,.28)' }}
-        >
-          <Icon size={18} style={{ color: '#0070FC' }} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <div className="m-headline text-white truncate">{who}</div>
-            {lead.cli != null && <CLIPill score={lead.cli} size="sm" />}
-          </div>
-          <div className="m-subhead text-white/55 mt-0.5 truncate">
-            {[t(src?.labelKey, { defaultValue: src?.label }), lead.value ? rupees(lead.value) : null, lead.category]
-              .filter(Boolean).join(' · ')}
-          </div>
-          <div className="m-caption text-white/45 mt-0.5">{relativeTime(lead.atMs)}</div>
-        </div>
-      </div>
-      <LeadFacts lead={lead} />
-    </Card>
+    <CustomerCard
+      customer={subject}
+      onOpen={onOpen}
+      aggregate={aggregate}
+      reason={reason}
+      footer={<LeadFooter lead={lead} who={subject.name || subject.masked} />}
+    />
   )
 }
 
 /**
- * The missed call, as the Calls screen draws it: repeat count on the glyph, the masked
- * number under a lock, when it came in and how often, the chance-to-buy band, and one
- * filled Call back pill on its own hairline-separated row.
+ * When it came in, and — for a missed call — the one action the row is for.
+ *
+ * A MISSED CALL IS THE ONE ROW WITH SOMETHING STILL OWED ON IT. Everything else in this
+ * list is a record to read; a missed call is somebody waiting to be rung back. That used
+ * to justify a whole separate card shape (MissedCallCard, an idiom borrowed from the
+ * Calls screen). It does not justify a separate card shape any more — one design, on
+ * instruction — but it still justifies the button, so the button is what survived.
  *
  * CALL BACK does two things, both real. It dials — a true `tel:` — but only where we
  * actually hold a number: a call record carries none, so that means the ones matched to
@@ -383,15 +313,10 @@ function LeadCard({ lead, onOpen }) {
  * handset could be opened. The button never pretends: where there is no number it says
  * so by not dialling, and the status change is what it can honestly promise.
  */
-function MissedCallCard({ lead, onOpen }) {
+function LeadFooter({ lead, who }) {
   const { t } = useTranslation()
+  const missedCall = lead.source === 'call' && lead.status === 'missed'
   const digits = lead.customerId ? customerDialDigits(lead.customerId) : null
-  // Eleven buttons all named "Call back" is eleven identical announcements and no way to
-  // tell whose. The visible label stays short; the ACCESSIBLE name carries the person.
-  // The name the MANAGER recorded outranks the platform's: they typed it because
-  // what we hold is a masked number. Read here rather than only on the detail, or a
-  // name saved on the sheet never reaches the card it was opened from.
-  const who = recordedName(customerOf(lead)) || lead.name || lead.masked
 
   function callBack(e) {
     e.stopPropagation()
@@ -401,77 +326,43 @@ function MissedCallCard({ lead, onOpen }) {
   }
 
   return (
-    <Card onClick={onOpen} label={who} className="!p-0 overflow-hidden">
-      <div className="p-4 flex items-start gap-3">
-        <div className="relative shrink-0">
-          <div
-            className="w-11 h-11 rounded-2xl grid place-items-center"
-            style={{ background: 'rgba(0,112,252,.14)', border: '1px solid rgba(0,112,252,.28)' }}
-          >
-            <PhoneCall size={18} style={{ color: '#0070FC' }} />
-          </div>
-          {lead.repeats > 1 && (
-            <span
-              className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] rounded-full text-[10px] font-bold grid place-items-center px-1"
-              style={{ background: '#0070FC', color: 'white', boxShadow: '0 2px 8px rgba(0,112,252,.55)' }}
-            >
-              {lead.repeats}×
-            </span>
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Lock size={10} className="shrink-0 text-white/45" aria-hidden="true" />
-              <span className="m-headline text-white m-tabular truncate">{who}</span>
-            </div>
-            {/* Band only, no score: on a row whose job is "ring this person back", the
-                number is noise — hot/warm/cold is the whole decision. */}
-            {lead.cli != null && <CLIPill score={lead.cli} size="sm" showScore={false} />}
-          </div>
-
-          <div className="m-subhead text-white/55 mt-0.5 flex items-center gap-1.5 flex-wrap">
-            <span className="m-tabular">{dayClock(lead.atMs)}</span>
+    <div>
+      {/* WHEN. The clock time and the relative both, because a dealer reads the list by
+          "how long has this been sitting" and dials by "was that before or after lunch".
+          Repeat count rides here rather than as a badge on the avatar: CustomerCard
+          already states it twice over — "3 calls" in the subline, and its own callsCount
+          pill once there are two or more. */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className="m-tabular">{dayClock(lead.atMs)}</span>
+        <span className="opacity-50">·</span>
+        <span>{relativeTime(lead.atMs)}</span>
+        {lead.repeats > 1 && (
+          <>
             <span className="opacity-50">·</span>
-            <span>{relativeTime(lead.atMs)}</span>
-            {lead.repeats > 1 && (
-              <>
-                <span className="opacity-50">·</span>
-                <span className="inline-flex items-center gap-0.5">
-                  <Repeat2 size={10} />
-                  {t('vmn.calledCount', { count: lead.repeats, defaultValue: 'Called {{count}}×' })}
-                </span>
-              </>
-            )}
-          </div>
-
-          {/* VALUE AND CATEGORY REMOVED from this card on instruction. Both are estimates
-              attached to a call nobody answered — we never spoke to this person, so
-              "₹38K · Air Conditioner" is a guess presented as a fact on the busiest row
-              in the app. They remain on the lead DETAIL, where there is room to say
-              where a number came from. A deliberate loss, not an oversight. */}
-          {/* The same five facts as every other card — see the note in LeadFacts for why
-              this row stopped being the stripped-down one. */}
-          <LeadFacts lead={lead} />
-        </div>
-
-        <ChevronRight size={16} className="shrink-0 self-center text-white/30" aria-hidden="true" />
+            <span className="inline-flex items-center gap-0.5">
+              <Repeat2 size={10} />
+              {t('vmn.calledCount', { count: lead.repeats, defaultValue: 'Called {{count}}×' })}
+            </span>
+          </>
+        )}
       </div>
 
-      <div className="px-4 pb-4 pt-3" style={{ borderTop: '1px solid var(--border-hairline)' }}>
+      {missedCall && (
         <button
           onClick={callBack}
+          // Eleven buttons all named "Call back" is eleven identical announcements and no
+          // way to tell whose. The visible label stays short; the ACCESSIBLE name carries
+          // the person.
           aria-label={t('common.callBack', { defaultValue: 'Call back' }) + ' ' + who}
           // h-11 === 44px === --m-touch-min.
-          className="w-full h-11 rounded-full m-headline press inline-flex items-center justify-center gap-2"
+          className="w-full h-11 mt-2.5 rounded-full m-headline press inline-flex items-center justify-center gap-2"
           style={{ background: '#0070FC', color: 'white', boxShadow: '0 1px 2px rgba(15,23,42,.08)' }}
         >
           <PhoneCall size={16} className="shrink-0" />
           <span className="truncate">{t('common.callBack', { defaultValue: 'Call back' })}</span>
         </button>
-      </div>
-    </Card>
+      )}
+    </div>
   )
 }
 

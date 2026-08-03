@@ -217,7 +217,14 @@ export function leadAsCustomer(lead, detail = null) {
     callCount: lead.repeats ?? 1,
     firstSeenAtMs: lead.atMs,
     lastSeenAtMs: lead.atMs,
-    reviewSent: false,
+    // The lead KNOWS whether a review link went out — `reviewRequested` is projected
+    // from the record's own reviewLinkSent/reviewSent. Hardcoding false here made every
+    // card drawn off a projection deny a link it had actually sent. Safe against the
+    // status pill: leadStatusOf() returns `leadStatus` (set just above, always one of
+    // the five) before it ever reaches its reviewSent fallback.
+    reviewSent: !!lead.reviewRequested,
+    // `reviewed` stays false: a lead carries no field saying the customer LEFT one.
+    // Where that is known, the real customer record is what the caller resolves to.
     reviewed: false,
     notes: [],
     // The one thing we DO know happened, in the timeline's own shape. `detail` is the
