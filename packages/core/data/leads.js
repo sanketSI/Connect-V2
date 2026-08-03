@@ -135,7 +135,16 @@ export function getLeads({ storeId, source, status, win = 'all' } = {}) {
   return [...calls, ...others]
     .filter(l => (!source || source === 'all' || l.source === source))
     .filter(l => (!status || status === 'all' || l.status === status))
-    .sort((a, b) => (b.atMs || 0) - (a.atMs || 0))
+    // MISSED FIRST, then newest. "By default when loading the Lead tab, all missed calls
+    // would come first" — a missed call is the only row still owed an action, so it
+    // outranks a walk-in from this morning that has already been served. Within each
+    // group the order is unchanged: newest first, which is what a call list means.
+    .sort((a, b) => {
+      const am = a.status === 'missed' ? 0 : 1
+      const bm = b.status === 'missed' ? 0 : 1
+      if (am !== bm) return am - bm
+      return (b.atMs || 0) - (a.atMs || 0)
+    })
 }
 
 /** How many leads sit in each status, for the segment badges. */

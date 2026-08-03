@@ -106,9 +106,24 @@ describe('getLeads', () => {
     expect(summed).toBe(all.filter(l => l.storeId).length)
   })
 
-  it('is newest first', () => {
-    const ats = getLeads().map(l => l.atMs || 0)
-    expect([...ats].sort((a, b) => b - a)).toEqual(ats)
+  it('puts every missed lead first, then orders each group newest first', () => {
+    // The contract CHANGED on PM instruction: "by default when loading the Lead tab, all
+    // missed calls would come first". A missed call is the only row still owed an action,
+    // so it outranks a walk-in from this morning that has already been served.
+    const leads = getLeads()
+    const firstSettled = leads.findIndex(l => l.status !== 'missed')
+    const missedCount = leads.filter(l => l.status === 'missed').length
+
+    // Either everything is missed, or the missed block ends exactly where the count says.
+    expect(firstSettled === -1 ? missedCount : firstSettled).toBe(missedCount)
+    // Nothing missed appears after the boundary.
+    expect(leads.slice(missedCount).every(l => l.status !== 'missed')).toBe(true)
+
+    // And WITHIN each group the old rule still holds — newest first, which is what a
+    // call list means. Losing that would make "first" mean nothing inside the block.
+    const monotonic = arr => arr.every((l, i) => i === 0 || (arr[i - 1].atMs || 0) >= (l.atMs || 0))
+    expect(monotonic(leads.slice(0, missedCount))).toBe(true)
+    expect(monotonic(leads.slice(missedCount))).toBe(true)
   })
 
   it('counts what it lists', () => {

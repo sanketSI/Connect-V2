@@ -245,7 +245,7 @@ function StatusPill({ status }) {
  * complaint, product purchase"). Using the real set rather than inventing three new ones
  * — worth confirming which vocabulary you want.
  */
-function LeadFacts({ lead }) {
+function LeadFacts({ lead, minimal }) {
   const { t } = useTranslation()
   const src = LEAD_SOURCES.find(s => s.id === lead.source)
   const SrcIcon = SOURCE_ICON[lead.source] || PhoneCall
@@ -254,8 +254,13 @@ function LeadFacts({ lead }) {
     <div className="mt-2 flex items-center gap-1.5 flex-wrap">
       <StatusPill status={lead.status} />
 
+      {/* A MISSED CALL SHOWS ONLY ITS STATUS. Per the annotated screen, that row carries
+          four things and no more: the number, when it last rang, how many times, and
+          "Missed". Source is redundant on a card whose whole identity is a phone call,
+          and a reason nobody answered to hear is a reason we do not have. Everything
+          below is for the rows where the manager has actually spoken to someone. */}
       {/* WHERE IT CAME FROM — call, form or walk-in. */}
-      {src && (
+      {!minimal && src && (
         <span
           className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption shrink-0"
           style={{ background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
@@ -265,7 +270,7 @@ function LeadFacts({ lead }) {
       )}
 
       {/* WHY THEY RANG. */}
-      {lead.callReason && (
+      {!minimal && lead.callReason && (
         <span
           className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption shrink-0"
           style={{ background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
@@ -277,7 +282,7 @@ function LeadFacts({ lead }) {
       {/* WHETHER A REVIEW WAS ASKED FOR. Only when it HAS been: "no review requested" is
           the default state of almost every lead, and a chip on all of them says nothing.
           Translator TODO — the catalogs have reviews.* strings but none for this. */}
-      {lead.reviewRequested && (
+      {!minimal && lead.reviewRequested && (
         <span
           className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption shrink-0"
           style={{ background: 'rgba(22,163,74,.10)', color: '#15803D', border: '1px solid rgba(22,163,74,.30)' }}
@@ -407,17 +412,13 @@ function MissedCallCard({ lead, onOpen }) {
             )}
           </div>
 
-          {(lead.value || lead.category) && (
-            <div className="m-caption text-white/45 mt-0.5 truncate">
-              {[lead.value ? rupees(lead.value) : null, lead.category && t(lead.categoryKey, { defaultValue: lead.category })]
-                .filter(Boolean).join(' · ')}
-            </div>
-          )}
-          {/* The same four facts every other lead row carries. This card used to show
-              NEITHER status nor source — the Call back button implied "missed" and the
-              phone icon implied "call", which reads fine on its own and badly when you
-              are scanning a mixed list for what is still outstanding. */}
-          <LeadFacts lead={lead} />
+          {/* VALUE AND CATEGORY REMOVED from this card on instruction. Both are estimates
+              attached to a call nobody answered — we never spoke to this person, so
+              "₹38K · Air Conditioner" is a guess presented as a fact on the busiest row
+              in the app. They remain on the lead DETAIL, where there is room to say
+              where a number came from. A deliberate loss, not an oversight. */}
+          {/* Status only — see the note in LeadFacts. */}
+          <LeadFacts lead={lead} minimal />
         </div>
 
         <ChevronRight size={16} className="shrink-0 self-center text-white/30" aria-hidden="true" />
