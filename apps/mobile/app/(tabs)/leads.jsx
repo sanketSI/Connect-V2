@@ -211,7 +211,7 @@ function StatusPill({ status, t }) {
  * disagreeing about what a lead is. The missed card previously showed NEITHER status nor
  * source.
  */
-function LeadFacts({ lead, t, minimal }) {
+function LeadFacts({ lead, t }) {
   const src = LEAD_SOURCES.find(s => s.id === lead.source)
   const SrcIcon = SOURCE_ICON[lead.source] || PhoneCall
 
@@ -219,9 +219,11 @@ function LeadFacts({ lead, t, minimal }) {
     <View className="mt-2 flex-row items-center gap-1.5 flex-wrap">
       <StatusPill status={lead.status} t={t} />
 
-      {/* A MISSED CALL SHOWS ONLY ITS STATUS — see the web note. The row carries the
-          number, when it last rang, how many times, and "Missed". Nothing else. */}
-      {!minimal && src ? (
+      {/* EVERY CARD CARRIES EVERY FACT IT HAS, missed calls included — see the web note.
+          The `minimal` flag that used to strip this row on missed cards is gone: missed
+          leads sort first and outnumber everything else, so it hid the five facts behind
+          a scroll on the one screen that was asked for them. */}
+      {src ? (
         <View className="h-6 px-2 rounded-pill flex-row items-center gap-1 bg-card dark:bg-white/5 border border-hairline dark:border-d-hairline">
           <SrcIcon size={10} color="#5F6878" />
           <Text className="text-[11px] font-hk-medium text-ink-2 dark:text-d-ink2">
@@ -232,7 +234,7 @@ function LeadFacts({ lead, t, minimal }) {
 
       {/* Null on a walk-in and a form — nobody rang — so the chip is absent rather than
           a placeholder. */}
-      {!minimal && lead.callReason ? (
+      {lead.callReason ? (
         <View className="h-6 px-2 rounded-pill flex-row items-center gap-1 bg-card dark:bg-white/5 border border-hairline dark:border-d-hairline">
           <MessageSquare size={10} color="#5F6878" />
           <Text className="text-[11px] font-hk-medium text-ink-2 dark:text-d-ink2">
@@ -244,7 +246,7 @@ function LeadFacts({ lead, t, minimal }) {
       {/* Only when a review HAS been asked for: "not requested" is the default state of
           almost every lead, and a chip on all of them says nothing.
           Translator TODO — the catalogs carry no string for this. */}
-      {!minimal && lead.reviewRequested ? (
+      {lead.reviewRequested ? (
         <View className="h-6 px-2 rounded-pill flex-row items-center gap-1 bg-ok/10 border border-ok/30">
           <StarIcon size={10} color="#15803D" />
           <Text className="text-[11px] font-hk-semi text-[#15803D]">Review requested</Text>
@@ -362,11 +364,11 @@ function MissedCallCard({ lead, t, onOpen }) {
               the app. They remain on the lead DETAIL, where there is room to say where a
               number came from. A deliberate loss, not an oversight. */}
 
-          {/* Status only — see the note in LeadFacts. This card used to show
-              NEITHER status nor source — the Call back button implied "missed" and the
-              phone icon implied "call", which reads fine alone and badly when scanning a
-              mixed list for what is still outstanding. */}
-          <LeadFacts lead={lead} t={t} minimal />
+          {/* The same five facts as every other card — see the note in LeadFacts. This
+              card used to show NEITHER status nor source, then status only; both times
+              the Call back button was left to imply "missed" and the phone icon to imply
+              "call", which reads fine alone and badly when scanning a mixed list. */}
+          <LeadFacts lead={lead} t={t} />
         </View>
 
         <ChevronRight size={16} color="#93A0C8" style={{ alignSelf: 'center' }} />

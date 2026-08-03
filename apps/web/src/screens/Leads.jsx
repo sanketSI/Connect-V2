@@ -272,7 +272,7 @@ function StatusPill({ status }) {
  * complaint, product purchase"). Using the real set rather than inventing three new ones
  * — worth confirming which vocabulary you want.
  */
-function LeadFacts({ lead, minimal }) {
+function LeadFacts({ lead }) {
   const { t } = useTranslation()
   const src = LEAD_SOURCES.find(s => s.id === lead.source)
   const SrcIcon = SOURCE_ICON[lead.source] || PhoneCall
@@ -281,13 +281,20 @@ function LeadFacts({ lead, minimal }) {
     <div className="mt-2 flex items-center gap-1.5 flex-wrap">
       <StatusPill status={lead.status} />
 
-      {/* A MISSED CALL SHOWS ONLY ITS STATUS. Per the annotated screen, that row carries
-          four things and no more: the number, when it last rang, how many times, and
-          "Missed". Source is redundant on a card whose whole identity is a phone call,
-          and a reason nobody answered to hear is a reason we do not have. Everything
-          below is for the rows where the manager has actually spoken to someone. */}
+      {/* EVERY CARD CARRIES EVERY FACT IT HAS — missed calls included.
+       *
+       * This used to take a `minimal` flag that stripped source, reason and review from
+       * the missed card, per the earlier annotated screen ("for missed, data points will
+       * be ONLY: number, last time, count, status"). That instruction collided with the
+       * other one: missed leads sort FIRST, and there are ~76 of them, so the entire
+       * visible Leads page became cards with one chip on them. The five facts were
+       * implemented and invisible — you had to scroll past every missed call to reach a
+       * card that showed them. The later instruction ("each card would have…") wins.
+       *
+       * Nothing is faked to fill the row: a missed call with no logged reason still
+       * shows no reason chip. It shows what is known, which is the point. */}
       {/* WHERE IT CAME FROM — call, form or walk-in. */}
-      {!minimal && src && (
+      {src && (
         <span
           className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption shrink-0"
           style={{ background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
@@ -297,7 +304,7 @@ function LeadFacts({ lead, minimal }) {
       )}
 
       {/* WHY THEY RANG. */}
-      {!minimal && lead.callReason && (
+      {lead.callReason && (
         <span
           className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption shrink-0"
           style={{ background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
@@ -309,7 +316,7 @@ function LeadFacts({ lead, minimal }) {
       {/* WHETHER A REVIEW WAS ASKED FOR. Only when it HAS been: "no review requested" is
           the default state of almost every lead, and a chip on all of them says nothing.
           Translator TODO — the catalogs have reviews.* strings but none for this. */}
-      {!minimal && lead.reviewRequested && (
+      {lead.reviewRequested && (
         <span
           className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption shrink-0"
           style={{ background: 'rgba(22,163,74,.10)', color: '#15803D', border: '1px solid rgba(22,163,74,.30)' }}
@@ -444,8 +451,9 @@ function MissedCallCard({ lead, onOpen }) {
               "₹38K · Air Conditioner" is a guess presented as a fact on the busiest row
               in the app. They remain on the lead DETAIL, where there is room to say
               where a number came from. A deliberate loss, not an oversight. */}
-          {/* Status only — see the note in LeadFacts. */}
-          <LeadFacts lead={lead} minimal />
+          {/* The same five facts as every other card — see the note in LeadFacts for why
+              this row stopped being the stripped-down one. */}
+          <LeadFacts lead={lead} />
         </div>
 
         <ChevronRight size={16} className="shrink-0 self-center text-white/30" aria-hidden="true" />
