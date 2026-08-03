@@ -53,7 +53,12 @@ export default function BottomTabBar({ active, onChange, badges = {}, aggregate 
   // freeze the first session's shape for the life of the tab — sign out of a six-store
   // account into a one-store one and the bar would still be offering a roll-up over
   // stores this manager does not hold.
-  const TABS = BASE.filter(tb => !tb.rollupOnly || (isMultiLocation() && aggregate))
+  // PM: "this tab will only come for multi location user" — the test is WHO IS SIGNED
+  // IN, not what they are currently looking at. It used to also require the All-locations
+  // scope, so a multi-store manager who narrowed to one branch lost the tab and had no
+  // way back to the leaderboard from the bar. A tab that disappears when you use the app
+  // is worse than one that is sometimes a list of one.
+  const TABS = BASE.filter(tb => !tb.rollupOnly || isMultiLocation())
   const cols = COLS[TABS.length] || 'grid-cols-4'
   return (
     <nav

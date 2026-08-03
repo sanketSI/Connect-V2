@@ -290,10 +290,11 @@ function ReturningView({ store, onGoTab, onSwitchStore }) {
       <div className="px-4 mt-4">
         <MissedHero
           count={triage.missed}
-          recoverable={rupees(totalRecoverable(scopeId))}
-          topLead={triage.topLead}
           answered={triage.answered}
           windowLabel={missedWindow}
+          multi={aggregate}
+          storeCount={networkRollup().stores}
+          onViewLocations={() => onGoTab('network')}
           onCall={() => (IS_MVP
             ? onGoTab('leads', { status: 'missed', source: 'call' })
             : onGoTab('vmn'))}
@@ -376,36 +377,13 @@ function ReturningView({ store, onGoTab, onSwitchStore }) {
         </div>
       )}
 
-      {/* Progress — the other half of triage: what the work already got back. */}
-      <div className="px-4 mt-5">
-        <div className="m-subhead text-white/55 mb-2 flex items-center gap-1.5">
-          <TrendingUp size={13} style={{ color: 'var(--si-success-text)' }} />
-          {t('home.recoveredThisWeek', { defaultValue: 'Recovered this week' })}
-        </div>
-        <Card className="!p-3.5">
-          <div className="grid grid-cols-3 gap-2">
-            {/* These three are 18px VALUES, i.e. normal-size text under WCAG, so they take
-                the accessible variants. The mint measured 1.95:1 on a white card. */}
-            <WeekStat value={week.wonCount} label={t('home.leadsWon', { defaultValue: 'Leads won' })} tint="var(--si-success-text)" />
-            <WeekStat value={rupees(week.wonValue)} label={t('home.valueWon', { defaultValue: 'Value won' })} tint="var(--si-success-text)" />
-            <WeekStat value={week.newReviews} label={t('home.newReviews', { defaultValue: 'New reviews' })} tint="var(--si-primary-text)" />
-          </div>
-          {/* "Still on the table" USED to sit here as well, and with the hero above it
-              the same rupee figure printed twice on one screen — same selector, same
-              value, 400px apart. It belongs to the hero: this card is what the work got
-              BACK, and what is still outstanding is the opposite claim. */}
-          <div className="mt-3 pt-3 border-t border-white/5">
-            <span className="m-caption text-white/55">
-              {t('home.answeredOfCalls', {
-                count: week.answered, total: week.total,
-                defaultValue: 'You answered {{count}} of {{total}} calls',
-              })}
-            </span>
-          </div>
-        </Card>
-      </div>
+      {/* "Recovered this week" WAS here — three won/value/reviews stats over last7 plus
+          an answered-of-total line. Removed on PM instruction: Home is a triage screen,
+          and a weekly scorecard is the one block on it that asks the manager to admire
+          the past rather than act on the present. The numbers all still exist behind
+          Your locations, where comparing periods is the job.
 
-      {/* Discovery — the top of the funnel the two blocks above are the bottom of. */}
+      Discovery — the top of the funnel the block above is the bottom of. */}
       {insights && <InsightsBlock insights={insights} />}
 
       {/* One real next action, and only when the data says there is one. */}
@@ -489,36 +467,24 @@ function InsightStat({ value, label, deltaPct, syncLagDays, accurateThroughMs })
   // note is tap-to-open rather than always printed — six permanent sync disclaimers would
   // bury the six numbers they are about.
   const [noteOpen, setNoteOpen] = useState(false)
-  // No comparison is a real state (all-time, or not enough history behind the window):
-  // show the value alone rather than inventing a 0% that reads as "flat".
-  const up = deltaPct > 0
-  const flat = deltaPct === 0
-  const Arrow = up ? ArrowUpRight : ArrowDownRight
-  const tint = flat ? 'var(--text-tertiary)' : up ? 'var(--si-success-text)' : '#DC2626'
+  // DELTAS REMOVED on PM instruction — the ±% against the previous period, one per
+  // metric. They were the densest thing on the card and the least actionable: nobody
+  // does anything differently because profile views moved 8%, and six arrows competing
+  // with six numbers made the numbers themselves harder to read. The window is still
+  // named in the footer, so every figure stays checkable.
+  //
+  // `deltaPct` is still computed in core and still passed in — nothing needs
+  // re-deriving if this comes back, and the prop is left in place deliberately.
   return (
     <div className="relative">
       <div className="m-title3 m-tabular text-white truncate">{value}</div>
-      {deltaPct == null ? (
-        <div className="h-[15px]" />
-      ) : (
-        <div
-          className="flex items-center gap-0.5 m-micro m-tabular"
-          style={{ color: tint }}
-          // The direction is carried by an arrow glyph and a colour, neither of which a
-          // screen reader can read — so it is said in words here.
-          aria-label={flat
-            ? t('home.insightsDeltaFlat', { defaultValue: 'unchanged on the previous period' })
-            : up
-              ? t('home.insightsDeltaUp', { value: Math.abs(deltaPct), defaultValue: 'up {{value}}% on the previous period' })
-              : t('home.insightsDeltaDown', { value: Math.abs(deltaPct), defaultValue: 'down {{value}}% on the previous period' })}
-        >
-          {!flat && <Arrow size={11} strokeWidth={2.4} aria-hidden="true" />}
-          {t('home.insightsDelta', {
-            value: Math.abs(deltaPct),
-            defaultValue: '{{value}}%',
-          })}
-        </div>
-      )}
+      {/* DELTAS REMOVED on PM instruction — the ±% against the previous period, one per
+          metric. They were the densest thing on the card and the least actionable: a
+          manager cannot do anything differently because profile views moved 8%, and six
+          arrows competing with six numbers made the numbers harder to read. The window
+          is still named in the footer, so the figures are still checkable.
+          `deltaPct` stays on the metric in core — nothing else needs re-deriving if this
+          comes back. */}
       <div className="mt-0.5 flex items-start gap-1">
         <span className="m-caption text-white/55 line-clamp-2 min-w-0">{label}</span>
         {syncLagDays > 0 && (
@@ -577,7 +543,7 @@ function InsightStat({ value, label, deltaPct, syncLagDays, accurateThroughMs })
 /* one — it is a different card. A hero that prints a red "0 missed    */
 /* calls" in 34px type alarms a manager who has done nothing wrong.    */
 /* ------------------------------------------------------------------ */
-function MissedHero({ count, recoverable, topLead, answered, windowLabel, onCall }) {
+function MissedHero({ count, answered, windowLabel, onCall, multi, storeCount, onViewLocations }) {
   const { t } = useTranslation()
   if (count === 0) return <AllClearHero answered={answered} windowLabel={windowLabel} />
 
@@ -620,10 +586,6 @@ function MissedHero({ count, recoverable, topLead, answered, windowLabel, onCall
           })}
         </h2>
 
-        {/* THE MONEY. Second line, second size — the alarm first, the reason second. */}
-        <div className="m-title3 m-tabular mt-1" style={{ color: 'var(--si-error-text)' }}>
-          {recoverable} <span className="m-callout text-white/55">{t('home.stillRecoverable', { defaultValue: 'still on the table' })}</span>
-        </div>
 
         {/* WHAT THIS COUNT IS, always — and it is not "every call that rang out".
             openMissedCount() counts missed calls STILL OPEN; the aggregate strip
@@ -634,31 +596,44 @@ function MissedHero({ count, recoverable, topLead, answered, windowLabel, onCall
             showing both has to reconcile them out loud". This line is no longer the
             fallback for the one below it; it was the thing that made the pair readable,
             and a top lead existing is not a reason to stop explaining the headline. */}
-        <div className="m-caption text-white/70 mt-2.5">
-          {t('home.missedCallsSub', { defaultValue: 'Hot leads waiting for a call-back' })}
-        </div>
-
-        {/* WHERE TO START — the single best call-back, ranked by chance-to-buy. Rendered
-            only when the queue can actually name one; never invented. */}
-        {topLead && (
-          <div className="m-caption text-white/45 mt-1">
-            {t('home.topCallback', {
-              value: rupees(topLead.estValue),
-              category: t(topLead.categoryKey, { defaultValue: topLead.category }),
-              score: topLead.cli,
-              defaultValue: 'Start with {{value}} {{category}} · {{score}} chance to buy',
-            })}
+        {/* WHAT THE HERO SAYS NEXT depends on who is signed in. A single-location
+            manager rings people back from here, so the line is about the work. A
+            multi-location manager cannot ring 18 shops — their next move is to find WHICH
+            shop is losing calls, so they get the store count and a way through to the
+            leaderboard instead. Same headline number either way. */}
+        {multi ? (
+          <>
+            <div className="m-caption text-white/70 mt-2.5">
+              {t('stores.nStoresShort', {
+                count: storeCount,
+                defaultValue_one: 'Across {{count}} store',
+                defaultValue_other: 'Across {{count}} stores',
+              })}{' · '}See performance of your locations
+            </div>
+            <div className="mt-3.5">
+              {/* Translator TODO: the catalogs carry no bare "View". */}
+              <PrimaryButton icon={ArrowRight} onClick={onViewLocations}>View</PrimaryButton>
+            </div>
+          </>
+        ) : (
+          <div className="m-caption text-white/70 mt-2.5">
+            {t('home.missedCallsSub', { defaultValue: 'Hot leads waiting for a call-back' })}
           </div>
         )}
 
+
         {/* The hero's job ends in one tap. Full-width, primary, and it lands on Leads
             already narrowed to exactly what the count counted — missed, call-sourced —
-            so the number on this card is the number on that screen. */}
-        <div className="mt-3.5">
-          <PrimaryButton icon={ArrowRight} onClick={onCall}>
-            {t('common.callNow', { defaultValue: 'Call now' })}
-          </PrimaryButton>
-        </div>
+            so the number on this card is the number on that screen. Multi-location gets
+            its own View button above instead: "call now" is not an action you can take
+            against eighteen shops. */}
+        {!multi && (
+          <div className="mt-3.5">
+            <PrimaryButton icon={ArrowRight} onClick={onCall}>
+              {t('common.callNow', { defaultValue: 'Call now' })}
+            </PrimaryButton>
+          </div>
+        )}
       </div>
     </Card>
   )
