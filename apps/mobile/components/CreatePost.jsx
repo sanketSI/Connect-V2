@@ -90,7 +90,7 @@ export default function CreatePost({ storeId, onDone }) {
     // says "Brand team will review and publish", which is not the promise the PM wants
     // made here — this one names the delay.
     Alert.alert(
-      'Post submitted successfully',
+      'Post published successfully',
       'It might take up to a few hours to reflect.',
       [{ text: t('common.done', { defaultValue: 'Done' }), onPress: () => onDone?.() }],
     )
@@ -180,9 +180,9 @@ export default function CreatePost({ storeId, onDone }) {
               </GhostButton>
             </View>
             <View className="flex-1">
-              <PrimaryButton icon={Send} onPress={submit}>
-                {t('post.submitCta', { defaultValue: 'Submit for approval' })}
-              </PrimaryButton>
+              {/* NO APPROVAL STEP — see the web sheet. The manager publishes; the delay
+                  is Google's indexing, not a brand team's queue. */}
+              <PrimaryButton icon={Send} onPress={submit}>Publish</PrimaryButton>
             </View>
           </View>
         </>
@@ -331,7 +331,7 @@ function PostPreview({ type, values, area, t }) {
       <View className="flex-row items-start gap-2 mt-3">
         <CheckCircle2 size={14} color="#22D38B" />
         <Caption className="flex-1">
-          Submitting sends this for approval. It might take up to a few hours to reflect.
+          Publishing sends this to your listing. It might take up to a few hours to reflect.
         </Caption>
       </View>
     </View>

@@ -84,21 +84,11 @@ export default function Profile({ role, store, onChangeRole, onLogout, onSwitchS
           {FEATURES.manageMedia && (
             <QuickTile icon={Images} label={t('profile.manageMedia')} sub={t('profile.manageMediaSub')} onClick={() => openStoreSheet('media')} accent="#0070FC" />
           )}
-          {/* Team is the ONE per-store sheet that does not need a picker: a roster is a
-              list, so the aggregate view simply shows every branch's, grouped. */}
-          <QuickTile icon={Users} label={t('profile.team')} sub={t('profile.teamSub')} onClick={() => setSheet('team')} accent="#16A34A" />
-          <QuickTile icon={Layers} label={t('profile.switchRole')} sub={t('profile.switchRoleSub')} onClick={() => setSheet('role')} accent="#F97316" />
-
-          {/* THE REVIEW QR (PM feedback 10) — "an easy way for a store manager to be able
-              to allow buyers to scan the code and to add a review on their Google Business
-              Profile. Again, this was there in the previous build. It got stripped."
-              Restored, and features.js now carries reviewQr as in-scope rather than
-              !IS_MVP. A QR belongs to ONE listing, so it is hidden on the aggregate:
-              there is no single review box for six stores to point a camera at.
-              Translator TODO on the labels — the catalogs have no QR strings. */}
-          {FEATURES.reviewQr && !aggregate && (
-            <QuickTile icon={QrCode} label="Review QR" sub="Buyers scan to review" onClick={() => setQrOpen(true)} accent="#7C3AED" />
-          )}
+          {/* REMOVED ON INSTRUCTION: Team, Switch role, the light/dark picker, Alerts,
+              Language and Privacy & data. Six settings a manager opens once and never
+              again, on the screen that now carries the three things they DO reach for —
+              the listing, the microsite and the review QR. None of the screens are
+              deleted; this is only what Profile links to. */}
         </div>
 
         {/* WHERE THIS STORE LIVES ONLINE (PM feedback 10) — the listing and the microsite,
@@ -126,23 +116,11 @@ export default function Profile({ role, store, onChangeRole, onLogout, onSwitchS
           </Card>
         )}
 
-        {/* Appearance */}
-        <div className="mt-4 mb-2 m-subhead text-white/55 px-1">{t('profile.appearance')}</div>
-        <ThemeSwitcher />
-
         {/* Settings list */}
         <Card className="mt-3 !p-0 overflow-hidden">
           {/* Alerts configures the notification system, so it goes when that does —
               a settings row for a feature the build does not contain is worse than
               no row at all. */}
-          {FEATURES.notifications && (
-            <SettingsRow icon={Bell} label={t('profile.alerts')} sub={t('profile.alertsSub')} trailing={t('profile.on')} onClick={() => setSheet('alerts')} />
-          )}
-          <Divider />
-          <SettingsRow icon={Globe} label={t('profile.language')} sub={getLanguage(i18n.resolvedLanguage || i18n.language || 'en').native} trailing={<ChevronRight size={16} className="text-white/45" />} onClick={() => setSheet('language')} />
-          <Divider />
-          <SettingsRow icon={Shield} label={t('profile.privacy')} sub={t('profile.privacySub')} trailing={t('profile.privacyOk')} />
-          <Divider />
           {/* RAISE A TICKET (PM feedback 3) — the support channel. A settings row rather
               than a quick-action tile: the tiles above are the things a manager does
               weekly, and needing support is not one of them.

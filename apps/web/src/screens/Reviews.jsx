@@ -1086,18 +1086,11 @@ export function ReviewDetail({ review, onClose }) {
         {review.hasText
           ? <p className="m-body text-white/85">{review.body}</p>
           : <p className="m-body text-white/45">{t('reviews.noTextBody', { defaultValue: 'Star rating only — the customer didn’t write anything.' })}</p>}
-        {review.tags.length > 0 && (
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
-            {review.tags.map(id => {
-              const tag = reviewTag(id)
-              return tag ? (
-                <span key={id} className="px-2 h-5 rounded-full m-caption inline-flex items-center text-white/60" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-glass)' }}>
-                  {t(tag.labelKey, { defaultValue: tag.label })}
-                </span>
-              ) : null
-            })}
-          </div>
-        )}
+        {/* TAG CHIPS REMOVED on instruction (staff / pricing / delivery). They were
+            derived labels sitting between the customer's own words and the actions on
+            them, and a manager does not triage by tag — they read the review. The tags
+            still exist on the record and still drive the FILTER sheet, where picking one
+            is the actual job. */}
       </Card>
 
       {/* Reply history — what we said, when, and where it was published. */}

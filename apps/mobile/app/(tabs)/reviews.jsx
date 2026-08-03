@@ -260,15 +260,8 @@ export default function ReviewsTab() {
           </View>
           <Caption className="mt-0.5">{r.platform} · {r.time}</Caption>
           {r.body ? <Body numberOfLines={4} className="mt-2">{r.body}</Body> : null}
-          {r.tags?.length ? (
-            <View className="flex-row flex-wrap gap-1.5 mt-2">
-              {r.tags.map(tag => (
-                <View key={tag} className="h-6 px-2 rounded-pill bg-brand-blue/5 border border-hairline dark:border-d-hairline items-center justify-center">
-                  <Text className="text-[11px] font-hk-medium text-ink-3 dark:text-d-ink3">{tag}</Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
+          {/* TAG CHIPS REMOVED on instruction — see the web card. They still exist on
+              the record and still drive the FILTER sheet, where picking one is the job. */}
           {/* The posted reply, when there is one. The "waiting" case is NOT repeated
               here: the pill on the name row above already says it, and printing the same
               fact twice on one card is what made this screen read as busy. */}

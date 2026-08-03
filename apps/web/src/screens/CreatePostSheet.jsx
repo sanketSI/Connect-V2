@@ -97,7 +97,7 @@ export default function CreatePostSheet({ onClose, storeId }) {
     // promise the PM wants made here — this one names the delay.
     toast.push({
       kind: 'success',
-      title: 'Post submitted successfully',
+      title: 'Post published successfully',
       body: 'It might take up to a few hours to reflect.',
     })
     onClose?.()
@@ -195,9 +195,11 @@ export default function CreatePostSheet({ onClose, storeId }) {
             <GhostButton icon={ChevronLeft} onClick={() => { vibrate(6); setStep('form') }}>
               {t('common.back', { defaultValue: 'Back' })}
             </GhostButton>
-            <PrimaryButton icon={Send} onClick={submit}>
-              {t('post.submitCta', { defaultValue: 'Submit for approval' })}
-            </PrimaryButton>
+            {/* NO APPROVAL STEP. "The flow will be same as nova, no submit for
+                approval" — the manager publishes, and the delay is Google's indexing,
+                not a brand team's queue. The button now says what happens.
+                Translator TODO: post.submitCta reads "Submit for approval". */}
+            <PrimaryButton icon={Send} onClick={submit}>Publish</PrimaryButton>
           </div>
         </>
       )}
@@ -362,7 +364,7 @@ function PostPreview({ type, values, area }) {
       <div className="flex items-start gap-2 mt-3">
         <CheckCircle2 size={14} className="shrink-0 mt-0.5" style={{ color: '#22D38B' }} />
         <span className="m-caption text-white/55">
-          Submitting sends this for approval. It might take up to a few hours to reflect.
+          Publishing sends this to your listing. It might take up to a few hours to reflect.
         </span>
       </div>
     </>
