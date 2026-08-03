@@ -16,7 +16,7 @@ import {
   UserPen, Pencil, X as XIcon, FileText,
 } from 'lucide-react-native'
 import {
-  getCustomerById, resolveSubject, getLeads, LEAD_STATUSES, updateLeadStatus,
+  getCustomerById, resolveSubject, getLeads, LEAD_STATUSES, LEAD_SOURCES, updateLeadStatus,
   getCustomerNotes, addCustomerNote, updateCustomerNote, getCurrentUser,
   recordedName, setRecordedName,
 } from '@connect/core'
@@ -231,19 +231,23 @@ export default function CustomerPage() {
           {/* Both of these ARE the score, so both wait on it. Rendering the band
               chip's `cold` fallback for a caller we never scored states a fact we do
               not hold, and the caption printed "· null/100". Web's guard exactly. */}
-          {customer.cli != null && (
+          {/* SOURCE, not score. The band pill and "92/100 chance to buy" were removed on
+              instruction and replaced by where this lead actually came from — FORM, CALL
+              or WALK-IN. A chance-to-buy is a model's opinion; the source is a fact, and
+              it is the thing that tells the manager how to open the conversation.
+              Translator TODO: LEAD_SOURCES carries labelKeys, so the label itself is
+              translated — only the absence of a score needed no new string. */}
+          {lead?.source ? (
             <View className="flex-row items-center gap-2 mt-1.5">
-              <View className={`h-6 px-2 rounded-pill items-center justify-center ${bandCls.split(' ')[0]}`}>
-                <Text className={`text-[11px] font-hk-semi ${bandCls.split(' ')[1]}`}>
-                  {t(BAND_KEY[customer.band] || 'common.cold', { defaultValue: customer.band })}
+              <View className="h-6 px-2 rounded-pill items-center justify-center bg-brand-blue/10 border border-brand-blue/30">
+                <Text className="text-[11px] font-hk-semi text-primaryText dark:text-d-primaryText uppercase">
+                  {t(LEAD_SOURCES.find(x => x.id === lead.source)?.labelKey, {
+                    defaultValue: LEAD_SOURCES.find(x => x.id === lead.source)?.label,
+                  })}
                 </Text>
               </View>
-              {/* The key IS the whole sentence — "{{score}}/100 chance to buy" — so it
-                  takes the score and prints the number itself. Passing no score and
-                  appending "· 58/100" by hand read "/100 chance to buy · 58/100". */}
-              <Caption>{t('common.chanceToBuyTitle', { score: customer.cli })}</Caption>
             </View>
-          )}
+          ) : null}
           <Caption className="mt-1">
             {customer.category ? t(customer.categoryKey, { defaultValue: customer.category }) : ''}
             {customer.value ? ` · ₹${(customer.value / 1000).toFixed(0)}K` : ''}

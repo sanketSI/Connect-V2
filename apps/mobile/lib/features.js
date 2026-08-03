@@ -17,6 +17,7 @@ export const FEATURES = {
    *  funnel the whole Reviews tab sits on. Plain `true`, not a flag that is always on. */
   reviewQr: true,
   notifications: true,
+  requestAccess: !IS_MVP,
 }
 
 export const SCOPE_LABEL = IS_MVP ? 'MVP' : 'Full'

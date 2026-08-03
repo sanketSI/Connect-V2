@@ -59,6 +59,12 @@ export const FEATURES = {
   reviewQr: true,
   /** The notification centre and its bell. In scope since round 3. */
   notifications: true,
+  /** The "Number changed or new to the team? Request access" flow on Login. OUT of the
+   *  launch scope on instruction ("remove request access flow from mbp scope"): the MVP
+   *  ships to managers whose numbers are already registered, and a self-serve access
+   *  request needs a human on the other end of it to be anything but a dead end. The
+   *  screen and its sheet are gated, not deleted — the full build keeps them. */
+  requestAccess: !IS_MVP,
 }
 
 /**

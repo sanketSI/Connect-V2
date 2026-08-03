@@ -198,10 +198,11 @@ function ReturningView() {
       <View className="mt-4">
         <MissedHero
           count={triage.missed}
-          recoverable={rupees(totalRecoverable(scopeId))}
-          topLead={triage.topLead}
           answered={triage.answered}
           windowLabel={missedWindow}
+          multi={aggregate}
+          storeCount={networkRollup().stores}
+          onViewLocations={() => router.push('/(tabs)/locations')}
           onCall={() => router.push(IS_MVP ? '/(tabs)/leads?status=missed' : '/(tabs)/leads')}
           t={t}
         />
@@ -245,24 +246,12 @@ function ReturningView() {
       )}
 
       {/* Recovered this week — progress, explicitly on last7. */}
-      <SectionLabel icon={TrendingUp}>{t('home.recoveredThisWeek', { defaultValue: 'Recovered this week' })}</SectionLabel>
-      <Card className="!p-3.5">
-        <View className="flex-row gap-2">
-          <WeekStat value={week.wonCount} label={t('home.leadsWon', { defaultValue: 'Leads won' })} tone="text-ok dark:text-d-ok" />
-          <WeekStat value={rupees(week.wonValue)} label={t('home.valueWon', { defaultValue: 'Value won' })} tone="text-ok dark:text-d-ok" />
-          <WeekStat value={week.newReviews} label={t('home.newReviews', { defaultValue: 'New reviews' })} tone="text-primaryText dark:text-d-primaryText" />
-        </View>
-        {/* "Still on the table" USED to sit here too, and with the hero above it the
-            same rupee figure printed twice on one screen. It belongs to the hero: this
-            card is what the work got BACK. */}
-        <View className="mt-3 pt-3 border-t border-hairline dark:border-d-hairline">
-          <Caption>
-            {t('home.answeredOfCalls', { count: week.answered, total: week.total, defaultValue: 'You answered {{count}} of {{total}} calls' })}
-          </Caption>
-        </View>
-      </Card>
+      {/* "Recovered this week" WAS here — won/value/reviews over last7 plus an
+          answered-of-total line. Removed on instruction: Home is a triage screen, and a
+          weekly scorecard is the one block asking the manager to admire the past rather
+          than act on the present. Those numbers all still exist behind Your locations.
 
-      {/* Discovery, engagement and leads — the six GBP metrics with deltas + freshness. */}
+      Discovery, engagement and leads — the six GBP metrics. */}
       {insights && <InsightsBlock insights={insights} t={t} />}
     </Screen>
   )
@@ -303,7 +292,7 @@ function TriageRow({ icon: Icon, tint, bg, title, sub, cta, onPress }) {
 /* version of the loud one: a red "0 missed calls" in 34px type alarms  */
 /* a manager who has done nothing wrong.                               */
 /* ------------------------------------------------------------------ */
-function MissedHero({ count, recoverable, topLead, answered, windowLabel, onCall, t }) {
+function MissedHero({ count, answered, windowLabel, onCall, multi, storeCount, onViewLocations, t }) {
   if (count === 0) return <AllClearHero answered={answered} windowLabel={windowLabel} t={t} />
 
   return (
@@ -340,42 +329,45 @@ function MissedHero({ count, recoverable, topLead, answered, windowLabel, onCall
           })}
         </Text>
 
-        {/* THE MONEY — the reason to act on the alarm above it. */}
-        <Text className="mt-1">
-          <Text className="text-[17px] font-hk-bold text-bad dark:text-d-bad">{recoverable}</Text>
-          <Text className="text-[14px] font-hk-medium text-ink-3 dark:text-d-ink3">
-            {' '}{t('home.stillRecoverable', { defaultValue: 'still on the table' })}
-          </Text>
-        </Text>
 
         {/* WHAT THIS COUNT IS, always. openMissedCount() counts missed calls STILL OPEN,
             while the aggregate strip below prints ALL missed in the same window — 16 and
             25 on this fixture, ~150px apart. Both are true and neither can be dropped
             (Recovery% needs the total), so the hero says out loud that its number is the
             outstanding WORK. Core's rule: a screen showing both reconciles them aloud. */}
-        <Body className="mt-2.5">
-          {t('home.missedCallsSub', { defaultValue: 'Hot leads waiting for a call-back' })}
-        </Body>
-
-        {/* WHERE TO START — only when the queue can actually name a lead. */}
-        {topLead ? (
-          <Caption className="mt-1">
-            {t('home.topCallback', {
-              value: rupees(topLead.estValue),
-              category: t(topLead.categoryKey, { defaultValue: topLead.category }),
-              score: topLead.cli,
-              defaultValue: 'Start with {{value}} {{category}} · {{score}} chance to buy',
-            })}
-          </Caption>
-        ) : null}
-
-        {/* One tap out. Lands on Leads already narrowed to what the count counted, so
-            the number on this card is the number on that screen. */}
-        <View className="mt-3.5">
-          <PrimaryButton icon={ArrowRight} onPress={onCall}>
-            {t('common.callNow', { defaultValue: 'Call now' })}
-          </PrimaryButton>
-        </View>
+        {/* WHAT THE HERO SAYS NEXT depends on who is signed in. A single-location
+            manager rings people back from here, so the line is about the work and the
+            button dials. A multi-location manager cannot ring eighteen shops — their
+            next move is finding WHICH shop is losing calls — so they get the store count
+            and a way through to the leaderboard. Same headline number either way.
+            The top-lead line ("Start with ₹38K Air Conditioner · 92 chance to buy") and
+            the rupees-on-the-table line were both removed on instruction.
+            Translator TODO: the catalogs carry no "View" or the across-stores sentence. */}
+        {multi ? (
+          <>
+            <Body className="mt-2.5">
+              {t('stores.nStoresShort', {
+                count: storeCount,
+                defaultValue_one: 'Across {{count}} store',
+                defaultValue_other: 'Across {{count}} stores',
+              })}{' · '}See performance of your locations
+            </Body>
+            <View className="mt-3.5">
+              <PrimaryButton icon={ArrowRight} onPress={onViewLocations}>View</PrimaryButton>
+            </View>
+          </>
+        ) : (
+          <>
+            <Body className="mt-2.5">
+              {t('home.missedCallsSub', { defaultValue: 'Hot leads waiting for a call-back' })}
+            </Body>
+            <View className="mt-3.5">
+              <PrimaryButton icon={ArrowRight} onPress={onCall}>
+                {t('common.callNow', { defaultValue: 'Call now' })}
+              </PrimaryButton>
+            </View>
+          </>
+        )}
       </LinearGradient>
     </Card>
   )
@@ -437,30 +429,14 @@ function InsightsBlock({ insights, t }) {
 
 function InsightStat({ value, label, deltaPct, syncLagDays, accurateThroughMs, t }) {
   const [noteOpen, setNoteOpen] = useState(false)
-  const up = deltaPct > 0
-  const flat = deltaPct === 0
-  const Arrow = up ? ArrowUpRight : ArrowDownRight
-  const tint = flat ? '#5F6878' : up ? '#13764E' : '#DC2626'
   return (
     <View className="w-1/3 pr-2 mb-3.5">
       <Text className="text-[17px] font-hk-bold text-ink dark:text-d-ink" numberOfLines={1}>{value}</Text>
-      {deltaPct == null ? (
-        <View className="h-[15px]" />
-      ) : (
-        <View
-          className="flex-row items-center gap-0.5"
-          accessibilityLabel={flat
-            ? t('home.insightsDeltaFlat', { defaultValue: 'unchanged on the previous period' })
-            : up
-              ? t('home.insightsDeltaUp', { value: Math.abs(deltaPct), defaultValue: 'up {{value}}% on the previous period' })
-              : t('home.insightsDeltaDown', { value: Math.abs(deltaPct), defaultValue: 'down {{value}}% on the previous period' })}
-        >
-          {!flat && <Arrow size={11} color={tint} strokeWidth={2.4} />}
-          <Text className="text-[11px] font-hk-medium" style={{ color: tint }}>
-            {t('home.insightsDelta', { value: Math.abs(deltaPct), defaultValue: '{{value}}%' })}
-          </Text>
-        </View>
-      )}
+      {/* DELTAS REMOVED on instruction — the ±% against the previous period, one per
+          metric. Six arrows competing with six numbers made the numbers harder to read,
+          and nobody acts differently because profile views moved 8%. The window is still
+          named in the footer, and `deltaPct` is still computed in core and still passed
+          in, so nothing needs re-deriving if this comes back. */}
       <View className="flex-row items-start gap-1 mt-0.5">
         <Caption numberOfLines={2} className="flex-shrink">{label}</Caption>
         {syncLagDays > 0 && (

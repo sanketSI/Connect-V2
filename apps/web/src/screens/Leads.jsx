@@ -512,10 +512,18 @@ function LeadDetail({ lead, onClose }) {
             <div className="m-caption text-white/45 m-tabular mt-0.5">{lead.masked}</div>
           )}
         </div>
-        {/* CHANCE TO BUY — hot / warm / cool / cold, off the same score the list ranks
-            on. It was on the card and not in the sheet, which is backwards: the card is
-            where you scan, the sheet is where you decide. */}
-        {lead.cli != null && <CLIPill score={lead.cli} />}
+        {/* SOURCE, not score. The band pill and "92/100 chance to buy" were removed on
+            instruction and replaced by where this lead actually came from — FORM, CALL or
+            WALK-IN. A chance-to-buy is a model's opinion; the source is a fact, and it is
+            what tells the manager how to open the conversation. */}
+        {src && (
+          <span
+            className="shrink-0 inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption font-semibold uppercase"
+            style={{ background: 'rgba(0,112,252,.10)', color: 'var(--si-primary-text)', border: '1px solid rgba(0,112,252,.28)' }}
+          >
+            {t(src.labelKey, { defaultValue: src.label })}
+          </span>
+        )}
       </div>
 
       <div className="m-caption text-white/55 mt-1">

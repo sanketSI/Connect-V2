@@ -27,6 +27,7 @@ import {
 import { PrimaryButton, GhostButton, Title, Body, Caption, Chip, CARD_SHADOW } from '../components/UI.jsx'
 import { vibrate, notifySuccess } from '../lib/haptics.js'
 import { signIn } from '../lib/session.js'
+import { FEATURES } from '../lib/features.js'
 
 const RESEND_SECONDS = 30
 
@@ -186,15 +187,19 @@ export default function LoginScreen() {
               <PrimaryButton onPress={sendOtp} disabled={!valid} loading={loading} className="mt-6">
                 {t('login.sendCode', { defaultValue: 'Send verification code' })}
               </PrimaryButton>
-              <Pressable
-                onPress={() => { vibrate(8); setNumChange(true) }}
-                accessibilityRole="button"
-                className="min-h-[44px] items-center justify-center mt-2"
-              >
-                <Caption className="text-primaryText dark:text-d-primaryText">
-                  {t('login.requestAccess', { defaultValue: 'Number changed or new to the team?' })}
-                </Caption>
-              </Pressable>
+              {/* OUT OF THE LAUNCH SCOPE on instruction — see the web Login. Gated, not
+                  deleted: the request sheet still exists for the full build. */}
+              {FEATURES.requestAccess ? (
+                <Pressable
+                  onPress={() => { vibrate(8); setNumChange(true) }}
+                  accessibilityRole="button"
+                  className="min-h-[44px] items-center justify-center mt-2"
+                >
+                  <Caption className="text-primaryText dark:text-d-primaryText">
+                    {t('login.requestAccess', { defaultValue: 'Number changed or new to the team?' })}
+                  </Caption>
+                </Pressable>
+              ) : null}
             </View>
           ) : (
             <View>

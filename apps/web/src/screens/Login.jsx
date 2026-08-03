@@ -1,3 +1,4 @@
+import { FEATURES } from '../lib/features.js'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowRight, ShieldCheck, Send, X, ChevronLeft, Building2, Check, AlertTriangle } from 'lucide-react'
@@ -241,15 +242,21 @@ export default function Login({ onAuthed, onRequestNumberChange }) {
                     anyway). whitespace-nowrap on the link keeps the tappable phrase whole,
                     so any wrap lands between the question and the link, never inside it.
                     min-h keeps the touch floor now that the visual is one quiet line. */}
-                <button
-                  onClick={() => setNumChange(true)}
-                  className="mt-3 w-full min-h-[var(--m-touch-min)] text-center m-footnote text-white/55 press"
-                >
-                  <Trans
-                    i18nKey="login.requestAccessCta"
-                    components={{ 1: <span className="whitespace-nowrap text-[#7BB0FF] underline underline-offset-2 font-semibold" /> }}
-                  />
-                </button>
+                {/* OUT OF THE LAUNCH SCOPE on instruction. Gated rather than deleted:
+                    the sheet and its whole flow still exist for the full build, and a
+                    self-serve access request with nobody on the other end is a dead end
+                    in an MVP that ships to already-registered numbers. */}
+                {FEATURES.requestAccess && (
+                  <button
+                    onClick={() => setNumChange(true)}
+                    className="mt-3 w-full min-h-[var(--m-touch-min)] text-center m-footnote text-white/55 press"
+                  >
+                    <Trans
+                      i18nKey="login.requestAccessCta"
+                      components={{ 1: <span className="whitespace-nowrap text-[#7BB0FF] underline underline-offset-2 font-semibold" /> }}
+                    />
+                  </button>
+                )}
               </motion.div>
             </>
           ) : (
