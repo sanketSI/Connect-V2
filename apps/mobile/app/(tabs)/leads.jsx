@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { View, Text, Pressable, Linking } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { PhoneCall, FileText, Store as StoreIcon, Users as UsersIcon, Lock, Repeat2, ChevronRight, CalendarRange, Star as StarIcon, MessageSquare,
+import { PhoneCall, FileText, Store as StoreIcon, Users as UsersIcon, Lock, Repeat2, ChevronRight, CalendarRange, Star as StarIcon, MessageSquare, Plus,
 } from 'lucide-react-native'
 import {
   getLeads, leadCounts, groupByStore, LEAD_STATUSES, LEAD_SOURCES, rupees,
@@ -153,6 +153,22 @@ export default function LeadsTab() {
         onClose={() => setTimeOpen(false)}
         onApply={setWin}
       />
+
+      {/* ADD A LEAD BY HAND. A walk-in and a referral never ring the phone and never
+          fill the microsite form, so without this the only leads in the book are the
+          ones the platform happened to observe. Floating over the list rather than in
+          the header: it is an action on the whole screen, and the header already carries
+          the bell and the avatar.
+          Translator TODO: the catalogs have customers.addCustomer but nothing for a lead. */}
+      <Pressable
+        onPress={() => { vibrate(8); router.push('/add-lead') }}
+        accessibilityRole="button"
+        accessibilityLabel="Add a lead"
+        className="absolute right-4 bottom-5 h-14 w-14 rounded-full bg-brand-blue items-center justify-center"
+        style={{ shadowColor: '#0070FC', shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6 }}
+      >
+        <Plus size={26} color="#fff" />
+      </Pressable>
     </Screen>
   )
 }

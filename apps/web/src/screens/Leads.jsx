@@ -2,9 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   PhoneCall, FileText, Store as StoreIcon, Users as UsersIcon, Check, Lock, Repeat2,
-  ChevronRight, CalendarRange, Star as StarIcon, MessageSquare,
+  ChevronRight, CalendarRange, Star as StarIcon, MessageSquare, Plus,
 } from 'lucide-react'
-import { NameField, NoteRow } from './Customers.jsx'
+import { NameField, NoteRow, AddCustomerSheet } from './Customers.jsx'
 
 /**
  * The id the recorded-name overlay is keyed by for a lead: its customer record when one
@@ -80,6 +80,7 @@ export default function Leads({ store, onOpenProfile, onSwitchStore, preset }) {
   // the lifecycle chips lie, and Expired leads are by definition the old ones.
   const [win, setWin] = useState('all')
   const [timeSheet, setTimeSheet] = useState(false)
+  const [adding, setAdding] = useState(false)
   const windowLabel = useWindowLabeller()
 
   // Counts come from the store scope only — NOT from the status/source filters, or every
@@ -181,6 +182,32 @@ export default function Leads({ store, onOpenProfile, onSwitchStore, preset }) {
           <div className="h-4" />
         </div>
       </div>
+
+      {/* ADD A LEAD BY HAND. A walk-in and a referral never ring the phone and never
+          fill the microsite form, so without this the only leads in the book are the ones
+          the platform happened to observe. Reuses the Customers screen's own
+          AddCustomerSheet — one form, one set of rules, rather than a second one here
+          that drifts. Floating over the list: it is an action on the whole screen.
+          Translator TODO: the catalogs have customers.addCustomer, nothing for a lead. */}
+      <button
+        type="button"
+        onClick={() => { vibrate(8); setAdding(true) }}
+        aria-label="Add a lead"
+        className="absolute right-4 bottom-[104px] w-14 h-14 rounded-full grid place-items-center press z-10"
+        style={{ background: '#0070FC', boxShadow: '0 8px 24px rgba(0,112,252,.45)' }}
+      >
+        <Plus size={26} className="text-white" />
+      </button>
+
+      <BottomSheet open={adding} onClose={() => setAdding(false)} fullHeight label="Add a lead">
+        {adding && (
+          <AddCustomerSheet
+            storeId={scopeId}
+            onClose={() => setAdding(false)}
+            onOpenExisting={(id) => { setAdding(false); setOpenId(`cust:${id}`) }}
+          />
+        )}
+      </BottomSheet>
 
       <TimeFilterSheet
         open={timeSheet}

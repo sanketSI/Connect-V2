@@ -279,7 +279,7 @@ function Field({ label, hint, error, optional, icon: Icon, children }) {
 // Every input is ≥44px tall (--m-touch-min); h-14 is the login screen's own field height.
 const INPUT = 'flex-1 h-14 bg-transparent text-white m-headline outline-none placeholder:text-white/30'
 
-function AddCustomerSheet({ storeId, onClose, onOpenExisting }) {
+export function AddCustomerSheet({ storeId, onClose, onOpenExisting }) {
   const { t } = useTranslation()
   const toast = useToast()
   const [name, setName] = useState('')
