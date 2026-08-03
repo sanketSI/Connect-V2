@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next'
 import {
   getCustomers, groupByStore, getCustomerById, getCustomerNotes, addCustomerNote, addCustomer,
   updateCustomerNote, recordedName, setRecordedName, LEAD_STATUSES, leadStatusOf,
+  callReasonForCustomer,
   customerDialDigits, isIndianMobile, isEmailAddress, isManuallyAdded,
   customerSourceType, customerSourceKey, CUSTOMER_INTENTS, assignedStores,
   getCurrentUser, rupees, askAI, relativeTime, calendarDate,
@@ -636,6 +637,10 @@ export function CustomerCard({ customer, onOpen, sharedMask, aggregate, footer, 
 
   // Built here, rendered by CardInsight on the same line as its "+N more" toggle.
   // `.filter(Boolean)` keeps this a countable list, so an absent badge costs nothing.
+  // Prefer what the caller knows; fall back to the customer's own most recent call.
+  const derived = reason ? null : callReasonForCustomer(customer.id)
+  const shownReason = reason || (derived ? t(derived.reasonKey, { defaultValue: derived.reason }) : null)
+
   const badges = [
     // PM feedback 8 asked the LEAD CARD for five facts. Four of them were already here
     // (source in the subline, the two review states below, hot/warm/cold as the CLI pill
@@ -667,16 +672,17 @@ export function CustomerCard({ customer, onOpen, sharedMask, aggregate, footer, 
         </span>
       )
     })(),
-    // WHY THEY RANG. Passed in by the caller that holds the call record (AttendedRow);
-    // a customer row on the Customers screen has no single call to name a reason from,
-    // so it is absent there rather than guessed.
-    reason && (
+    // WHY THEY RANG — the fifth fact the lead card owes. Passed in by callers that
+    // already hold a call record (AttendedRow), and DERIVED from the customer otherwise
+    // so the same card does not show four facts on one screen and five on another.
+    // That asymmetry is what made this look unimplemented four times running.
+    shownReason && (
       <span
         key="reason"
         className="inline-flex items-center gap-1 px-2 h-6 rounded-full m-caption"
         style={{ background: 'var(--bg-subtle)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}
       >
-        <MessageSquare size={10} /> {reason}
+        <MessageSquare size={10} /> {shownReason}
       </span>
     ),
     customer.reviewed && (

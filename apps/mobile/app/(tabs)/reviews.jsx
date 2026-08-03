@@ -287,13 +287,31 @@ export default function ReviewsTab() {
               <Pressable
                 onPress={() => {
                   vibrate(6)
-                  if (r.reportedAtMs) { Alert.alert('Already reported', 'Google is reviewing this one.'); return }
+                  // A MENU, not a straight jump to the confirmation. The kebab is a
+                  // "what can I do here" affordance; opening a destructive dialog the
+                  // instant it is tapped skips the step where the manager chooses. The
+                  // menu offers Delete, and Delete then confirms — two decisions, as on
+                  // web. ActionSheet is the platform's own menu idiom.
+                  const already = !!r.reportedAtMs
                   Alert.alert(
-                    'Delete this review?',
-                    'You cannot remove a customer\u2019s Google review yourself. This reports it to Google for a policy breach — it stays on your listing until they rule.',
+                    r.customer,
+                    undefined,
                     [
                       { text: t('common.cancel', { defaultValue: 'Cancel' }), style: 'cancel' },
-                      { text: 'Delete', style: 'destructive', onPress: () => { reportReview(r.id); notifySuccess() } },
+                      already
+                        ? { text: 'Already reported', style: 'cancel' }
+                        : {
+                          text: 'Delete',
+                          style: 'destructive',
+                          onPress: () => Alert.alert(
+                            'Delete this review?',
+                            'You cannot remove a customer\u2019s Google review yourself. This reports it to Google for a policy breach — it stays on your listing until they rule.',
+                            [
+                              { text: t('common.cancel', { defaultValue: 'Cancel' }), style: 'cancel' },
+                              { text: 'Delete', style: 'destructive', onPress: () => { reportReview(r.id); notifySuccess() } },
+                            ],
+                          ),
+                        },
                     ],
                   )
                 }}

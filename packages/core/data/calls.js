@@ -314,6 +314,29 @@ export function openMissedCount(win = CANONICAL_MISSED_WINDOW, storeId) {
 }
 
 /**
+ * WHY THIS CUSTOMER LAST RANG — the calling reason for a person, not a window.
+ *
+ * The lead card has to show five facts and this is the fifth. It was only available to
+ * callers that already held a call record (the store drill-down), so the same card
+ * rendered four facts on the Customers screen and five on the drill-down. Deriving it
+ * from the customer id here means every surface gets it and none of them has to know
+ * how to find a call.
+ *
+ * The MOST RECENT call that actually carries a reason — an older call that recorded one
+ * is better than the newest call that did not, because "no reason" is an absence rather
+ * than a fact that supersedes.
+ *
+ * @returns `{ reason, reasonKey }`, or null when this person has no call with a reason.
+ */
+export function callReasonForCustomer(customerId) {
+  if (!customerId) return null
+  const hit = getCalls('all', { includeSpam: false })
+    .filter(c => c.customerId === customerId && c.callReason)
+    .sort((a, b) => (b.atMs || 0) - (a.atMs || 0))[0]
+  return hit ? { reason: hit.callReason, reasonKey: hit.callReasonKey } : null
+}
+
+/**
  * Why people called, over a window: `[{ reason, reasonKey, count, share }]`, biggest first.
  *
  * `share` is a percentage of the calls counted (0–100), ready for formatPercent().
