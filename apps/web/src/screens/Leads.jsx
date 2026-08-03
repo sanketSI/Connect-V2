@@ -196,7 +196,13 @@ export default function Leads({ store, onOpenProfile, onSwitchStore, preset }) {
         className="absolute right-4 bottom-[104px] w-14 h-14 rounded-full grid place-items-center press z-10"
         style={{ background: '#0070FC', boxShadow: '0 8px 24px rgba(0,112,252,.45)' }}
       >
-        <UserPlus size={26} className="text-white" />
+        {/* `color`, NOT className="text-white". The light theme carries a global
+            `[data-theme="light"] .text-white { color: #111827 !important }` — an
+            inversion written for text sitting on the page background, which is right
+            almost everywhere and wrong on a solid brand-blue circle: it painted this
+            glyph near-black on blue. lucide's `color` prop sets stroke="#fff" as an
+            attribute, so no `color` rule can reach it. */}
+        <UserPlus size={26} color="#fff" />
       </button>
 
       <BottomSheet open={adding} onClose={() => setAdding(false)} fullHeight label="Add a lead">

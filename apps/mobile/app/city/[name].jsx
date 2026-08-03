@@ -15,14 +15,15 @@
 // A city is a SET of stores, so everything filters on that set rather than one storeId.
 // ============================================================
 import { useMemo, useState } from 'react'
-import { View, Text, Pressable } from 'react-native'
+import { View, Pressable } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import { PhoneCall, Star, MapPin, ChevronRight } from 'lucide-react-native'
 import {
-  getLeads, filterReviews, assignedStores, rupees, relativeTime, dayClock,
+  getLeads, filterReviews, assignedStores, dayClock,
 } from '@connect/core'
 import { Screen, Card, Title, Body, Caption, Chip } from '../../components/UI.jsx'
+import LeadCard from '../../components/LeadCard.jsx'
 import { BackButton, HeaderRight } from '../../components/Header.jsx'
 import { useDataVersion } from '../../lib/useDataVersion.js'
 import { vibrate } from '../../lib/haptics.js'
@@ -74,29 +75,20 @@ export default function CityRecordsScreen() {
       </View>
 
       {tab === 'leads' ? (
+        // THE SAME CARD AS THE LEADS TAB. This used to be a plainer row of its own —
+        // name, category, value, time — four facts and none of the five a lead card
+        // owes: no status, no source, no reason, no review state. Two lists of leads
+        // disagreeing about what a lead is, on the same phone.
+        // The LEAD id, as everywhere else: resolveSubject finds the contact record when
+        // one exists and projects the lead when it does not, which is why every row here
+        // opens something rather than being a dead tap.
         leads.length ? leads.map(lead => (
-          <Card
+          <LeadCard
             key={lead.id}
-            // The LEAD id, as everywhere else — resolveSubject finds the contact record
-            // when one exists and projects the lead when it does not, which is why every
-            // row here opens something rather than 42 of them being dead taps.
-            onPress={() => router.push(`/customer/${encodeURIComponent(lead.id)}`)}
-            label={lead.name || lead.masked}
-            className="mb-2.5 !p-3.5"
-          >
-            <View className="flex-row items-start gap-3">
-              <View className="flex-1 min-w-0">
-                <Body className="font-hk-semi text-ink dark:text-d-ink" numberOfLines={1}>
-                  {lead.name || lead.masked}
-                </Body>
-                <Caption className="mt-0.5" numberOfLines={1}>
-                  {[lead.category, lead.value ? rupees(lead.value) : null, relativeTime(lead.atMs)]
-                    .filter(Boolean).join(' · ')}
-                </Caption>
-              </View>
-              <ChevronRight size={15} color="#93A0C8" />
-            </View>
-          </Card>
+            lead={lead}
+            t={t}
+            onOpen={() => router.push(`/customer/${encodeURIComponent(lead.id)}`)}
+          />
         )) : <EmptyNote t={t} />
       ) : (
         reviews.length ? reviews.map(r => (
